@@ -173,7 +173,13 @@ describe('editor utils', () => {
   });
 
   describe('openDiff', () => {
-    const spawnEditors: EditorType[] = ['vscode', 'vscodium', 'windsurf', 'cursor', 'zed'];
+    const spawnEditors: EditorType[] = [
+      'vscode',
+      'vscodium',
+      'windsurf',
+      'cursor',
+      'zed',
+    ];
     for (const editor of spawnEditors) {
       it(`should call spawn for ${editor}`, async () => {
         const mockSpawn = {
@@ -287,7 +293,13 @@ describe('editor utils', () => {
       expect(allowEditorTypeInSandbox('vim')).toBe(true);
     });
 
-    const guiEditors: EditorType[] = ['vscode', 'vscodium', 'windsurf', 'cursor', 'zed'];
+    const guiEditors: EditorType[] = [
+      'vscode',
+      'vscodium',
+      'windsurf',
+      'cursor',
+      'zed',
+    ];
     for (const editor of guiEditors) {
       it(`should not allow ${editor} in sandbox mode`, () => {
         process.env.SANDBOX = 'sandbox';
