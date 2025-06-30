@@ -84,7 +84,9 @@ export const useGeminiStream = (
   handleSlashCommand: (
     cmd: PartListUnion,
   ) => Promise<
-    import('./slashCommandProcessor.js').SlashCommandActionReturn | boolean
+    | import('./slashCommandProcessor.js').SlashCommandActionReturn
+    | boolean
+    | string
   >,
   shellModeActive: boolean,
   getPreferredEditor: () => EditorType | undefined,
@@ -215,16 +217,16 @@ export const useGeminiStream = (
       let localQueryToSendToGemini: PartListUnion | null = null;
 
       if (typeof query === 'string') {
-        const trimmedQuery = query.trim();
+        const originalTrimmedQuery = query.trim();
         logUserPrompt(
           config,
-          new UserPromptEvent(trimmedQuery.length, trimmedQuery),
+          new UserPromptEvent(originalTrimmedQuery.length, originalTrimmedQuery),
         );
-        onDebugMessage(`User query: '${trimmedQuery}'`);
-        await logger?.logMessage(MessageSenderType.USER, trimmedQuery);
+        onDebugMessage(`User query: '${originalTrimmedQuery}'`);
+        await logger?.logMessage(MessageSenderType.USER, originalTrimmedQuery);
 
         // Handle UI-only commands first
-        const slashCommandResult = await handleSlashCommand(trimmedQuery);
+        const slashCommandResult = await handleSlashCommand(originalTrimmedQuery);
         if (typeof slashCommandResult === 'boolean' && slashCommandResult) {
           // Command was handled, and it doesn't require a tool call from here
           return { queryToSend: null, shouldProceed: false };
@@ -246,16 +248,30 @@ export const useGeminiStream = (
           return { queryToSend: null, shouldProceed: false }; // Handled by scheduling the tool
         }
 
-        if (shellModeActive && handleShellCommand(trimmedQuery, abortSignal)) {
+        // At this point, the query is either a normal message, or an expanded custom command prompt.
+        const effectiveQuery =
+          typeof slashCommandResult === 'string'
+            ? slashCommandResult
+            : originalTrimmedQuery;
+
+        if (
+          typeof slashCommandResult !== 'string' && // Don't run shell mode on expanded prompts
+          shellModeActive &&
+          handleShellCommand(effectiveQuery, abortSignal)
+        ) {
           return { queryToSend: null, shouldProceed: false };
         }
 
         // Handle @-commands (which might involve tool calls)
-        if (isAtCommand(trimmedQuery)) {
+        if (isAtCommand(effectiveQuery)) {
           const atCommandResult = await handleAtCommand({
-            query: trimmedQuery,
+            query: effectiveQuery,
             config,
-            addItem,
+            // Only add to history if it's a direct user command, not an expanded one.
+            addItem:
+              typeof slashCommandResult === 'string'
+                ? () => 0
+                : (addItem as UseHistoryManagerReturn['addItem']),
             onDebugMessage,
             messageId: userMessageTimestamp,
             signal: abortSignal,
@@ -266,11 +282,13 @@ export const useGeminiStream = (
           localQueryToSendToGemini = atCommandResult.processedQuery;
         } else {
           // Normal query for Gemini
-          addItem(
-            { type: MessageType.USER, text: trimmedQuery },
-            userMessageTimestamp,
-          );
-          localQueryToSendToGemini = trimmedQuery;
+          if (typeof slashCommandResult !== 'string') {
+            addItem(
+              { type: MessageType.USER, text: effectiveQuery },
+              userMessageTimestamp,
+            );
+          }
+          localQueryToSendToGemini = effectiveQuery;
         }
       } else {
         // It's a function response (PartListUnion that isn't a string)

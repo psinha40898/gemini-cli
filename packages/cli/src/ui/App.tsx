@@ -421,6 +421,16 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
     onAuthError,
     performMemoryRefresh,
   );
+  const onSlashCommand = useCallback(
+    async (cmd: string) => {
+      const result = await handleSlashCommand(cmd);
+      if (typeof result === 'string') {
+        submitQuery(result);
+      }
+    },
+    [handleSlashCommand, submitQuery],
+  );
+
   pendingHistoryItems.push(...pendingGeminiHistoryItems);
   const { elapsedTime, currentLoadingPhrase } =
     useLoadingIndicator(streamingState);
@@ -430,10 +440,14 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
     (submittedValue: string) => {
       const trimmedValue = submittedValue.trim();
       if (trimmedValue.length > 0) {
-        submitQuery(trimmedValue);
+        if (trimmedValue.startsWith('/')) {
+          onSlashCommand(trimmedValue);
+        } else {
+          submitQuery(trimmedValue);
+        }
       }
     },
-    [submitQuery],
+    [submitQuery, onSlashCommand],
   );
 
   const logger = useLogger();

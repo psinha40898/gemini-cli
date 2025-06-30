@@ -33,6 +33,7 @@ import { GIT_COMMIT_INFO } from '../../generated/git-commit.js';
 import { formatDuration, formatMemoryUsage } from '../utils/formatters.js';
 import { getCliVersion } from '../../utils/version.js';
 import { LoadedSettings } from '../../config/settings.js';
+import { useCustomCommandDiscovery } from './useCustomCommandDiscovery.js';
 
 export interface SlashCommandActionReturn {
   shouldScheduleTool?: boolean;
@@ -53,7 +54,7 @@ export interface SlashCommand {
   ) =>
     | void
     | SlashCommandActionReturn
-    | Promise<void | SlashCommandActionReturn>; // Action can now return this object
+    | Promise<void | SlashCommandActionReturn | string>; // Action can now return this object
 }
 
 /**
@@ -85,6 +86,8 @@ export const useSlashCommandProcessor = (
     }
     return new GitService(config.getProjectRoot());
   }, [config]);
+
+  const customCommands = useCustomCommandDiscovery();
 
   const pendingHistoryItems: HistoryItemWithoutId[] = [];
   const [pendingCompressionItemRef, setPendingCompressionItem] =
@@ -163,7 +166,7 @@ export const useSlashCommandProcessor = (
       // UI feedback for attempting to schedule
       addMessage({
         type: MessageType.INFO,
-        content: `Attempting to save to memory: "${args.trim()}"`,
+        content: `Attempting to save to memory: "${args.trim()}" `,
         timestamp: new Date(),
       });
       // Return info for scheduling the tool call
@@ -657,14 +660,7 @@ export const useSlashCommandProcessor = (
           const cliVersion = await getCliVersion();
           const memoryUsage = formatMemoryUsage(process.memoryUsage().rss);
 
-          const info = `
-*   **CLI Version:** ${cliVersion}
-*   **Git Commit:** ${GIT_COMMIT_INFO}
-*   **Operating System:** ${osVersion}
-*   **Sandbox Environment:** ${sandboxEnv}
-*   **Model Version:** ${modelVersion}
-*   **Memory Usage:** ${memoryUsage}
-`;
+          const info = `\n*   **CLI Version:** ${cliVersion}\n*   **Git Commit:** ${GIT_COMMIT_INFO}\n*   **Operating System:** ${osVersion}\n*   **Sandbox Environment:** ${sandboxEnv}\n*   **Model Version:** ${modelVersion}\n*   **Memory Usage:** ${memoryUsage}\n`;
 
           let bugReportUrl =
             'https://github.com/google-gemini/gemini-cli/issues/new?template=bug_report.yml&title={title}&info={info}';
@@ -1018,7 +1014,35 @@ export const useSlashCommandProcessor = (
         },
       });
     }
-    return commands;
+
+    const dynamicCommands: SlashCommand[] = customCommands.map((custom) => {
+      const [name, subCommand] = custom.command.slice(1).split(':');
+      return {
+        name: `${name}:${subCommand}`,
+        description: custom.description,
+        action: async (_mainCommand, _subCommand, args) => {
+          try {
+            let prompt = await fs.readFile(custom.file, 'utf-8');
+            // Remove frontmatter
+            prompt = prompt.replace(/^---\n(.*?)\n---/s, '');
+            if (args) {
+              prompt = prompt.replace('$ARGUMENTS', args);
+            }
+            return prompt;
+          } catch (e) {
+            const error = e as Error;
+            addMessage({
+              type: MessageType.ERROR,
+              content: `Error executing custom command: ${error.message}`,
+              timestamp: new Date(),
+            });
+            return;
+          }
+        },
+      };
+    });
+
+    return [...commands, ...dynamicCommands];
   }, [
     onDebugMessage,
     setShowHelp,
@@ -1044,12 +1068,13 @@ export const useSlashCommandProcessor = (
     pendingCompressionItemRef,
     setPendingCompressionItem,
     openPrivacyNotice,
+    customCommands,
   ]);
 
   const handleSlashCommand = useCallback(
     async (
       rawQuery: PartListUnion,
-    ): Promise<SlashCommandActionReturn | boolean> => {
+    ): Promise<string | SlashCommandActionReturn | boolean> => {
       if (typeof rawQuery !== 'string') {
         return false;
       }
@@ -1065,36 +1090,40 @@ export const useSlashCommandProcessor = (
         );
       }
 
-      let subCommand: string | undefined;
-      let args: string | undefined;
-
-      const commandToMatch = (() => {
-        if (trimmed.startsWith('?')) {
-          return 'help';
-        }
-        const parts = trimmed.substring(1).trim().split(/\s+/);
-        if (parts.length > 1) {
-          subCommand = parts[1];
-        }
-        if (parts.length > 2) {
-          args = parts.slice(2).join(' ');
-        }
-        return parts[0];
-      })();
-
+      const parts = trimmed.substring(1).trim().split(/\s+/);
+      const commandToMatch = trimmed.startsWith('?') ? 'help' : parts[0];
       const mainCommand = commandToMatch;
 
-      for (const cmd of slashCommands) {
-        if (mainCommand === cmd.name || mainCommand === cmd.altName) {
-          const actionResult = await cmd.action(mainCommand, subCommand, args);
-          if (
-            typeof actionResult === 'object' &&
-            actionResult?.shouldScheduleTool
-          ) {
-            return actionResult; // Return the object for useGeminiStream
-          }
-          return true; // Command was handled, but no tool to schedule
+      const cmd = slashCommands.find(
+        (c) => c.name === commandToMatch || c.altName === commandToMatch,
+      );
+
+      if (cmd) {
+        let subCommand: string | undefined;
+        let args: string | undefined;
+
+        if (cmd.name.includes(':')) {
+          // Custom command like /project:foo bar
+          args = parts.slice(1).join(' ');
+        } else {
+          // Built-in command like /memory add foo
+          subCommand = parts[1];
+          args = parts.slice(2).join(' ');
         }
+
+        const actionResult = await cmd.action(mainCommand, subCommand, args);
+
+        if (typeof actionResult === 'string') {
+          return actionResult;
+        }
+
+        if (
+          typeof actionResult === 'object' &&
+          actionResult?.shouldScheduleTool
+        ) {
+          return actionResult;
+        }
+        return true;
       }
 
       addMessage({
