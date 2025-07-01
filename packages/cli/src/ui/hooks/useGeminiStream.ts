@@ -282,11 +282,8 @@ export const useGeminiStream = (
           const atCommandResult = await handleAtCommand({
             query: effectiveQuery,
             config,
-            // Only add to history if it's a direct user command, not an expanded one.
-            addItem:
-              typeof slashCommandResult === 'string'
-                ? () => 0
-                : (addItem as UseHistoryManagerReturn['addItem']),
+            // An expanded prompt should be added to history.
+            addItem: addItem as UseHistoryManagerReturn['addItem'],
             onDebugMessage,
             messageId: userMessageTimestamp,
             signal: abortSignal,
@@ -296,13 +293,16 @@ export const useGeminiStream = (
           }
           localQueryToSendToGemini = atCommandResult.processedQuery;
         } else {
-          // Normal query for Gemini
-          if (typeof slashCommandResult !== 'string') {
-            addItem(
-              { type: MessageType.USER, text: effectiveQuery },
-              userMessageTimestamp,
-            );
-          }
+          // Normal query for Gemini or an expanded custom command.
+          // In both cases, we want to add the final query to the history.
+          addItem(
+            { type: MessageType.USER, text: effectiveQuery },
+            userMessageTimestamp,
+          );
+          geminiClient.addHistory({
+            role: 'user',
+            parts: [{ text: effectiveQuery }],
+          });
           localQueryToSendToGemini = effectiveQuery;
         }
       } else {
@@ -327,6 +327,7 @@ export const useGeminiStream = (
       logger,
       shellModeActive,
       scheduleToolCalls,
+      geminiClient,
     ],
   );
 

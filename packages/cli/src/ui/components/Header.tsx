@@ -38,6 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
       alignItems="flex-start"
       width={artWidth}
       flexShrink={0}
+      flexDirection="column"
     >
       {Colors.GradientColors ? (
         <Gradient colors={Colors.GradientColors}>
@@ -46,6 +47,9 @@ export const Header: React.FC<HeaderProps> = ({
       ) : (
         <Text>{displayTitle}</Text>
       )}
+      <Box>
+        <Text>Branch: pyush-commands</Text>
+      </Box>
     </Box>
   );
 };
