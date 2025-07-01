@@ -36,7 +36,10 @@ import {
 } from '../types.js';
 import { isAtCommand } from '../utils/commandUtils.js';
 import { parseAndFormatApiError } from '../utils/errorParsing.js';
-import { useShellCommandProcessor } from './shellCommandProcessor.js';
+import {
+  useShellCommandProcessor,
+  processShellCommandsInPrompt,
+} from './shellCommandProcessor.js';
 import { handleAtCommand } from './atCommandProcessor.js';
 import { findLastSafeSplitPoint } from '../utils/markdownUtilities.js';
 import { useStateAndRef } from './useStateAndRef.js';
@@ -220,13 +223,17 @@ export const useGeminiStream = (
         const originalTrimmedQuery = query.trim();
         logUserPrompt(
           config,
-          new UserPromptEvent(originalTrimmedQuery.length, originalTrimmedQuery),
+          new UserPromptEvent(
+            originalTrimmedQuery.length,
+            originalTrimmedQuery,
+          ),
         );
         onDebugMessage(`User query: '${originalTrimmedQuery}'`);
         await logger?.logMessage(MessageSenderType.USER, originalTrimmedQuery);
 
         // Handle UI-only commands first
-        const slashCommandResult = await handleSlashCommand(originalTrimmedQuery);
+        const slashCommandResult =
+          await handleSlashCommand(originalTrimmedQuery);
         if (typeof slashCommandResult === 'boolean' && slashCommandResult) {
           // Command was handled, and it doesn't require a tool call from here
           return { queryToSend: null, shouldProceed: false };
@@ -249,10 +256,18 @@ export const useGeminiStream = (
         }
 
         // At this point, the query is either a normal message, or an expanded custom command prompt.
-        const effectiveQuery =
+        let effectiveQuery =
           typeof slashCommandResult === 'string'
             ? slashCommandResult
             : originalTrimmedQuery;
+
+        // Pre-process the prompt for !`bash` commands
+        effectiveQuery = await processShellCommandsInPrompt(
+          effectiveQuery,
+          config,
+          abortSignal,
+          onDebugMessage,
+        );
 
         if (
           typeof slashCommandResult !== 'string' && // Don't run shell mode on expanded prompts

@@ -67,6 +67,7 @@ vi.mock('ink', async (importOriginal) => {
 });
 
 vi.mock('./shellCommandProcessor.js', () => ({
+  processShellCommandsInPrompt: vi.fn((query) => Promise.resolve(query)),
   useShellCommandProcessor: vi.fn().mockReturnValue({
     handleShellCommand: vi.fn(),
   }),

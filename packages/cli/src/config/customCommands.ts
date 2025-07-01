@@ -1,11 +1,17 @@
-import { glob } from "glob";
-import path from "path";
-import { promises as fs } from "fs";
-import os from "os";
-import YAML from "yaml";
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-const GEMINI_DIR = ".gemini";
-const COMMANDS_DIR = "commands";
+import { glob } from 'glob';
+import path from 'path';
+import { promises as fs } from 'fs';
+import os from 'os';
+import YAML from 'yaml';
+
+const GEMINI_DIR = '.gemini';
+const COMMANDS_DIR = 'commands';
 
 export interface CustomCommand {
   command: string;
@@ -24,11 +30,11 @@ async function findCommandFiles(dir: string): Promise<string[]> {
     if (!stat.isDirectory()) {
       return [];
     }
-  } catch (e) {
+  } catch (_e) {
     return [];
   }
 
-  return glob("**/*.md", {
+  return glob('**/*.md', {
     cwd: commandsPath,
     nodir: true,
     absolute: true,
@@ -37,15 +43,15 @@ async function findCommandFiles(dir: string): Promise<string[]> {
 
 async function parseCommandFile(
   prefix: string,
-  file: string
+  file: string,
 ): Promise<CustomCommand | undefined> {
   const commandName = path
-    .basename(file, ".md")
-    .replace(/ /g, "-")
+    .basename(file, '.md')
+    .replace(/ /g, '-')
     .toLowerCase();
   const command = `/${prefix}:${commandName}`;
 
-  const content = await fs.readFile(file, "utf-8");
+  const content = await fs.readFile(file, 'utf-8');
   const frontmatterMatch = content.match(/^---\n(.*?)\n---/s);
 
   let description = `A custom command for ${commandName}`;
@@ -55,7 +61,7 @@ async function parseCommandFile(
       if (frontmatter.description) {
         description = frontmatter.description;
       }
-    } catch (e) {
+    } catch (_e) {
       // Malformed YAML, use default description
     }
   }
@@ -71,13 +77,13 @@ export async function discoverCustomCommands(): Promise<CustomCommand[]> {
   const projectCommandFiles = await findCommandFiles(projectCommandsDir);
 
   const userCommands = await Promise.all(
-    userCommandFiles.map((file) => parseCommandFile("user", file))
+    userCommandFiles.map((file) => parseCommandFile('user', file)),
   );
   const projectCommands = await Promise.all(
-    projectCommandFiles.map((file) => parseCommandFile("project", file))
+    projectCommandFiles.map((file) => parseCommandFile('project', file)),
   );
 
   return [...userCommands, ...projectCommands].filter(
-    (c): c is CustomCommand => !!c
+    (c): c is CustomCommand => !!c,
   );
 }

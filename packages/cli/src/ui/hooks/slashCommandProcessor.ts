@@ -166,7 +166,7 @@ export const useSlashCommandProcessor = (
       // UI feedback for attempting to schedule
       addMessage({
         type: MessageType.INFO,
-        content: `Attempting to save to memory: "${args.trim()}" `,
+        content: `Attempting to save to memory: "${args.trim()}"`,
         timestamp: new Date(),
       });
       // Return info for scheduling the tool call
