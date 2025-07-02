@@ -167,6 +167,13 @@ export async function main() {
   let input = config.getQuestion();
   const startupWarnings = await getStartupWarnings();
 
+  
+  if (workspaceRoot === os.homedir()) {
+    startupWarnings.push(
+      'You are running Gemini CLI in your home directory. For a better experience, launch it in a project directory instead.',
+    );
+  }
+
   // Render UI, passing necessary config values. Check that there is no command line question.
   if (process.stdin.isTTY && input?.length === 0) {
     setWindowTitle(basename(workspaceRoot), settings);
