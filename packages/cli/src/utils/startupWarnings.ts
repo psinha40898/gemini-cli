@@ -28,7 +28,9 @@ export async function getStartupWarnings(): Promise<string[]> {
       );
     }
   } catch (err: unknown) {
-    console.error('Error checking workspace root:', err);
+    warnings.push(
+      `Warning: Could not check if running in home directory: ${getErrorMessage(err)}`,
+    );
   }
 
   try {
