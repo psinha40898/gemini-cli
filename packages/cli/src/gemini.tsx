@@ -10,7 +10,6 @@ import { AppWrapper } from './ui/App.js';
 import { loadCliConfig } from './config/config.js';
 import { readStdin } from './utils/readStdin.js';
 import { basename } from 'node:path';
-import fs from 'node:fs';
 import v8 from 'node:v8';
 import os from 'node:os';
 import { spawn } from 'node:child_process';
@@ -167,16 +166,6 @@ export async function main() {
   }
   let input = config.getQuestion();
   const startupWarnings = await getStartupWarnings();
-
-  try {
-    if (fs.realpathSync(workspaceRoot) === fs.realpathSync(os.homedir())) {
-      startupWarnings.push(
-        'You are running Gemini CLI in your home directory. For a better experience, launch it in a project directory instead.',
-      );
-    }
-  } catch (e) {
-    console.error('Error checking workspace root:', e);
-  }
 
   // Render UI, passing necessary config values. Check that there is no command line question.
   if (process.stdin.isTTY && input?.length === 0) {
