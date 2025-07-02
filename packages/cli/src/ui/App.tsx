@@ -79,6 +79,7 @@ interface AppProps {
   config: Config;
   settings: LoadedSettings;
   startupWarnings?: string[];
+  userWarnings?: string[];
 }
 
 export const AppWrapper = (props: AppProps) => (
@@ -87,7 +88,12 @@ export const AppWrapper = (props: AppProps) => (
   </SessionStatsProvider>
 );
 
-const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
+const App = ({
+  config,
+  settings,
+  startupWarnings = [],
+  userWarnings = [],
+}: AppProps) => {
   useBracketedPaste();
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
   const { stdout } = useStdout();
@@ -636,6 +642,22 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
               flexDirection="column"
             >
               {startupWarnings.map((warning, index) => (
+                <Text key={index} color={Colors.AccentYellow}>
+                  {warning}
+                </Text>
+              ))}
+            </Box>
+          )}
+
+          {userWarnings.length > 0 && (
+            <Box
+              borderStyle="round"
+              borderColor={Colors.AccentYellow}
+              paddingX={1}
+              marginY={1}
+              flexDirection="column"
+            >
+              {userWarnings.map((warning, index) => (
                 <Text key={index} color={Colors.AccentYellow}>
                   {warning}
                 </Text>
