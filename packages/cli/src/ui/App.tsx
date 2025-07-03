@@ -79,7 +79,6 @@ interface AppProps {
   config: Config;
   settings: LoadedSettings;
   startupWarnings?: string[];
-  userWarnings?: string[];
 }
 
 export const AppWrapper = (props: AppProps) => (
@@ -92,7 +91,6 @@ const App = ({
   config,
   settings,
   startupWarnings = [],
-  userWarnings = [],
 }: AppProps) => {
   useBracketedPaste();
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
@@ -649,21 +647,7 @@ const App = ({
             </Box>
           )}
 
-          {userWarnings.length > 0 && (
-            <Box
-              borderStyle="round"
-              borderColor={Colors.AccentYellow}
-              paddingX={1}
-              marginY={1}
-              flexDirection="column"
-            >
-              {userWarnings.map((warning, index) => (
-                <Text key={index} color={Colors.AccentYellow}>
-                  {warning}
-                </Text>
-              ))}
-            </Box>
-          )}
+  
 
           {isThemeDialogOpen ? (
             <Box flexDirection="column">
