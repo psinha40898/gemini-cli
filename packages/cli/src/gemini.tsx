@@ -166,8 +166,10 @@ export async function main() {
     }
   }
   let input = config.getQuestion();
-  const startupWarnings = await getStartupWarnings();
-  const userWarnings = await getUserStartupWarnings();
+  const startupWarnings = [
+    ...(await getStartupWarnings()),
+    ...(await getUserStartupWarnings())
+  ];
 
   // Render UI, passing necessary config values. Check that there is no command line question.
   if (process.stdin.isTTY && input?.length === 0) {
@@ -178,7 +180,6 @@ export async function main() {
           config={config}
           settings={settings}
           startupWarnings={startupWarnings}
-          userWarnings={userWarnings}
         />
       </React.StrictMode>,
       { exitOnCtrlC: false },
