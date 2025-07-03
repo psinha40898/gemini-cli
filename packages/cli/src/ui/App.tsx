@@ -87,11 +87,7 @@ export const AppWrapper = (props: AppProps) => (
   </SessionStatsProvider>
 );
 
-const App = ({
-  config,
-  settings,
-  startupWarnings = [],
-}: AppProps) => {
+const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
   useBracketedPaste();
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
   const { stdout } = useStdout();
@@ -646,8 +642,6 @@ const App = ({
               ))}
             </Box>
           )}
-
-  
 
           {isThemeDialogOpen ? (
             <Box flexDirection="column">
