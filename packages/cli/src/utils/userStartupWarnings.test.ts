@@ -42,8 +42,8 @@ describe('getUserStartupWarnings', () => {
 
   it('should return a warning when running in home directory', async () => {
     vi.mocked(fs.realpath)
-      .mockResolvedValueOnce(homeDir)  // workspace path resolves to home
-      .mockResolvedValueOnce(homeDir); // home path
+      .mockResolvedValueOnce(homeDir)
+      .mockResolvedValueOnce(homeDir);
 
     const warnings = await getUserStartupWarnings();
 
@@ -56,19 +56,19 @@ describe('getUserStartupWarnings', () => {
   it('should not return a warning when running in a project directory', async () => {
     // Mock both calls explicitly
     vi.mocked(fs.realpath)
-      .mockResolvedValueOnce('/some/project/path')  // workspace path
-      .mockResolvedValueOnce('/home/user');         // home path
-      
+      .mockResolvedValueOnce('/some/project/path') // workspace path
+      .mockResolvedValueOnce('/home/user'); // home path
+
     const warnings = await getUserStartupWarnings();
-    
+
     expect(warnings).toHaveLength(0);
     expect(fs.realpath).toHaveBeenNthCalledWith(1, process.cwd());
     expect(fs.realpath).toHaveBeenNthCalledWith(2, '/home/user');
   });
   it('should handle errors when checking directory', async () => {
     vi.mocked(fs.realpath)
-      .mockRejectedValueOnce(new Error('FS error'))  // workspace path fails
-      .mockResolvedValueOnce(homeDir);               // home path still succeeds
+      .mockRejectedValueOnce(new Error('FS error'))
+      .mockResolvedValueOnce(homeDir);
 
     const warnings = await getUserStartupWarnings();
 
@@ -80,8 +80,8 @@ describe('getUserStartupWarnings', () => {
 
   it('should not return a warning when workspaceRoot is provided and not home', async () => {
     vi.mocked(fs.realpath)
-      .mockResolvedValueOnce('/some/project/path')  // workspace path
-      .mockResolvedValueOnce(homeDir);              // home path
+      .mockResolvedValueOnce('/some/project/path')
+      .mockResolvedValueOnce(homeDir);
 
     const warnings = await getUserStartupWarnings('/some/project/path');
 
@@ -92,8 +92,8 @@ describe('getUserStartupWarnings', () => {
 
   it('should return a warning when workspaceRoot is home', async () => {
     vi.mocked(fs.realpath)
-      .mockResolvedValueOnce(homeDir)  // workspace path (home)
-      .mockResolvedValueOnce(homeDir); // home path
+      .mockResolvedValueOnce(homeDir)
+      .mockResolvedValueOnce(homeDir);
 
     const warnings = await getUserStartupWarnings(homeDir);
 
@@ -105,8 +105,8 @@ describe('getUserStartupWarnings', () => {
 
   it('should handle errors when checking provided workspaceRoot', async () => {
     vi.mocked(fs.realpath)
-      .mockRejectedValueOnce(new Error('FS error'))  // workspace path fails
-      .mockResolvedValueOnce(homeDir);               // home path still succeeds
+      .mockRejectedValueOnce(new Error('FS error'))
+      .mockResolvedValueOnce(homeDir);
 
     const warnings = await getUserStartupWarnings('/invalid/path');
 
