@@ -7,56 +7,40 @@
 import fs from 'fs/promises';
 import * as os from 'os';
 
-type WorkspaceCheckResult = 'IS_HOME' | 'NOT_HOME' | 'CHECK_FAILED';
+type WarningCheck = {
+  id: string;
+  check: (workspaceRoot?: string) => Promise<string | null>; // Returns null if no warning
+};
 
-/**
- * Checks if the current workspace is the user's home directory.
- * @param workspaceRoot - The root path of the workspace to check (defaults to process.cwd())
- * @returns WorkspaceCheckResult - the result of the check
- */
-async function checkIfWorkspaceIsHome(
-  workspaceRoot: string = process.cwd(),
-): Promise<WorkspaceCheckResult> {
-  try {
-    const [workspaceRealPath, homeRealPath] = await Promise.all([
-      fs.realpath(workspaceRoot),
-      fs.realpath(os.homedir()),
-    ]);
+// Individual warning checks
+const homeDirectoryCheck: WarningCheck = {
+  id: 'home-directory',
+  check: async (workspaceRoot = process.cwd()) => {
+    try {
+      const [workspaceRealPath, homeRealPath] = await Promise.all([
+        fs.realpath(workspaceRoot),
+        fs.realpath(os.homedir()),
+      ]);
 
-    if (workspaceRealPath === homeRealPath) {
-      return 'IS_HOME';
+      if (workspaceRealPath === homeRealPath) {
+        return 'You are running Gemini CLI in your home directory. It is recommended to run in a project-specific directory.';
+      }
+      return null;
+    } catch (_err: unknown) {
+      return 'Could not verify the current directory due to a file system error.';
     }
-    return 'NOT_HOME';
-  } catch (_err: unknown) {
-    return 'CHECK_FAILED';
-  }
-}
+  },
+};
 
-/**
- * Gathers all user-facing warnings to be displayed on startup.
- * @param workspaceRoot - The root path of the workspace to check.
- * @returns A promise that resolves to an array of warning strings.
- */
+// All warning checks
+const WARNING_CHECKS: readonly WarningCheck[] = [homeDirectoryCheck];
+
+// Main function
 export async function getUserStartupWarnings(
   workspaceRoot?: string,
 ): Promise<string[]> {
-  const warnings: string[] = [];
-
-  // Home directory check
-  switch (await checkIfWorkspaceIsHome(workspaceRoot)) {
-    case 'IS_HOME':
-      warnings.push(
-        'You are running Gemini CLI in your home directory. It is recommended to run in a project-specific directory.',
-      );
-      break;
-    case 'CHECK_FAILED':
-      warnings.push(
-        'Could not verify the current directory due to a file system error.',
-      );
-      break;
-    default:
-      break;
-  }
-
-  return warnings;
+  const results = await Promise.all(
+    WARNING_CHECKS.map((check) => check.check(workspaceRoot)),
+  );
+  return results.filter((msg): msg is string => msg !== null);
 }
