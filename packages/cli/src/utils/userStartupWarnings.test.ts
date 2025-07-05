@@ -37,7 +37,7 @@ describe('getUserStartupWarnings', () => {
         .mockResolvedValueOnce(homeDir)
         .mockResolvedValueOnce(homeDir);
 
-      const warnings = await getUserStartupWarnings();
+      const warnings = await getUserStartupWarnings(homeDir);
 
       expect(warnings).toContainEqual(
         expect.stringContaining('home directory'),
@@ -49,7 +49,7 @@ describe('getUserStartupWarnings', () => {
         .mockResolvedValueOnce('/some/project/path')
         .mockResolvedValueOnce(homeDir);
 
-      const warnings = await getUserStartupWarnings();
+      const warnings = await getUserStartupWarnings('/some/project/path');
       expect(warnings).not.toContainEqual(
         expect.stringContaining('home directory'),
       );
@@ -60,7 +60,7 @@ describe('getUserStartupWarnings', () => {
         .mockRejectedValueOnce(new Error('FS error'))
         .mockResolvedValueOnce(homeDir);
 
-      const warnings = await getUserStartupWarnings();
+      const warnings = await getUserStartupWarnings('/error/path');
       expect(warnings).toContainEqual(
         expect.stringContaining('Could not verify'),
       );
