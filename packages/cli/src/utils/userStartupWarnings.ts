@@ -9,7 +9,7 @@ import * as os from 'os';
 
 type WarningCheck = {
   id: string;
-  check: (workspaceRoot: string) => Promise<string | null>; // Returns null if no warning
+  check: (workspaceRoot: string) => Promise<string | null>;
 };
 
 // Individual warning checks
@@ -35,7 +35,6 @@ const homeDirectoryCheck: WarningCheck = {
 // All warning checks
 const WARNING_CHECKS: readonly WarningCheck[] = [homeDirectoryCheck];
 
-// Main function
 export async function getUserStartupWarnings(
   workspaceRoot: string,
 ): Promise<string[]> {

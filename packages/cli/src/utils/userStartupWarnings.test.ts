@@ -9,7 +9,6 @@ import { getUserStartupWarnings } from './userStartupWarnings.js';
 import * as os from 'os';
 import fs from 'fs/promises';
 
-// Mock dependencies
 vi.mock('os', () => ({
   default: { homedir: vi.fn() },
   homedir: vi.fn(),
