@@ -425,10 +425,17 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
     async (cmd: string) => {
       const result = await handleSlashCommand(cmd);
       if (typeof result === 'string') {
-        submitQuery(result);
+        addItem(
+          {
+            type: MessageType.INFO,
+            text: 'Slash command returned a string, submitting to Gemini.',
+          },
+          Date.now(),
+        );
+        submitQuery(result, { isHidden: true });
       }
     },
-    [handleSlashCommand, submitQuery],
+    [handleSlashCommand, submitQuery, addItem],
   );
 
   pendingHistoryItems.push(...pendingGeminiHistoryItems);

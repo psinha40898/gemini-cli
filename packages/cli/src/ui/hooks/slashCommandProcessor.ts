@@ -1083,12 +1083,6 @@ export const useSlashCommandProcessor = (
         return false;
       }
       const userMessageTimestamp = Date.now();
-      if (trimmed !== '/quit' && trimmed !== '/exit') {
-        addItem(
-          { type: MessageType.USER, text: trimmed },
-          userMessageTimestamp,
-        );
-      }
 
       const parts = trimmed.substring(1).trim().split(/\s+/);
       const commandToMatch = trimmed.startsWith('?') ? 'help' : parts[0];
@@ -1114,7 +1108,18 @@ export const useSlashCommandProcessor = (
         const actionResult = await cmd.action(mainCommand, subCommand, args);
 
         if (typeof actionResult === 'string') {
+          addItem(
+            { type: MessageType.USER, text: trimmed, isHidden: true },
+            userMessageTimestamp,
+          );
           return actionResult;
+        }
+
+        if (trimmed !== '/quit' && trimmed !== '/exit') {
+          addItem(
+            { type: MessageType.USER, text: trimmed },
+            userMessageTimestamp,
+          );
         }
 
         if (

@@ -206,6 +206,7 @@ export const useGeminiStream = (
       query: PartListUnion,
       userMessageTimestamp: number,
       abortSignal: AbortSignal,
+      options?: { isHidden?: boolean },
     ): Promise<{
       queryToSend: PartListUnion | null;
       shouldProceed: boolean;
@@ -245,7 +246,9 @@ export const useGeminiStream = (
           const { toolName, toolArgs } = slashCommandResult;
           if (toolName && toolArgs) {
             const toolCallRequest: ToolCallRequestInfo = {
-              callId: `${toolName}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+              callId: `${toolName}-${Date.now()}-${Math.random()
+                .toString(16)
+                .slice(2)}`,
               name: toolName,
               args: toolArgs,
               isClientInitiated: true,
@@ -287,6 +290,7 @@ export const useGeminiStream = (
             onDebugMessage,
             messageId: userMessageTimestamp,
             signal: abortSignal,
+            custom: options?.isHidden,
           });
           if (!atCommandResult.shouldProceed) {
             return { queryToSend: null, shouldProceed: false };
@@ -296,7 +300,11 @@ export const useGeminiStream = (
           // Normal query for Gemini or an expanded custom command.
           // In both cases, we want to add the final query to the history.
           addItem(
-            { type: MessageType.USER, text: effectiveQuery },
+            {
+              type: MessageType.USER,
+              text: effectiveQuery,
+              isHidden: options?.isHidden,
+            },
             userMessageTimestamp,
           );
           geminiClient.addHistory({
@@ -519,7 +527,10 @@ export const useGeminiStream = (
   );
 
   const submitQuery = useCallback(
-    async (query: PartListUnion, options?: { isContinuation: boolean }) => {
+    async (
+      query: PartListUnion,
+      options?: { isContinuation?: boolean; isHidden?: boolean },
+    ) => {
       if (
         (streamingState === StreamingState.Responding ||
           streamingState === StreamingState.WaitingForConfirmation) &&
@@ -538,6 +549,9 @@ export const useGeminiStream = (
         query,
         userMessageTimestamp,
         abortSignal,
+        {
+          isHidden: options?.isHidden,
+        },
       );
 
       if (!shouldProceed || queryToSend === null) {

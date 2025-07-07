@@ -27,6 +27,7 @@ interface HandleAtCommandParams {
   onDebugMessage: (message: string) => void;
   messageId: number;
   signal: AbortSignal;
+  custom?: boolean
 }
 
 interface HandleAtCommandResult {
@@ -121,6 +122,7 @@ export async function handleAtCommand({
   onDebugMessage,
   messageId: userMessageTimestamp,
   signal,
+  custom,
 }: HandleAtCommandParams): Promise<HandleAtCommandResult> {
   const commandParts = parseAllAtCommands(query);
   const atPathCommandParts = commandParts.filter(
@@ -128,11 +130,14 @@ export async function handleAtCommand({
   );
 
   if (atPathCommandParts.length === 0) {
-    addItem({ type: 'user', text: query }, userMessageTimestamp);
+    addItem({ type: 'user', text: query, isHidden: custom }, userMessageTimestamp);
     return { processedQuery: [{ text: query }], shouldProceed: true };
   }
 
-  addItem({ type: 'user', text: query }, userMessageTimestamp);
+  addItem(
+    { type: 'user', text: query, isHidden: custom },
+    userMessageTimestamp,
+  );
 
   // Get centralized file discovery service
   const fileDiscovery = config.getFileService();
