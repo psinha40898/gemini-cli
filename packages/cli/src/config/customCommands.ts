@@ -8,7 +8,6 @@ import { glob } from 'glob';
 import path from 'path';
 import { promises as fs } from 'fs';
 import os from 'os';
-import YAML from 'yaml';
 
 const GEMINI_DIR = '.gemini';
 const COMMANDS_DIR = 'commands';
@@ -19,9 +18,6 @@ export interface CustomCommand {
   file: string;
 }
 
-interface Frontmatter {
-  description?: string;
-}
 
 async function findCommandFiles(dir: string): Promise<string[]> {
   const commandsPath = path.join(dir, COMMANDS_DIR);
@@ -56,13 +52,11 @@ async function parseCommandFile(
 
   let description = `A custom command for ${commandName}`;
   if (frontmatterMatch) {
-    try {
-      const frontmatter = YAML.parse(frontmatterMatch[1]) as Frontmatter;
-      if (frontmatter.description) {
-        description = frontmatter.description;
-      }
-    } catch (_e) {
-      // Malformed YAML, use default description
+    // Simple regex to extract description from frontmatter
+    // Format: description: "some text" or description: 'some text' or description: some text
+    const descMatch = frontmatterMatch[1].match(/^\s*description\s*:\s*(["']?)(.*?)\1\s*$/m);
+    if (descMatch?.[2]) {
+      description = descMatch[2];
     }
   }
 
