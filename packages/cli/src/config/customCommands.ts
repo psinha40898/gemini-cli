@@ -18,7 +18,6 @@ export interface CustomCommand {
   file: string;
 }
 
-
 async function findCommandFiles(dir: string): Promise<string[]> {
   const commandsPath = path.join(dir, COMMANDS_DIR);
   try {
@@ -54,7 +53,9 @@ async function parseCommandFile(
   if (frontmatterMatch) {
     // Simple regex to extract description from frontmatter
     // Format: description: "some text" or description: 'some text' or description: some text
-    const descMatch = frontmatterMatch[1].match(/^\s*description\s*:\s*(["']?)(.*?)\1\s*$/m);
+    const descMatch = frontmatterMatch[1].match(
+      /^\s*description\s*:\s*(["']?)(.*?)\1\s*$/m,
+    );
     if (descMatch?.[2]) {
       description = descMatch[2];
     }
