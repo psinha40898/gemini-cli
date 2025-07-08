@@ -66,7 +66,10 @@ export type HistoryItemUser = HistoryItemBase & {
   type: 'user';
   text: string;
 };
-
+export type HistoryItemCustomCommand = HistoryItemBase & {
+  type: 'custom_command';
+  text: string;
+};
 export type HistoryItemGemini = HistoryItemBase & {
   type: 'gemini';
   text: string;
@@ -136,6 +139,7 @@ export type HistoryItemCompression = HistoryItemBase & {
 // Individually exported types extending HistoryItemBase
 export type HistoryItemWithoutId =
   | HistoryItemUser
+  | HistoryItemCustomCommand
   | HistoryItemUserShell
   | HistoryItemGemini
   | HistoryItemGeminiContent
@@ -156,6 +160,7 @@ export enum MessageType {
   INFO = 'info',
   ERROR = 'error',
   USER = 'user',
+  CUSTOM_COMMAND = 'custom_command',
   ABOUT = 'about',
   STATS = 'stats',
   MODEL_STATS = 'model_stats',
@@ -168,7 +173,11 @@ export enum MessageType {
 // Simplified message structure for internal feedback
 export type Message =
   | {
-      type: MessageType.INFO | MessageType.ERROR | MessageType.USER;
+      type:
+        | MessageType.INFO
+        | MessageType.ERROR
+        | MessageType.USER
+        | MessageType.CUSTOM_COMMAND;
       content: string; // Renamed from text for clarity in this context
       timestamp: Date;
     }

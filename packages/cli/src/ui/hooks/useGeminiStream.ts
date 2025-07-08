@@ -204,7 +204,6 @@ export const useGeminiStream = (
       query: PartListUnion,
       userMessageTimestamp: number,
       abortSignal: AbortSignal,
-      custom?: boolean,
     ): Promise<{
       queryToSend: PartListUnion | null;
       shouldProceed: boolean;
@@ -229,6 +228,13 @@ export const useGeminiStream = (
 
         // Handle UI-only commands first
         const slashCommandResult = await handleSlashCommand(trimmedQuery);
+
+        const isCustomCommand =
+          typeof slashCommandResult === 'object' &&
+          slashCommandResult &&
+          slashCommandResult.custom &&
+          slashCommandResult.customPrompt;
+
         if (typeof slashCommandResult === 'boolean' && slashCommandResult) {
           // Command was handled, and it doesn't require a tool call from here
           return { queryToSend: null, shouldProceed: false };
@@ -249,21 +255,22 @@ export const useGeminiStream = (
           }
           return { queryToSend: null, shouldProceed: false }; // Handled by scheduling the tool
         }
-        let effectiveQuery =
-          typeof slashCommandResult === 'object' && slashCommandResult.custom
-            ? slashCommandResult.customPrompt
-            : trimmedQuery;
+        // If it's a custom command, check for bash commands to execute into the prompt template
+        const effectiveQuery = isCustomCommand
+          ? await processShellCommandsInPrompt(
+              slashCommandResult.customPrompt,
+              config,
+              abortSignal,
+              onDebugMessage,
+            )
+          : trimmedQuery;
 
-        // Pre-process the prompt for !`bash` commands
-        effectiveQuery = await processShellCommandsInPrompt(
-          effectiveQuery,
-          config,
-          abortSignal,
-          onDebugMessage,
-        );
+        // Currently the Gemini CLI allows for the execution of slash commands in shell mode
+        // Therefore, in shell mode, non slash commands are executed as bash commands,
+        // but slash commands, including custom ones, are executed as they would be in non shell mode
+
         if (
-          typeof slashCommandResult === 'object' &&
-          slashCommandResult?.custom && // Don't run shell mode on expanded prompts
+          !isCustomCommand &&
           shellModeActive &&
           handleShellCommand(effectiveQuery, abortSignal)
         ) {
@@ -288,10 +295,22 @@ export const useGeminiStream = (
         } else {
           // Normal query for Gemini or custom prompt
           // Added to UI
-          addItem(
-            { type: MessageType.USER, text: effectiveQuery },
-            userMessageTimestamp,
-          );
+          if (isCustomCommand) {
+            // This full prompt is intentionally not rendered in the UI
+            addItem(
+              {
+                type: MessageType.CUSTOM_COMMAND,
+                text: effectiveQuery,
+              },
+              userMessageTimestamp,
+            );
+          } else {
+            addItem(
+              { type: MessageType.USER, text: effectiveQuery },
+              userMessageTimestamp,
+            );
+          }
+
           // Added to context
           // geminiClient.addHistory({
           //   role: 'user',
@@ -512,10 +531,7 @@ export const useGeminiStream = (
   );
 
   const submitQuery = useCallback(
-    async (
-      query: PartListUnion,
-      options?: { isContinuation: boolean; custom?: boolean },
-    ) => {
+    async (query: PartListUnion, options?: { isContinuation: boolean }) => {
       if (
         (streamingState === StreamingState.Responding ||
           streamingState === StreamingState.WaitingForConfirmation) &&
@@ -534,7 +550,6 @@ export const useGeminiStream = (
         query,
         userMessageTimestamp,
         abortSignal,
-        options?.custom,
       );
 
       if (!shouldProceed || queryToSend === null) {
