@@ -780,6 +780,7 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
                   commandContext={commandContext}
                   shellModeActive={shellModeActive}
                   setShellModeActive={setShellModeActive}
+                  setShowHelp={setShowHelp}
                 />
               )}
             </>
