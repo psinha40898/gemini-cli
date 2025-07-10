@@ -335,7 +335,10 @@ describe('getFolderStructure gitignore', () => {
     const fileService = new FileDiscoveryService('/test/project');
     const structure = await getFolderStructure('/test/project', {
       fileService,
-      respectGitIgnore: false,
+      fileFilteringIgnores: {
+        respectGeminiIgnore: false,
+        respectGitIgnore: false,
+      },
     });
     expect(structure).toContain('ignored.txt');
     // node_modules is still ignored by default

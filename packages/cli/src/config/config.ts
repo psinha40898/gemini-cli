@@ -15,8 +15,10 @@ import {
   ApprovalMode,
   DEFAULT_GEMINI_MODEL,
   DEFAULT_GEMINI_EMBEDDING_MODEL,
+  DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
   FileDiscoveryService,
   TelemetryTarget,
+  FileFilteringIgnores,
 } from '@google/gemini-cli-core';
 import { Settings } from './settings.js';
 
@@ -188,12 +190,14 @@ export async function loadHierarchicalGeminiMemory(
   debugMode: boolean,
   fileService: FileDiscoveryService,
   extensionContextFilePaths: string[] = [],
+  options?: FileFilteringIgnores,
 ): Promise<{ memoryContent: string; fileCount: number }> {
   if (debugMode) {
     logger.debug(
       `CLI: Delegating hierarchical memory load to server for CWD: ${currentWorkingDirectory}`,
     );
   }
+
   // Directly call the server function.
   // The server function will use its own homedir() for the global path.
   return loadServerHierarchicalMemory(
@@ -201,6 +205,7 @@ export async function loadHierarchicalGeminiMemory(
     debugMode,
     fileService,
     extensionContextFilePaths,
+    options,
   );
 }
 
@@ -238,11 +243,17 @@ export async function loadCliConfig(
 
   const fileService = new FileDiscoveryService(process.cwd());
   // Call the (now wrapper) loadHierarchicalGeminiMemory which calls the server's version
+  const fileFiltering = {
+    ...DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
+    ...settings.fileFiltering,
+  };
+
   const { memoryContent, fileCount } = await loadHierarchicalGeminiMemory(
     process.cwd(),
     debugMode,
     fileService,
     extensionContextFilePaths,
+    fileFiltering,
   );
 
   let mcpServers = mergeMcpServers(settings, activeExtensions);
@@ -298,6 +309,7 @@ export async function loadCliConfig(
     // Git-aware file filtering settings
     fileFiltering: {
       respectGitIgnore: settings.fileFiltering?.respectGitIgnore,
+      respectGeminiIgnore: settings.fileFiltering?.respectGeminiIgnore,
       enableRecursiveFileSearch:
         settings.fileFiltering?.enableRecursiveFileSearch,
     },

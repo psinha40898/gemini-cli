@@ -199,7 +199,9 @@ const App = ({ config, settings, startupWarnings = [] }: AppProps) => {
         config.getDebugMode(),
         config.getFileService(),
         config.getExtensionContextFilePaths(),
+        config.getFileFilteringIgnore(),
       );
+
       config.setUserMemory(memoryContent);
       config.setGeminiMdFileCount(fileCount);
       setGeminiMdFileCount(fileCount);

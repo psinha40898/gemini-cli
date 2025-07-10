@@ -26,10 +26,10 @@ export interface LSToolParams {
    */
   ignore?: string[];
 
-  /**
-   * Whether to respect .gitignore patterns (optional, defaults to true)
-   */
-  respect_git_ignore?: boolean;
+  file_filtering_ignores?: {
+    respect_git_ignore?: boolean;
+    respect_gemini_ignore?: boolean;
+  };
 }
 
 /**
@@ -94,10 +94,22 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
             },
             type: Type.ARRAY,
           },
-          respect_git_ignore: {
+          file_filtering_ignores: {
             description:
-              'Optional: Whether to respect .gitignore patterns when listing files. Only available in git repositories. Defaults to true.',
-            type: Type.BOOLEAN,
+              'Optional: Whether to respect ignore patterns from .gitignore or .geminiignore',
+            type: Type.OBJECT,
+            properties: {
+              respect_git_ignore: {
+                description:
+                  'Optional: Whether to respect .gitignore patterns when listing files. Only available in git repositories. Defaults to true.',
+                type: Type.BOOLEAN,
+              },
+              respect_gemini_ignore: {
+                description:
+                  'Optional: Whether to respect .geminiignore patterns when listing files. Defaults to true.',
+                type: Type.BOOLEAN,
+              },
+            },
           },
         },
         required: ['path'],
@@ -225,14 +237,22 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
 
       const files = fs.readdirSync(params.path);
 
+      const fileFilteringIgnores = {
+        respectGitIgnore:
+          params.file_filtering_ignores?.respect_git_ignore ??
+          this.config.getFileFilteringRespectGitIgnore(),
+        respectGeminiIgnore:
+          params.file_filtering_ignores?.respect_gemini_ignore ??
+          this.config.getFileFilteringRespectGeminiIgnore(),
+      };
+
       // Get centralized file discovery service
-      const respectGitIgnore =
-        params.respect_git_ignore ??
-        this.config.getFileFilteringRespectGitIgnore();
+
       const fileDiscovery = this.config.getFileService();
 
       const entries: FileEntry[] = [];
       let gitIgnoredCount = 0;
+      let geminiIgnoredCount = 0;
 
       if (files.length === 0) {
         // Changed error message to be more neutral for LLM
@@ -250,12 +270,19 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
         const fullPath = path.join(params.path, file);
         const relativePath = path.relative(this.rootDirectory, fullPath);
 
-        // Check if this file should be git-ignored (only in git repositories)
+        // Check if this file should be ignored based on git or gemini ignore rules
         if (
-          respectGitIgnore &&
+          fileFilteringIgnores.respectGitIgnore &&
           fileDiscovery.shouldGitIgnoreFile(relativePath)
         ) {
           gitIgnoredCount++;
+          continue;
+        }
+        if (
+          fileFilteringIgnores.respectGeminiIgnore &&
+          fileDiscovery.shouldGeminiIgnoreFile(relativePath)
+        ) {
+          geminiIgnoredCount++;
           continue;
         }
 
@@ -288,13 +315,21 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
         .join('\n');
 
       let resultMessage = `Directory listing for ${params.path}:\n${directoryContent}`;
+      const ignoredMessages = [];
       if (gitIgnoredCount > 0) {
-        resultMessage += `\n\n(${gitIgnoredCount} items were git-ignored)`;
+        ignoredMessages.push(`${gitIgnoredCount} git-ignored`);
+      }
+      if (geminiIgnoredCount > 0) {
+        ignoredMessages.push(`${geminiIgnoredCount} gemini-ignored`);
+      }
+
+      if (ignoredMessages.length > 0) {
+        resultMessage += `\n\n(${ignoredMessages.join(', ')})`;
       }
 
       let displayMessage = `Listed ${entries.length} item(s).`;
-      if (gitIgnoredCount > 0) {
-        displayMessage += ` (${gitIgnoredCount} git-ignored)`;
+      if (ignoredMessages.length > 0) {
+        displayMessage += ` (${ignoredMessages.join(', ')})`;
       }
 
       return {
