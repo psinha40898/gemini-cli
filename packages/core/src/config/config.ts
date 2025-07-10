@@ -495,6 +495,10 @@ export class Config {
       this.getDebugMode(),
       this.getFileService(),
       this.getExtensionContextFilePaths(),
+      {
+        respectGitIgnore: this.getFileFilteringRespectGitIgnore(),
+        respectGeminiIgnore: this.getFileFilteringRespectGeminiIgnore(),
+      },
     );
 
     this.setUserMemory(memoryContent);

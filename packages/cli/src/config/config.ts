@@ -188,6 +188,7 @@ export async function loadHierarchicalGeminiMemory(
   debugMode: boolean,
   fileService: FileDiscoveryService,
   extensionContextFilePaths: string[] = [],
+  options?: { respectGitIgnore: boolean; respectGeminiIgnore: boolean },
 ): Promise<{ memoryContent: string; fileCount: number }> {
   if (debugMode) {
     logger.debug(
@@ -201,6 +202,7 @@ export async function loadHierarchicalGeminiMemory(
     debugMode,
     fileService,
     extensionContextFilePaths,
+    options,
   );
 }
 
@@ -243,6 +245,10 @@ export async function loadCliConfig(
     debugMode,
     fileService,
     extensionContextFilePaths,
+    {
+      respectGitIgnore: settings.fileFiltering?.respectGitIgnore ?? true, // Default to true if not set
+      respectGeminiIgnore: settings.fileFiltering?.respectGeminiIgnore ?? true, // Default to true if not set
+    },
   );
 
   let mcpServers = mergeMcpServers(settings, activeExtensions);
