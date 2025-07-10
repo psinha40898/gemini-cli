@@ -69,7 +69,12 @@ export async function bfsFileSearch(
 
     for (const entry of entries) {
       const fullPath = path.join(currentDir, entry.name);
-      if (fileService?.shouldGitIgnoreFile(fullPath)) {
+      if (
+        fileService?.shouldIgnoreFile(fullPath, {
+          respectGitIgnore: true,
+          respectGeminiIgnore: true,
+        })
+      ) {
         continue;
       }
 
