@@ -186,19 +186,24 @@ export async function handleAtCommand({
     }
 
     // Check if path should be ignored based on filtering options
-    if (respectGitIgnore && fileDiscovery.shouldGitIgnoreFile(pathName)) {
-      const geminiIgnored =
-        respectGeminiIgnore && fileDiscovery.shouldGeminiIgnoreFile(pathName);
-      const reason = geminiIgnored ? 'both' : 'git';
+    const gitIgnored =
+      respectGitIgnore &&
+      fileDiscovery.shouldIgnoreFile(pathName, { respectGitIgnore: true });
+    const geminiIgnored =
+      respectGeminiIgnore &&
+      fileDiscovery.shouldIgnoreFile(pathName, { respectGeminiIgnore: true });
+
+    if (gitIgnored || geminiIgnored) {
+      const reason =
+        gitIgnored && geminiIgnored ? 'both' : gitIgnored ? 'git' : 'gemini';
       ignoredPaths.push({ path: pathName, reason });
       const reasonText =
-        reason === 'both' ? 'ignored by both git and gemini' : 'git-ignored';
+        reason === 'both'
+          ? 'ignored by both git and gemini'
+          : reason === 'git'
+            ? 'git-ignored'
+            : 'gemini-ignored';
       onDebugMessage(`Path ${pathName} is ${reasonText} and will be skipped.`);
-      continue;
-    }
-    if (respectGeminiIgnore && fileDiscovery.shouldGeminiIgnoreFile(pathName)) {
-      ignoredPaths.push({ path: pathName, reason: 'gemini' });
-      onDebugMessage(`Path ${pathName} is gemini-ignored and will be skipped.`);
       continue;
     }
 

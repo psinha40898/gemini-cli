@@ -91,7 +91,7 @@ export class FileDiscoveryService {
     filePath: string,
     options: FilterFilesOptions = {},
   ): boolean {
-    const { respectGitIgnore = false, respectGeminiIgnore = false } = options;
+    const { respectGitIgnore = true, respectGeminiIgnore = true } = options;
 
     if (respectGitIgnore && this.shouldGitIgnoreFile(filePath)) {
       return true;
