@@ -91,7 +91,7 @@ describe('handleAtCommand', () => {
     // Mock FileDiscoveryService
     mockFileDiscoveryService = {
       initialize: vi.fn(),
-      shouldIgnoreFile: vi.fn(() => false), // Typescript complaining about this mfer even on main.
+      shouldIgnoreFile: vi.fn(() => false),
       filterFiles: vi.fn((files) => files),
       getIgnoreInfo: vi.fn(() => ({ gitIgnored: [] })),
       isGitRepository: vi.fn(() => true),
