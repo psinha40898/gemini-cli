@@ -9,14 +9,14 @@ import { editorCommand } from './editorCommand.js';
 import { type CommandContext } from './types.js';
 import { createMockCommandContext } from '../../test-utils/mockCommandContext.js';
 
-describe('authCommand', () => {
+describe('editorCommand', () => {
   let mockContext: CommandContext;
 
   beforeEach(() => {
     mockContext = createMockCommandContext();
   });
 
-  it('should return a dialog action to open the auth dialog', () => {
+  it('should return a dialog action to open the editor dialog', () => {
     if (!editorCommand.action) {
       throw new Error('The editor command must have an action.');
     }
