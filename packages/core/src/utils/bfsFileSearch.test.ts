@@ -142,6 +142,8 @@ describe('bfsFileSearch', () => {
     const result = await bfsFileSearch('/test', {
       fileName: 'file1.txt',
       fileService,
+      respectGitIgnore: true,
+      respectGeminiIgnore: true,
     });
     expect(result).toEqual(['/test/subdir1/file1.txt']);
   });
@@ -183,6 +185,8 @@ describe('bfsFileSearch', () => {
     const result = await bfsFileSearch('/test', {
       fileName: 'file1.txt',
       fileService,
+      respectGitIgnore: true,
+      respectGeminiIgnore: true,
     });
 
     // Should only return the file from subdir1 since subdir2 is in .geminiignore
