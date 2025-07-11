@@ -667,14 +667,11 @@ describe('handleAtCommand', () => {
       mockFileDiscoveryService.shouldIgnoreFile.mockImplementation(
         (
           _path: string,
-          options?: {
+          _options?: {
             respectGitIgnore?: boolean;
             respectGeminiIgnore?: boolean;
           },
-        ) => {
-          // Return false for all checks
-          return false;
-        },
+        ) => false,
       );
       mockReadManyFilesExecute.mockResolvedValue({
         llmContent: [`--- ${validFile} ---\n\n${fileContent}\n\n`],
@@ -808,14 +805,12 @@ describe('handleAtCommand', () => {
       // Mock to return true for git ignore check, false for gemini ignore check
       mockFileDiscoveryService.shouldIgnoreFile.mockImplementation(
         (
-          path: string,
+          _path: string,
           options?: {
             respectGitIgnore?: boolean;
             respectGeminiIgnore?: boolean;
           },
-        ) => {
-          return options?.respectGitIgnore === true;
-        },
+        ) => options?.respectGitIgnore === true,
       );
 
       const result = await handleAtCommand({
