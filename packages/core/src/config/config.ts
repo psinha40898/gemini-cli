@@ -70,7 +70,21 @@ export interface ActiveExtension {
   name: string;
   version: string;
 }
-
+// In packages/core/src/config/config.ts, add this with the other interfaces
+export interface FileFilteringIgnores {
+  respectGitIgnore: boolean;
+  respectGeminiIgnore: boolean;
+}
+// For memory files
+export const DEFAULT_MEMORY_FILE_FILTERING_OPTIONS: FileFilteringIgnores = {
+  respectGitIgnore: false,
+  respectGeminiIgnore: true,
+};
+// For all other files
+export const DEFAULT_FILE_FILTERING_OPTIONS: FileFilteringIgnores = {
+  respectGitIgnore: true, // Respect .gitignore by default
+  respectGeminiIgnore: true, // Respect .geminiiignore by default
+};
 export class MCPServerConfig {
   constructor(
     // For stdio transport
@@ -442,6 +456,13 @@ export class Config {
     return this.fileFiltering.respectGeminiIgnore;
   }
 
+  getFileFilteringIgnore(): FileFilteringIgnores {
+    return {
+      respectGitIgnore: this.fileFiltering.respectGitIgnore,
+      respectGeminiIgnore: this.fileFiltering.respectGeminiIgnore,
+    };
+  }
+
   getCheckpointingEnabled(): boolean {
     return this.checkpointing;
   }
@@ -495,10 +516,7 @@ export class Config {
       this.getDebugMode(),
       this.getFileService(),
       this.getExtensionContextFilePaths(),
-      {
-        respectGitIgnore: this.getFileFilteringRespectGitIgnore(),
-        respectGeminiIgnore: this.getFileFilteringRespectGeminiIgnore(),
-      },
+      this.getFileFilteringIgnore(),
     );
 
     this.setUserMemory(memoryContent);
