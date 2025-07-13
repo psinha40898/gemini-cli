@@ -65,16 +65,6 @@ export interface ReadManyFilesParams {
     respect_git_ignore?: boolean;
     respect_gemini_ignore?: boolean;
   };
-
-  /**
-   * Optional. Whether to respect .gitignore patterns. Defaults to true.
-   */
-  respect_git_ignore?: boolean;
-
-  /**
-   * Optional. Whether to respect .gemini patterns. Defaults to true.
-   */
-  respect_gemini_ignore?: boolean;
 }
 
 /**
@@ -207,18 +197,6 @@ export class ReadManyFilesTool extends BaseTool<
             },
           },
         },
-        respect_git_ignore: {
-          type: Type.BOOLEAN,
-          description:
-            'Optional. Whether to respect .gitignore patterns when discovering files. Only available in git repositories. Defaults to true.',
-          default: true,
-        },
-        respect_gemini_ignore: {
-          type: Type.BOOLEAN,
-          description:
-            'Optional. Whether to respect .geminiignore patterns when discovering files. Defaults to true.',
-          default: true,
-        },
       },
       required: ['paths'],
     };
@@ -298,13 +276,6 @@ Use this tool when the user's query implies needing the content of several files
       exclude = [],
       useDefaultExcludes = true,
     } = params;
-
-    // const respectGitIgnore =
-    //   respect_git_ignore ?? this.config.getFileFilteringRespectGitIgnore();
-
-    // const respectGeminiIgnore =
-    //   respect_gemini_ignore ??
-    //   this.config.getFileFilteringRespectGeminiIgnore();
 
     const fileFilteringIgnores = {
       respectGitIgnore:

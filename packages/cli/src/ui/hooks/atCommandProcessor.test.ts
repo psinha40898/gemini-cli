@@ -178,8 +178,10 @@ describe('handleAtCommand', () => {
     expect(mockReadManyFilesExecute).toHaveBeenCalledWith(
       {
         paths: [filePath],
-        respect_git_ignore: true,
-        respect_gemini_ignore: true,
+        file_filtering_ignores: {
+          respect_git_ignore: true,
+          respect_gemini_ignore: true,
+        },
       },
       abortController.signal,
     );
@@ -228,8 +230,10 @@ describe('handleAtCommand', () => {
     expect(mockReadManyFilesExecute).toHaveBeenCalledWith(
       {
         paths: [resolvedGlob],
-        respect_git_ignore: true,
-        respect_gemini_ignore: true,
+        file_filtering_ignores: {
+          respect_git_ignore: true,
+          respect_gemini_ignore: true,
+        },
       },
       abortController.signal,
     );
@@ -333,8 +337,10 @@ describe('handleAtCommand', () => {
     expect(mockReadManyFilesExecute).toHaveBeenCalledWith(
       {
         paths: [unescapedPath],
-        respect_git_ignore: true,
-        respect_gemini_ignore: true,
+        file_filtering_ignores: {
+          respect_git_ignore: true,
+          respect_gemini_ignore: true,
+        },
       },
       abortController.signal,
     );
@@ -366,8 +372,10 @@ describe('handleAtCommand', () => {
     expect(mockReadManyFilesExecute).toHaveBeenCalledWith(
       {
         paths: [file1, file2],
-        respect_git_ignore: true,
-        respect_gemini_ignore: true,
+        file_filtering_ignores: {
+          respect_git_ignore: true,
+          respect_gemini_ignore: true,
+        },
       },
       abortController.signal,
     );
@@ -412,8 +420,10 @@ describe('handleAtCommand', () => {
     expect(mockReadManyFilesExecute).toHaveBeenCalledWith(
       {
         paths: [file1, file2],
-        respect_git_ignore: true,
-        respect_gemini_ignore: true,
+        file_filtering_ignores: {
+          respect_git_ignore: true,
+          respect_gemini_ignore: true,
+        },
       },
       abortController.signal,
     );
@@ -481,8 +491,10 @@ describe('handleAtCommand', () => {
     expect(mockReadManyFilesExecute).toHaveBeenCalledWith(
       {
         paths: [file1, resolvedFile2],
-        respect_git_ignore: true,
-        respect_gemini_ignore: true,
+        file_filtering_ignores: {
+          respect_git_ignore: true,
+          respect_gemini_ignore: true,
+        },
       },
       abortController.signal,
     );
@@ -587,8 +599,10 @@ describe('handleAtCommand', () => {
       // Let's assume it uses the path from the query if stat confirms it exists (even if different case on disk)
       {
         paths: [queryPath],
-        respect_git_ignore: true,
-        respect_gemini_ignore: true,
+        file_filtering_ignores: {
+          respect_git_ignore: true,
+          respect_gemini_ignore: true,
+        },
       },
       abortController.signal,
     );
@@ -706,8 +720,10 @@ describe('handleAtCommand', () => {
       expect(mockReadManyFilesExecute).toHaveBeenCalledWith(
         {
           paths: [validFile],
-          respect_git_ignore: true,
-          respect_gemini_ignore: true,
+          file_filtering_ignores: {
+            respect_git_ignore: true,
+            respect_gemini_ignore: true,
+          },
         },
         abortController.signal,
       );
@@ -787,8 +803,10 @@ describe('handleAtCommand', () => {
       expect(mockReadManyFilesExecute).toHaveBeenCalledWith(
         {
           paths: [validFile],
-          respect_git_ignore: true,
-          respect_gemini_ignore: true,
+          file_filtering_ignores: {
+            respect_git_ignore: true,
+            respect_gemini_ignore: true,
+          },
         },
         abortController.signal,
       );

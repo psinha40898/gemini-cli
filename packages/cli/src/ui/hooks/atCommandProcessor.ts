@@ -383,8 +383,11 @@ export async function handleAtCommand({
 
   const toolArgs = {
     paths: pathSpecsToRead,
-    respect_git_ignore: respectFileIgnore.respectGitIgnore,
-    respect_gemini_ignore: respectFileIgnore.respectGeminiIgnore, // Use configuration setting
+    file_filtering_ignores: {
+      respect_git_ignore: respectFileIgnore.respectGitIgnore,
+      respect_gemini_ignore: respectFileIgnore.respectGeminiIgnore,
+    },
+    // Use configuration setting
   };
   let toolCallDisplay: IndividualToolCallDisplay;
 
