@@ -277,15 +277,16 @@ Use this tool when the user's query implies needing the content of several files
       useDefaultExcludes = true,
     } = params;
 
+    const defaultFileIgnores = this.config.getFileFilteringIgnore();
+
     const fileFilteringIgnores = {
       respectGitIgnore:
         params.file_filtering_ignores?.respect_git_ignore ??
-        this.config.getFileFilteringRespectGitIgnore(),
+        defaultFileIgnores.respectGitIgnore, // Use the property from the returned object
       respectGeminiIgnore:
         params.file_filtering_ignores?.respect_gemini_ignore ??
-        this.config.getFileFilteringRespectGeminiIgnore(),
+        defaultFileIgnores.respectGeminiIgnore, // Use the property from the returned object
     };
-
     // Get centralized file discovery service
     const fileDiscovery = this.config.getFileService();
 

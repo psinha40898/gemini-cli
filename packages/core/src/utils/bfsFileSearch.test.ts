@@ -142,10 +142,6 @@ describe('bfsFileSearch', () => {
     const result = await bfsFileSearch('/test', {
       fileName: 'file1.txt',
       fileService,
-      fileFilter: {
-        respectGitIgnore: true,
-        respectGeminiIgnore: true,
-      },
     });
     expect(result).toEqual(['/test/subdir1/file1.txt']);
   });
@@ -153,8 +149,7 @@ describe('bfsFileSearch', () => {
   it('should respect .geminiignore files', async () => {
     const mockFs = vi.mocked(fsPromises);
     const mockGitUtils = vi.mocked(gitUtils);
-    // For .geminiignore, we don't need to mock isGitRepository
-    // as .geminiignore should work regardless of git repository status
+    // For .geminiignore, git repository status doesn't matter
     mockGitUtils.isGitRepository.mockReturnValue(false);
 
     const mockReaddir = mockFs.readdir as unknown as ReaddirWithFileTypes;
@@ -175,7 +170,6 @@ describe('bfsFileSearch', () => {
       return [];
     });
 
-    // Mock the .geminiignore file content to ignore subdir2
     vi.mocked(fs).readFileSync.mockImplementation((path) => {
       if (path.toString().endsWith('.geminiignore')) {
         return 'subdir2';
