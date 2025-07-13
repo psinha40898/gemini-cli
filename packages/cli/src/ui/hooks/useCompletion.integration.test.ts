@@ -16,6 +16,10 @@ import { Config, FileDiscoveryService } from '@google/gemini-cli-core';
 interface MockConfig {
   getFileFilteringRespectGitIgnore: () => boolean;
   getFileFilteringRespectGeminiIgnore: () => boolean;
+  getFileFilteringIgnore: () => {
+    respectGitIgnore: boolean;
+    respectGeminiIgnore: boolean;
+  };
   getEnableRecursiveFileSearch: () => boolean;
   getFileService: () => FileDiscoveryService | null;
 }
@@ -118,6 +122,10 @@ describe('useCompletion git-aware filtering integration', () => {
     mockConfig = {
       getFileFilteringRespectGitIgnore: vi.fn(() => true),
       getFileFilteringRespectGeminiIgnore: vi.fn(() => true),
+      getFileFilteringIgnore: vi.fn(() => ({
+        respectGitIgnore: true,
+        respectGeminiIgnore: true,
+      })),
       getFileService: vi.fn().mockReturnValue(mockFileDiscoveryService),
       getEnableRecursiveFileSearch: vi.fn(() => true),
     };

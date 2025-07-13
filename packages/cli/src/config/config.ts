@@ -198,7 +198,6 @@ export async function loadHierarchicalGeminiMemory(
     );
   }
 
-  console.log('loadHierarchicalGeminiMemory', options);
   // Directly call the server function.
   // The server function will use its own homedir() for the global path.
   return loadServerHierarchicalMemory(
@@ -248,7 +247,7 @@ export async function loadCliConfig(
     ...DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
     ...settings.fileFiltering,
   };
-  console.log('LOADCLI:', fileFiltering);
+
   const { memoryContent, fileCount } = await loadHierarchicalGeminiMemory(
     process.cwd(),
     debugMode,

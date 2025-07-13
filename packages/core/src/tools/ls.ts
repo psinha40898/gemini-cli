@@ -26,6 +26,11 @@ export interface LSToolParams {
    */
   ignore?: string[];
 
+  file_filtering_ignores?: {
+    respect_git_ignore?: boolean;
+    respect_gemini_ignore?: boolean;
+  };
+
   /**
    * Whether to respect .gitignore patterns (optional, defaults to true)
    */
@@ -98,6 +103,23 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
               type: Type.STRING,
             },
             type: Type.ARRAY,
+          },
+          file_filtering_ignores: {
+            description:
+              'Whether to respect ignore patterns from .gitignore or .geminiignore',
+            type: Type.OBJECT,
+            properties: {
+              respect_git_ignore: {
+                description:
+                  'Optional: Whether to respect .gitignore patterns when listing files. Only available in git repositories. Defaults to true.',
+                type: Type.BOOLEAN,
+              },
+              respect_gemini_ignore: {
+                description:
+                  'Optional: Whether to respect .geminiignore patterns when listing files. Defaults to true.',
+                type: Type.BOOLEAN,
+              },
+            },
           },
           respect_git_ignore: {
             description:
@@ -236,12 +258,21 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
       const files = fs.readdirSync(params.path);
 
       // Get centralized file discovery service
-      const respectGitIgnore =
-        params.respect_git_ignore ??
-        this.config.getFileFilteringRespectGitIgnore();
-      const respectGeminiIgnore =
-        params.respect_gemini_ignore ??
-        this.config.getFileFilteringRespectGeminiIgnore();
+      // const respectGitIgnore =
+      //   params.respect_git_ignore ??
+      //   this.config.getFileFilteringRespectGitIgnore();
+      // const respectGeminiIgnore =
+      //   params.respect_gemini_ignore ??
+      //   this.config.getFileFilteringRespectGeminiIgnore();
+
+      const fileFilteringIgnores = {
+        respectGitIgnore:
+          params.file_filtering_ignores?.respect_git_ignore ??
+          this.config.getFileFilteringRespectGitIgnore(),
+        respectGeminiIgnore:
+          params.file_filtering_ignores?.respect_gemini_ignore ??
+          this.config.getFileFilteringRespectGeminiIgnore(),
+      };
       const fileDiscovery = this.config.getFileService();
 
       const entries: FileEntry[] = [];
@@ -266,14 +297,14 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
 
         // Check if this file should be ignored based on git or gemini ignore rules
         if (
-          respectGitIgnore &&
+          fileFilteringIgnores.respectGitIgnore &&
           fileDiscovery.shouldGitIgnoreFile(relativePath)
         ) {
           gitIgnoredCount++;
           continue;
         }
         if (
-          respectGeminiIgnore &&
+          fileFilteringIgnores.respectGeminiIgnore &&
           fileDiscovery.shouldGeminiIgnoreFile(relativePath)
         ) {
           geminiIgnoredCount++;

@@ -136,8 +136,8 @@ export async function handleAtCommand({
 
   // Get centralized file discovery service
   const fileDiscovery = config.getFileService();
-  const respectGitIgnore = config.getFileFilteringRespectGitIgnore();
-  const respectGeminiIgnore = config.getFileFilteringRespectGeminiIgnore();
+
+  const respectFileIgnore = config.getFileFilteringIgnore();
 
   const pathSpecsToRead: string[] = [];
   const atPathToResolvedSpecMap = new Map<string, string>();
@@ -187,10 +187,10 @@ export async function handleAtCommand({
 
     // Check if path should be ignored based on filtering options
     const gitIgnored =
-      respectGitIgnore &&
+      respectFileIgnore.respectGitIgnore &&
       fileDiscovery.shouldIgnoreFile(pathName, { respectGitIgnore: true });
     const geminiIgnored =
-      respectGeminiIgnore &&
+      respectFileIgnore.respectGeminiIgnore &&
       fileDiscovery.shouldIgnoreFile(pathName, { respectGeminiIgnore: true });
 
     if (gitIgnored || geminiIgnored) {
@@ -383,8 +383,8 @@ export async function handleAtCommand({
 
   const toolArgs = {
     paths: pathSpecsToRead,
-    respect_git_ignore: respectGitIgnore,
-    respect_gemini_ignore: respectGeminiIgnore, // Use configuration setting
+    respect_git_ignore: respectFileIgnore.respectGitIgnore,
+    respect_gemini_ignore: respectFileIgnore.respectGeminiIgnore, // Use configuration setting
   };
   let toolCallDisplay: IndividualToolCallDisplay;
 

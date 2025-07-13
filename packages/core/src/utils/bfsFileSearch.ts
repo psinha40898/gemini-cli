@@ -8,10 +8,6 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { Dirent } from 'fs';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
-import {
-  DEFAULT_FILE_FILTERING_OPTIONS,
-  DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
-} from '../config/config.js';
 import { FileFilteringIgnores } from '../config/config.js';
 // Simple console logger for now.
 // TODO: Integrate with a more robust server-side logger.
@@ -46,14 +42,11 @@ export async function bfsFileSearch(
     maxDirs = Infinity,
     debug = false,
     fileService,
-    fileFilter = DEFAULT_FILE_FILTERING_OPTIONS,
   } = options;
   const foundFiles: string[] = [];
   const queue: string[] = [rootDir];
   const visited = new Set<string>();
   let scannedDirCount = 0;
-
-  console.log('bfsFileSearch.ts', fileFilter);
 
   while (queue.length > 0 && scannedDirCount < maxDirs) {
     const currentDir = queue.shift()!;

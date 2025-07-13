@@ -22,6 +22,10 @@ const mockConfig = {
   getFileService: vi.fn(),
   getFileFilteringRespectGitIgnore: vi.fn(() => true),
   getFileFilteringRespectGeminiIgnore: vi.fn(() => true),
+  getFileFilteringIgnore: vi.fn(() => ({
+    respectGitIgnore: true,
+    respectGeminiIgnore: true,
+  })),
   getEnableRecursiveFileSearch: vi.fn(() => true),
 } as unknown as Config;
 

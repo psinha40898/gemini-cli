@@ -185,7 +185,7 @@ async function getGeminiMdFilePathsInternal(
       currentDir = path.dirname(currentDir);
     }
     upwardPaths.forEach((p) => allPaths.add(p));
-    console.log('memoryDiscovery.ts/getGeminiMdFilePathsInternal', options);
+
     // Merge options with memory defaults, with options taking precedence
     const mergedOptions = {
       ...DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
@@ -300,7 +300,7 @@ export async function loadServerHierarchicalMemory(
     logger.debug(
       `Loading server hierarchical memory for CWD: ${currentWorkingDirectory}`,
     );
-  console.log('memoryDiscovery.ts/loadServerHierarchicalMemory', options);
+
   // For the server, homedir() refers to the server process's home.
   // This is consistent with how MemoryTool already finds the global path.
   const userHomePath = homedir();
