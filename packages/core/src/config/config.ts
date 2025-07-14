@@ -82,8 +82,8 @@ export const DEFAULT_MEMORY_FILE_FILTERING_OPTIONS: FileFilteringOptions = {
 };
 // For all other files
 export const DEFAULT_FILE_FILTERING_OPTIONS: FileFilteringOptions = {
-  respectGitIgnore: true, // Respect .gitignore by default
-  respectGeminiIgnore: true, // Respect .geminiiignore by default
+  respectGitIgnore: true,
+  respectGeminiIgnore: true,
 };
 export class MCPServerConfig {
   constructor(

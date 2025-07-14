@@ -301,8 +301,8 @@ Use this tool when the user's query implies needing the content of several files
     const contentParts: PartListUnion = [];
 
     const effectiveExcludes = useDefaultExcludes
-      ? [...DEFAULT_EXCLUDES, ...exclude, ...this.geminiIgnorePatterns]
-      : [...exclude, ...this.geminiIgnorePatterns];
+      ? [...DEFAULT_EXCLUDES, ...exclude]
+      : [...exclude];
 
     const searchPatterns = [...inputPatterns, ...include];
     if (searchPatterns.length === 0) {
@@ -328,8 +328,8 @@ Use this tool when the user's query implies needing the content of several files
             .filterFiles(
               entries.map((p) => path.relative(toolBaseDir, p)),
               {
-                respectGitIgnore: fileFilteringOptions.respectGitIgnore,
-                respectGeminiIgnore: fileFilteringOptions.respectGeminiIgnore,
+                respectGitIgnore: true,
+                respectGeminiIgnore: false,
               },
             )
             .map((p) => path.resolve(toolBaseDir, p))
@@ -341,8 +341,8 @@ Use this tool when the user's query implies needing the content of several files
             .filterFiles(
               gitFilteredEntries.map((p) => path.relative(toolBaseDir, p)),
               {
-                respectGitIgnore: fileFilteringOptions.respectGitIgnore,
-                respectGeminiIgnore: fileFilteringOptions.respectGeminiIgnore,
+                respectGitIgnore: false,
+                respectGeminiIgnore: true,
               },
             )
             .map((p) => path.resolve(toolBaseDir, p))
