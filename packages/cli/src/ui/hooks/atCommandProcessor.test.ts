@@ -659,11 +659,11 @@ describe('handleAtCommand', () => {
       );
       expect(mockFileDiscoveryService.shouldIgnoreFile).toHaveBeenCalledWith(
         gitIgnoredFile,
-        { respectGitIgnore: true },
+        { respectGitIgnore: true, respectGeminiIgnore: false },
       );
       expect(mockFileDiscoveryService.shouldIgnoreFile).toHaveBeenCalledWith(
         gitIgnoredFile,
-        { respectGeminiIgnore: true },
+        { respectGitIgnore: false, respectGeminiIgnore: true },
       );
 
       expect(mockOnDebugMessage).toHaveBeenCalledWith(
@@ -711,11 +711,11 @@ describe('handleAtCommand', () => {
       );
       expect(mockFileDiscoveryService.shouldIgnoreFile).toHaveBeenCalledWith(
         validFile,
-        { respectGitIgnore: true },
+        { respectGitIgnore: true, respectGeminiIgnore: false },
       );
       expect(mockFileDiscoveryService.shouldIgnoreFile).toHaveBeenCalledWith(
         validFile,
-        { respectGeminiIgnore: true },
+        { respectGitIgnore: false, respectGeminiIgnore: true },
       );
       expect(mockReadManyFilesExecute).toHaveBeenCalledWith(
         {
@@ -780,19 +780,19 @@ describe('handleAtCommand', () => {
       );
       expect(mockFileDiscoveryService.shouldIgnoreFile).toHaveBeenCalledWith(
         validFile,
-        { respectGitIgnore: true },
+        { respectGitIgnore: true, respectGeminiIgnore: false },
       );
       expect(mockFileDiscoveryService.shouldIgnoreFile).toHaveBeenCalledWith(
         validFile,
-        { respectGeminiIgnore: true },
+        { respectGitIgnore: false, respectGeminiIgnore: true },
       );
       expect(mockFileDiscoveryService.shouldIgnoreFile).toHaveBeenCalledWith(
         gitIgnoredFile,
-        { respectGitIgnore: true },
+        { respectGitIgnore: true, respectGeminiIgnore: false },
       );
       expect(mockFileDiscoveryService.shouldIgnoreFile).toHaveBeenCalledWith(
         gitIgnoredFile,
-        { respectGeminiIgnore: true },
+        { respectGitIgnore: false, respectGeminiIgnore: true },
       );
       expect(mockOnDebugMessage).toHaveBeenCalledWith(
         `Path ${gitIgnoredFile} is git-ignored and will be skipped.`,
@@ -850,11 +850,11 @@ describe('handleAtCommand', () => {
       );
       expect(mockFileDiscoveryService.shouldIgnoreFile).toHaveBeenCalledWith(
         gitFile,
-        { respectGitIgnore: true },
+        { respectGitIgnore: true, respectGeminiIgnore: false },
       );
       expect(mockFileDiscoveryService.shouldIgnoreFile).toHaveBeenCalledWith(
         gitFile,
-        { respectGeminiIgnore: true },
+        { respectGitIgnore: false, respectGeminiIgnore: true },
       );
       expect(mockOnDebugMessage).toHaveBeenCalledWith(
         `Path ${gitFile} is git-ignored and will be skipped.`,
@@ -935,11 +935,11 @@ describe('handleAtCommand', () => {
       );
       expect(mockFileDiscoveryService.shouldIgnoreFile).toHaveBeenCalledWith(
         geminiIgnoredFile,
-        { respectGitIgnore: true },
+        { respectGitIgnore: true, respectGeminiIgnore: false },
       );
       expect(mockFileDiscoveryService.shouldIgnoreFile).toHaveBeenCalledWith(
         geminiIgnoredFile,
-        { respectGeminiIgnore: true },
+        { respectGitIgnore: false, respectGeminiIgnore: true },
       );
 
       expect(mockOnDebugMessage).toHaveBeenCalledWith(
@@ -990,11 +990,11 @@ describe('handleAtCommand', () => {
       );
       expect(mockFileDiscoveryService.shouldIgnoreFile).toHaveBeenCalledWith(
         validFile,
-        { respectGitIgnore: true },
+        { respectGitIgnore: true, respectGeminiIgnore: false },
       );
       expect(mockFileDiscoveryService.shouldIgnoreFile).toHaveBeenCalledWith(
         validFile,
-        { respectGeminiIgnore: true },
+        { respectGitIgnore: false, respectGeminiIgnore: true },
       );
 
       expect(mockReadManyFilesExecute).toHaveBeenCalledWith(
@@ -1063,11 +1063,11 @@ describe('handleAtCommand', () => {
       [validFile, geminiIgnoredFile].forEach((file) => {
         expect(mockFileDiscoveryService.shouldIgnoreFile).toHaveBeenCalledWith(
           file,
-          { respectGitIgnore: true },
+          { respectGitIgnore: true, respectGeminiIgnore: false },
         );
         expect(mockFileDiscoveryService.shouldIgnoreFile).toHaveBeenCalledWith(
           file,
-          { respectGeminiIgnore: true },
+          { respectGitIgnore: false, respectGeminiIgnore: true },
         );
       });
 

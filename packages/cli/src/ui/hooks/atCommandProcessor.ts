@@ -186,12 +186,19 @@ export async function handleAtCommand({
     }
 
     // Check if path should be ignored based on filtering options
+
     const gitIgnored =
       respectFileIgnore.respectGitIgnore &&
-      fileDiscovery.shouldIgnoreFile(pathName, { respectGitIgnore: true });
+      fileDiscovery.shouldIgnoreFile(pathName, {
+        respectGitIgnore: true,
+        respectGeminiIgnore: false,
+      });
     const geminiIgnored =
       respectFileIgnore.respectGeminiIgnore &&
-      fileDiscovery.shouldIgnoreFile(pathName, { respectGeminiIgnore: true });
+      fileDiscovery.shouldIgnoreFile(pathName, {
+        respectGitIgnore: false,
+        respectGeminiIgnore: true,
+      });
 
     if (gitIgnored || geminiIgnored) {
       const reason =
