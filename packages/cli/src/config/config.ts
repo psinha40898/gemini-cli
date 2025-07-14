@@ -18,7 +18,7 @@ import {
   DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
   FileDiscoveryService,
   TelemetryTarget,
-  FileFilteringIgnores,
+  FileFilteringOptions,
 } from '@google/gemini-cli-core';
 import { Settings } from './settings.js';
 
@@ -190,7 +190,7 @@ export async function loadHierarchicalGeminiMemory(
   debugMode: boolean,
   fileService: FileDiscoveryService,
   extensionContextFilePaths: string[] = [],
-  options?: FileFilteringIgnores,
+  fileFilteringOptions?: FileFilteringOptions,
 ): Promise<{ memoryContent: string; fileCount: number }> {
   if (debugMode) {
     logger.debug(
@@ -205,7 +205,7 @@ export async function loadHierarchicalGeminiMemory(
     debugMode,
     fileService,
     extensionContextFilePaths,
-    options,
+    fileFilteringOptions,
   );
 }
 
@@ -242,12 +242,13 @@ export async function loadCliConfig(
   );
 
   const fileService = new FileDiscoveryService(process.cwd());
-  // Call the (now wrapper) loadHierarchicalGeminiMemory which calls the server's version
+
   const fileFiltering = {
     ...DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
     ...settings.fileFiltering,
   };
 
+  // Call the (now wrapper) loadHierarchicalGeminiMemory which calls the server's version
   const { memoryContent, fileCount } = await loadHierarchicalGeminiMemory(
     process.cwd(),
     debugMode,

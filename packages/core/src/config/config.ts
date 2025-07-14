@@ -71,17 +71,17 @@ export interface ActiveExtension {
   version: string;
 }
 // In packages/core/src/config/config.ts, add this with the other interfaces
-export interface FileFilteringIgnores {
+export interface FileFilteringOptions {
   respectGitIgnore: boolean;
   respectGeminiIgnore: boolean;
 }
 // For memory files
-export const DEFAULT_MEMORY_FILE_FILTERING_OPTIONS: FileFilteringIgnores = {
+export const DEFAULT_MEMORY_FILE_FILTERING_OPTIONS: FileFilteringOptions = {
   respectGitIgnore: false,
   respectGeminiIgnore: true,
 };
 // For all other files
-export const DEFAULT_FILE_FILTERING_OPTIONS: FileFilteringIgnores = {
+export const DEFAULT_FILE_FILTERING_OPTIONS: FileFilteringOptions = {
   respectGitIgnore: true, // Respect .gitignore by default
   respectGeminiIgnore: true, // Respect .geminiiignore by default
 };
@@ -456,7 +456,14 @@ export class Config {
     return this.fileFiltering.respectGeminiIgnore;
   }
 
-  getFileFilteringIgnore(): FileFilteringIgnores {
+  // getFileFilteringIgnore(): FileFilteringOptions {
+  //   return {
+  //     respectGitIgnore: this.fileFiltering.respectGitIgnore,
+  //     respectGeminiIgnore: this.fileFiltering.respectGeminiIgnore,
+  //   };
+  // }
+
+  getFileFilteringOptions(): FileFilteringOptions {
     return {
       respectGitIgnore: this.fileFiltering.respectGitIgnore,
       respectGeminiIgnore: this.fileFiltering.respectGeminiIgnore,
@@ -516,7 +523,7 @@ export class Config {
       this.getDebugMode(),
       this.getFileService(),
       this.getExtensionContextFilePaths(),
-      this.getFileFilteringIgnore(),
+      this.getFileFilteringOptions(),
     );
 
     this.setUserMemory(memoryContent);

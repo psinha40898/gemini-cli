@@ -17,7 +17,7 @@ import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { processImports } from './memoryImportProcessor.js';
 import {
   DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
-  FileFilteringIgnores,
+  FileFilteringOptions,
 } from '../config/config.js';
 
 // Simple console logger, similar to the one previously in CLI's config.ts
@@ -89,7 +89,7 @@ async function getGeminiMdFilePathsInternal(
   debugMode: boolean,
   fileService: FileDiscoveryService,
   extensionContextFilePaths: string[] = [],
-  options: { respectGitIgnore: boolean; respectGeminiIgnore: boolean },
+  fileFilteringOptions: FileFilteringOptions,
 ): Promise<string[]> {
   const allPaths = new Set<string>();
   const geminiMdFilenames = getAllGeminiMdFilenames();
@@ -189,7 +189,7 @@ async function getGeminiMdFilePathsInternal(
     // Merge options with memory defaults, with options taking precedence
     const mergedOptions = {
       ...DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
-      ...options,
+      ...fileFilteringOptions,
     };
 
     const downwardPaths = await bfsFileSearch(resolvedCwd, {
@@ -197,7 +197,7 @@ async function getGeminiMdFilePathsInternal(
       maxDirs: MAX_DIRECTORIES_TO_SCAN_FOR_MEMORY,
       debug: debugMode,
       fileService,
-      fileFilter: mergedOptions, // Pass merged options as fileFilter
+      fileFilteringOptions: mergedOptions, // Pass merged options as fileFilter
     });
     downwardPaths.sort(); // Sort for consistent ordering, though hierarchy might be more complex
     if (debugMode && downwardPaths.length > 0)
@@ -294,7 +294,7 @@ export async function loadServerHierarchicalMemory(
   debugMode: boolean,
   fileService: FileDiscoveryService,
   extensionContextFilePaths: string[] = [],
-  options?: FileFilteringIgnores,
+  fileFilteringOptions?: FileFilteringOptions,
 ): Promise<{ memoryContent: string; fileCount: number }> {
   if (debugMode)
     logger.debug(
@@ -310,7 +310,7 @@ export async function loadServerHierarchicalMemory(
     debugMode,
     fileService,
     extensionContextFilePaths,
-    options || DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
+    fileFilteringOptions || DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
   );
   if (filePaths.length === 0) {
     if (debugMode) logger.debug('No GEMINI.md files found in hierarchy.');

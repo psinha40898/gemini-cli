@@ -394,7 +394,7 @@ export function useCompletion(
       const enableRecursiveSearch =
         config?.getEnableRecursiveFileSearch() ?? true;
       const filterOptions =
-        config?.getFileFilteringIgnore() ?? DEFAULT_FILE_FILTERING_OPTIONS;
+        config?.getFileFilteringOptions() ?? DEFAULT_FILE_FILTERING_OPTIONS;
 
       try {
         // If there's no slash, or it's the root, do a recursive search from cwd

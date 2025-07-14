@@ -294,10 +294,7 @@ describe('Server Config (config.ts)', () => {
         config.getDebugMode(),
         config.getFileService(),
         config.getExtensionContextFilePaths(),
-        {
-          respectGitIgnore: config.getFileFilteringRespectGitIgnore(),
-          respectGeminiIgnore: config.getFileFilteringRespectGeminiIgnore(),
-        },
+        config.getFileFilteringOptions(),
       );
 
       expect(config.getUserMemory()).toBe(mockMemoryData.memoryContent);

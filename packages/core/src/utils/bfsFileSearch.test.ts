@@ -181,7 +181,7 @@ describe('bfsFileSearch', () => {
     const result = await bfsFileSearch('/test', {
       fileName: 'file1.txt',
       fileService,
-      fileFilter: {
+      fileFilteringOptions: {
         respectGitIgnore: true,
         respectGeminiIgnore: true,
       },

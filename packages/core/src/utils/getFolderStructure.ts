@@ -9,7 +9,7 @@ import { Dirent } from 'fs';
 import * as path from 'path';
 import { getErrorMessage, isNodeError } from './errors.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
-import { FileFilteringIgnores } from '../config/config.js';
+import { FileFilteringOptions } from '../config/config.js';
 import { DEFAULT_FILE_FILTERING_OPTIONS } from '../config/config.js';
 
 const MAX_ITEMS = 200;
@@ -29,7 +29,7 @@ interface FolderStructureOptions {
   /** For filtering files. */
   fileService?: FileDiscoveryService;
   /** File filtering ignore options. */
-  fileFilteringIgnores?: FileFilteringIgnores;
+  fileFilteringOptions?: FileFilteringOptions;
 }
 // Define a type for the merged options where fileIncludePattern remains optional
 type MergedFolderStructureOptions = Required<
@@ -37,7 +37,7 @@ type MergedFolderStructureOptions = Required<
 > & {
   fileIncludePattern?: RegExp;
   fileService?: FileDiscoveryService;
-  fileFilteringIgnores?: FileFilteringIgnores;
+  fileFilteringOptions?: FileFilteringOptions;
 };
 
 /** Represents the full, unfiltered information about a folder and its contents. */
@@ -130,9 +130,9 @@ async function readFullStructure(
         const filePath = path.join(currentPath, fileName);
         if (options.fileService) {
           const shouldIgnore =
-            (options.fileFilteringIgnores.respectGitIgnore &&
+            (options.fileFilteringOptions.respectGitIgnore &&
               options.fileService.shouldGitIgnoreFile(filePath)) ||
-            (options.fileFilteringIgnores.respectGeminiIgnore &&
+            (options.fileFilteringOptions.respectGeminiIgnore &&
               options.fileService.shouldGeminiIgnoreFile(filePath));
           if (shouldIgnore) {
             continue;
@@ -170,9 +170,9 @@ async function readFullStructure(
         let isIgnored = false;
         if (options.fileService) {
           isIgnored =
-            (options.fileFilteringIgnores.respectGitIgnore &&
+            (options.fileFilteringOptions.respectGitIgnore &&
               options.fileService.shouldGitIgnoreFile(subFolderPath)) ||
-            (options.fileFilteringIgnores.respectGeminiIgnore &&
+            (options.fileFilteringOptions.respectGeminiIgnore &&
               options.fileService.shouldGeminiIgnoreFile(subFolderPath));
         }
 
@@ -304,8 +304,8 @@ export async function getFolderStructure(
     ignoredFolders: options?.ignoredFolders ?? DEFAULT_IGNORED_FOLDERS,
     fileIncludePattern: options?.fileIncludePattern,
     fileService: options?.fileService,
-    fileFilteringIgnores:
-      options?.fileFilteringIgnores ?? DEFAULT_FILE_FILTERING_OPTIONS,
+    fileFilteringOptions:
+      options?.fileFilteringOptions ?? DEFAULT_FILE_FILTERING_OPTIONS,
   };
 
   try {

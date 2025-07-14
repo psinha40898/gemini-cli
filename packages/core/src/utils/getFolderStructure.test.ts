@@ -339,7 +339,7 @@ describe('getFolderStructure gitignore', () => {
     const fileService = new FileDiscoveryService('/test/project');
     const structure = await getFolderStructure('/test/project', {
       fileService,
-      fileFilteringIgnores: {
+      fileFilteringOptions: {
         respectGeminiIgnore: false,
         respectGitIgnore: false,
       },
@@ -363,7 +363,7 @@ describe('getFolderStructure gitignore', () => {
     const fileService = new FileDiscoveryService('/test/project');
     const structure = await getFolderStructure('/test/project', {
       fileService,
-      fileFilteringIgnores: {
+      fileFilteringOptions: {
         respectGeminiIgnore: false,
         respectGitIgnore: true, // Explicitly disable gemini ignore only
       },

@@ -137,7 +137,7 @@ export async function handleAtCommand({
   // Get centralized file discovery service
   const fileDiscovery = config.getFileService();
 
-  const respectFileIgnore = config.getFileFilteringIgnore();
+  const respectFileIgnore = config.getFileFilteringOptions();
 
   const pathSpecsToRead: string[] = [];
   const atPathToResolvedSpecMap = new Map<string, string>();
@@ -383,7 +383,7 @@ export async function handleAtCommand({
 
   const toolArgs = {
     paths: pathSpecsToRead,
-    file_filtering_ignores: {
+    file_filtering_options: {
       respect_git_ignore: respectFileIgnore.respectGitIgnore,
       respect_gemini_ignore: respectFileIgnore.respectGeminiIgnore,
     },

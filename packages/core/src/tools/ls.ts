@@ -10,7 +10,7 @@ import { BaseTool, ToolResult } from './tools.js';
 import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
-import { Config } from '../config/config.js';
+import { Config, DEFAULT_FILE_FILTERING_OPTIONS } from '../config/config.js';
 
 /**
  * Parameters for the LS tool
@@ -26,7 +26,10 @@ export interface LSToolParams {
    */
   ignore?: string[];
 
-  file_filtering_ignores?: {
+  /**
+   * Whether to respect .gitignore and .geminiignore patterns (optional, defaults to true)
+   */
+  file_filtering_options?: {
     respect_git_ignore?: boolean;
     respect_gemini_ignore?: boolean;
   };
@@ -94,7 +97,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
             },
             type: Type.ARRAY,
           },
-          file_filtering_ignores: {
+          file_filtering_options: {
             description:
               'Optional: Whether to respect ignore patterns from .gitignore or .geminiignore',
             type: Type.OBJECT,
@@ -237,13 +240,16 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
 
       const files = fs.readdirSync(params.path);
 
-      const fileFilteringIgnores = {
+      const defaultFileIgnores =
+        this.config.getFileFilteringOptions() ?? DEFAULT_FILE_FILTERING_OPTIONS;
+
+      const fileFilteringOptions = {
         respectGitIgnore:
-          params.file_filtering_ignores?.respect_git_ignore ??
-          this.config.getFileFilteringRespectGitIgnore(),
+          params.file_filtering_options?.respect_git_ignore ??
+          defaultFileIgnores.respectGitIgnore,
         respectGeminiIgnore:
-          params.file_filtering_ignores?.respect_gemini_ignore ??
-          this.config.getFileFilteringRespectGeminiIgnore(),
+          params.file_filtering_options?.respect_gemini_ignore ??
+          defaultFileIgnores.respectGeminiIgnore,
       };
 
       // Get centralized file discovery service
@@ -272,14 +278,14 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
 
         // Check if this file should be ignored based on git or gemini ignore rules
         if (
-          fileFilteringIgnores.respectGitIgnore &&
+          fileFilteringOptions.respectGitIgnore &&
           fileDiscovery.shouldGitIgnoreFile(relativePath)
         ) {
           gitIgnoredCount++;
           continue;
         }
         if (
-          fileFilteringIgnores.respectGeminiIgnore &&
+          fileFilteringOptions.respectGeminiIgnore &&
           fileDiscovery.shouldGeminiIgnoreFile(relativePath)
         ) {
           geminiIgnoredCount++;

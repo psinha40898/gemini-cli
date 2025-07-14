@@ -8,7 +8,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { Dirent } from 'fs';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
-import { FileFilteringIgnores } from '../config/config.js';
+import { FileFilteringOptions } from '../config/config.js';
 // Simple console logger for now.
 // TODO: Integrate with a more robust server-side logger.
 const logger = {
@@ -22,7 +22,7 @@ interface BfsFileSearchOptions {
   maxDirs?: number;
   debug?: boolean;
   fileService?: FileDiscoveryService;
-  fileFilter?: FileFilteringIgnores;
+  fileFilteringOptions?: FileFilteringOptions;
 }
 
 /**
@@ -72,8 +72,9 @@ export async function bfsFileSearch(
       const fullPath = path.join(currentDir, entry.name);
       if (
         fileService?.shouldIgnoreFile(fullPath, {
-          respectGitIgnore: options.fileFilter?.respectGitIgnore,
-          respectGeminiIgnore: options.fileFilter?.respectGeminiIgnore,
+          respectGitIgnore: options.fileFilteringOptions?.respectGitIgnore,
+          respectGeminiIgnore:
+            options.fileFilteringOptions?.respectGeminiIgnore,
         })
       ) {
         continue;

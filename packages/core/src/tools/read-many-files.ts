@@ -17,7 +17,7 @@ import {
   getSpecificMimeType,
 } from '../utils/fileUtils.js';
 import { PartListUnion, Schema, Type } from '@google/genai';
-import { Config } from '../config/config.js';
+import { Config, DEFAULT_FILE_FILTERING_OPTIONS } from '../config/config.js';
 import {
   recordFileOperationMetric,
   FileOperation,
@@ -61,7 +61,10 @@ export interface ReadManyFilesParams {
    */
   useDefaultExcludes?: boolean;
 
-  file_filtering_ignores?: {
+  /**
+   * Whether to respect .gitignore and .geminiignore patterns (optional, defaults to true)
+   */
+  file_filtering_options?: {
     respect_git_ignore?: boolean;
     respect_gemini_ignore?: boolean;
   };
@@ -180,7 +183,7 @@ export class ReadManyFilesTool extends BaseTool<
             'Optional. Whether to apply a list of default exclusion patterns (e.g., node_modules, .git, binary files). Defaults to true.',
           default: true,
         },
-        file_filtering_ignores: {
+        file_filtering_options: {
           description:
             'Whether to respect ignore patterns from .gitignore or .geminiignore',
           type: Type.OBJECT,
@@ -277,14 +280,15 @@ Use this tool when the user's query implies needing the content of several files
       useDefaultExcludes = true,
     } = params;
 
-    const defaultFileIgnores = this.config.getFileFilteringIgnore();
+    const defaultFileIgnores =
+      this.config.getFileFilteringOptions() ?? DEFAULT_FILE_FILTERING_OPTIONS;
 
-    const fileFilteringIgnores = {
+    const fileFilteringOptions = {
       respectGitIgnore:
-        params.file_filtering_ignores?.respect_git_ignore ??
+        params.file_filtering_options?.respect_git_ignore ??
         defaultFileIgnores.respectGitIgnore, // Use the property from the returned object
       respectGeminiIgnore:
-        params.file_filtering_ignores?.respect_gemini_ignore ??
+        params.file_filtering_options?.respect_gemini_ignore ??
         defaultFileIgnores.respectGeminiIgnore, // Use the property from the returned object
     };
     // Get centralized file discovery service
@@ -319,26 +323,26 @@ Use this tool when the user's query implies needing the content of several files
         signal,
       });
 
-      const gitFilteredEntries = fileFilteringIgnores.respectGitIgnore
+      const gitFilteredEntries = fileFilteringOptions.respectGitIgnore
         ? fileDiscovery
             .filterFiles(
               entries.map((p) => path.relative(toolBaseDir, p)),
               {
-                respectGitIgnore: fileFilteringIgnores.respectGitIgnore,
-                respectGeminiIgnore: fileFilteringIgnores.respectGeminiIgnore,
+                respectGitIgnore: fileFilteringOptions.respectGitIgnore,
+                respectGeminiIgnore: fileFilteringOptions.respectGeminiIgnore,
               },
             )
             .map((p) => path.resolve(toolBaseDir, p))
         : entries;
 
       // Apply gemini ignore filtering if enabled
-      const finalFilteredEntries = fileFilteringIgnores.respectGeminiIgnore
+      const finalFilteredEntries = fileFilteringOptions.respectGeminiIgnore
         ? fileDiscovery
             .filterFiles(
               gitFilteredEntries.map((p) => path.relative(toolBaseDir, p)),
               {
-                respectGitIgnore: fileFilteringIgnores.respectGitIgnore,
-                respectGeminiIgnore: fileFilteringIgnores.respectGeminiIgnore,
+                respectGitIgnore: fileFilteringOptions.respectGitIgnore,
+                respectGeminiIgnore: fileFilteringOptions.respectGeminiIgnore,
               },
             )
             .map((p) => path.resolve(toolBaseDir, p))
@@ -359,7 +363,7 @@ Use this tool when the user's query implies needing the content of several files
 
         // Check if this file was filtered out by git ignore
         if (
-          fileFilteringIgnores.respectGitIgnore &&
+          fileFilteringOptions.respectGitIgnore &&
           !gitFilteredEntries.includes(absoluteFilePath)
         ) {
           gitIgnoredCount++;
@@ -368,7 +372,7 @@ Use this tool when the user's query implies needing the content of several files
 
         // Check if this file was filtered out by gemini ignore
         if (
-          fileFilteringIgnores.respectGeminiIgnore &&
+          fileFilteringOptions.respectGeminiIgnore &&
           !finalFilteredEntries.includes(absoluteFilePath)
         ) {
           geminiIgnoredCount++;

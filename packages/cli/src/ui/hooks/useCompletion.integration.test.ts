@@ -14,7 +14,7 @@ import { CommandContext, SlashCommand } from '../commands/types.js';
 import { Config, FileDiscoveryService } from '@google/gemini-cli-core';
 
 interface MockConfig {
-  getFileFilteringIgnore: () => {
+  getFileFilteringOptions: () => {
     respectGitIgnore: boolean;
     respectGeminiIgnore: boolean;
   };
@@ -119,7 +119,7 @@ describe('useCompletion git-aware filtering integration', () => {
     } as unknown as Mocked<FileDiscoveryService>;
 
     mockConfig = {
-      getFileFilteringIgnore: vi.fn(() => ({
+      getFileFilteringOptions: vi.fn(() => ({
         respectGitIgnore: true,
         respectGeminiIgnore: true,
       })),
