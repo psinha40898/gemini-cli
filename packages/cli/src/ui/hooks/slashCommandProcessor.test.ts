@@ -103,7 +103,6 @@ describe('useSlashCommandProcessor', () => {
   let mockClearItems: ReturnType<typeof vi.fn>;
   let mockLoadHistory: ReturnType<typeof vi.fn>;
   let mockRefreshStatic: ReturnType<typeof vi.fn>;
-  let mockSetShowHelp: ReturnType<typeof vi.fn>;
   let mockOnDebugMessage: ReturnType<typeof vi.fn>;
   let mockOpenThemeDialog: ReturnType<typeof vi.fn>;
   let mockOpenAuthDialog: ReturnType<typeof vi.fn>;
@@ -134,7 +133,6 @@ describe('useSlashCommandProcessor', () => {
     mockClearItems = vi.fn();
     mockLoadHistory = vi.fn();
     mockRefreshStatic = vi.fn();
-    mockSetShowHelp = vi.fn();
     mockOnDebugMessage = vi.fn();
     mockOpenThemeDialog = vi.fn();
     mockOpenAuthDialog = vi.fn();
@@ -191,7 +189,6 @@ describe('useSlashCommandProcessor', () => {
         mockClearItems,
         mockLoadHistory,
         mockRefreshStatic,
-        mockSetShowHelp,
         mockOnDebugMessage,
         mockOpenThemeDialog,
         mockOpenAuthDialog,
@@ -401,7 +398,7 @@ describe('useSlashCommandProcessor', () => {
     it('should return "handled" when a new command returns a dialog action', async () => {
       const mockAction = vi.fn().mockResolvedValue({
         type: 'dialog',
-        dialog: 'help',
+        dialog: 'theme',
       });
       const newCommand: SlashCommand = { name: 'test', action: mockAction };
       const mockLoader = async () => [newCommand];
@@ -420,7 +417,6 @@ describe('useSlashCommandProcessor', () => {
       const commandResult = await result.current.handleSlashCommand('/test');
 
       expect(mockAction).toHaveBeenCalledTimes(1);
-      expect(mockSetShowHelp).toHaveBeenCalledWith(true);
       expect(commandResult).toEqual({ type: 'handled' });
     });
 
