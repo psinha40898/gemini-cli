@@ -693,6 +693,32 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
   // Arbitrary threshold to ensure that items in the static area are large
   // enough but not too large to make the terminal hard to use.
   const staticAreaMaxItemHeight = Math.max(terminalHeight * 4, 100);
+
+  const staticItems = [
+    <Box flexDirection="column" key="header">
+      {!settings.merged.hideBanner && <Header terminalWidth={terminalWidth} version={version} nightly={nightly} />}
+      {!settings.merged.hideTips && <Tips config={config} />}
+    </Box>,
+    ...history.map((h) => (
+      <HistoryItemDisplay
+        terminalWidth={mainAreaWidth}
+        availableTerminalHeight={staticAreaMaxItemHeight}
+        key={h.id}
+        item={h}
+        isPending={false}
+        config={config}
+      />
+    )),
+  ]
+
+  // Only add help to static items when it should be shown
+  if (showHelp) {
+    staticItems.push(
+      <Box key="help">
+        <Help commands={slashCommands} />
+      </Box>,
+    )
+  }
   return (
     <StreamingContext.Provider value={streamingState}>
       <Box flexDirection="column" marginBottom={1} width="90%">
@@ -712,28 +738,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
          */}
         <Static
           key={staticKey}
-          items={[
-            <Box flexDirection="column" key="header">
-              {!settings.merged.hideBanner && (
-                <Header
-                  terminalWidth={terminalWidth}
-                  version={version}
-                  nightly={nightly}
-                />
-              )}
-              {!settings.merged.hideTips && <Tips config={config} />}
-            </Box>,
-            ...history.map((h) => (
-              <HistoryItemDisplay
-                terminalWidth={mainAreaWidth}
-                availableTerminalHeight={staticAreaMaxItemHeight}
-                key={h.id}
-                item={h}
-                isPending={false}
-                config={config}
-              />
-            )),
-          ]}
+          items={staticItems}
         >
           {(item) => item}
         </Static>
@@ -758,7 +763,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
           </Box>
         </OverflowProvider>
 
-        {showHelp && <Help commands={slashCommands} />}
+
 
         <Box flexDirection="column" ref={mainControlsRef}>
           {startupWarnings.length > 0 && (
