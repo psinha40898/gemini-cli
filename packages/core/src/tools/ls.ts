@@ -6,11 +6,12 @@
 
 import fs from 'fs';
 import path from 'path';
-import { BaseTool, ToolResult } from './tools.js';
+import { BaseTool, Icon, ToolResult } from './tools.js';
 import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import { makeRelative, shortenPath } from '../utils/paths.js';
 import { Config, DEFAULT_FILE_FILTERING_OPTIONS } from '../config/config.js';
+import { isWithinRoot } from '../utils/fileUtils.js';
 
 /**
  * Parameters for the LS tool
@@ -71,18 +72,12 @@ export interface FileEntry {
 export class LSTool extends BaseTool<LSToolParams, ToolResult> {
   static readonly Name = 'list_directory';
 
-  /**
-   * Creates a new instance of the LSLogic
-   * @param rootDirectory Root directory to ground this tool in. All operations will be restricted to this directory.
-   */
-  constructor(
-    private rootDirectory: string,
-    private config: Config,
-  ) {
+  constructor(private config: Config) {
     super(
       LSTool.Name,
       'ReadFolder',
       'Lists the names of files and subdirectories directly within a specified directory path. Can optionally ignore entries matching provided glob patterns.',
+      Icon.Folder,
       {
         properties: {
           path: {
@@ -119,27 +114,6 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
         type: Type.OBJECT,
       },
     );
-
-    // Set the root directory
-    this.rootDirectory = path.resolve(rootDirectory);
-  }
-
-  /**
-   * Checks if a path is within the root directory
-   * @param dirpath The path to check
-   * @returns True if the path is within the root directory, false otherwise
-   */
-  private isWithinRoot(dirpath: string): boolean {
-    const normalizedPath = path.normalize(dirpath);
-    const normalizedRoot = path.normalize(this.rootDirectory);
-    // Ensure the normalizedRoot ends with a path separator for proper path comparison
-    const rootWithSep = normalizedRoot.endsWith(path.sep)
-      ? normalizedRoot
-      : normalizedRoot + path.sep;
-    return (
-      normalizedPath === normalizedRoot ||
-      normalizedPath.startsWith(rootWithSep)
-    );
   }
 
   /**
@@ -155,8 +129,8 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
     if (!path.isAbsolute(params.path)) {
       return `Path must be absolute: ${params.path}`;
     }
-    if (!this.isWithinRoot(params.path)) {
-      return `Path must be within the root directory (${this.rootDirectory}): ${params.path}`;
+    if (!isWithinRoot(params.path, this.config.getTargetDir())) {
+      return `Path must be within the root directory (${this.config.getTargetDir()}): ${params.path}`;
     }
     return null;
   }
@@ -191,7 +165,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
    * @returns A string describing the file being read
    */
   getDescription(params: LSToolParams): string {
-    const relativePath = makeRelative(params.path, this.rootDirectory);
+    const relativePath = makeRelative(params.path, this.config.getTargetDir());
     return shortenPath(relativePath);
   }
 
@@ -274,7 +248,10 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
         }
 
         const fullPath = path.join(params.path, file);
-        const relativePath = path.relative(this.rootDirectory, fullPath);
+        const relativePath = path.relative(
+          this.config.getTargetDir(),
+          fullPath,
+        );
 
         // Check if this file should be ignored based on git or gemini ignore rules
         if (
