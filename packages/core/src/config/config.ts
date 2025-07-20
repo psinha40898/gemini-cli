@@ -76,7 +76,6 @@ export interface GeminiCLIExtension {
   version: string;
   isActive: boolean;
 }
-// In packages/core/src/config/config.ts, add this with the other interfaces
 export interface FileFilteringOptions {
   respectGitIgnore: boolean;
   respectGeminiIgnore: boolean;
@@ -493,13 +492,6 @@ export class Config {
   getFileFilteringRespectGeminiIgnore(): boolean {
     return this.fileFiltering.respectGeminiIgnore;
   }
-
-  // getFileFilteringIgnore(): FileFilteringOptions {
-  //   return {
-  //     respectGitIgnore: this.fileFiltering.respectGitIgnore,
-  //     respectGeminiIgnore: this.fileFiltering.respectGeminiIgnore,
-  //   };
-  // }
 
   getFileFilteringOptions(): FileFilteringOptions {
     return {
