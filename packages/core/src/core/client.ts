@@ -49,6 +49,12 @@ function isThinkingSupported(model: string) {
   return false;
 }
 
+function isThinkingDefault(model: string) {
+  if (model.startsWith('gemini-2.5-flash-lite')) return false;
+  if (model.startsWith('gemini-2.5')) return true;
+  return false;
+}
+
 /**
  * Returns the index of the content after the fraction of the total characters in the history.
  *
@@ -245,13 +251,13 @@ export class GeminiClient {
     try {
       const userMemory = this.config.getUserMemory();
       const systemInstruction = getCoreSystemPrompt(userMemory);
-      const generateContentConfigWithThinking = isThinkingSupported(
-        this.config.getModel(),
-      )
+      const model = this.config.getModel();
+      const generateContentConfigWithThinking = isThinkingSupported(model)
         ? {
             ...this.generateContentConfig,
             thinkingConfig: {
               includeThoughts: true,
+              ...(!isThinkingDefault(model) ? { thinkingBudget: -1 } : {}),
             },
           }
         : this.generateContentConfig;
