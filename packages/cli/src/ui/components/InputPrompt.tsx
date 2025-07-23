@@ -25,6 +25,7 @@ import {
   cleanupOldClipboardImages,
 } from '../utils/clipboardUtils.js';
 import * as path from 'path';
+import { getTersePath } from '../utils/formatUtils.js';
 
 export interface InputPromptProps {
   buffer: TextBuffer;
@@ -40,6 +41,19 @@ export interface InputPromptProps {
   suggestionsWidth: number;
   shellModeActive: boolean;
   setShellModeActive: (value: boolean) => void;
+}
+
+function formatLine(line: string): string {
+  // This regex finds all occurrences of @ followed by a path, handling escaped spaces.
+  // It looks for a word starting with @, followed by non-whitespace characters.
+  // The path can contain escaped spaces (\\ ).
+  const regex = /@((?:(?:\\ )|[^\s])(?:(?:\\ )|[^\s])+)/g;
+
+  return line.replace(regex, (match, filePath) => {
+    // Unescape spaces for path processing, but use the original match for replacement context.
+    const cleanPath = filePath.replace(/\\ /g, ' ');
+    return getTersePath(cleanPath);
+  });
 }
 
 export const InputPrompt: React.FC<InputPromptProps> = ({
@@ -498,8 +512,9 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
             )
           ) : (
             linesToRender.map((lineText, visualIdxInRenderedSet) => {
+              const formattedLine = formatLine(lineText);
               const cursorVisualRow = cursorVisualRowAbsolute - scrollVisualRow;
-              let display = cpSlice(lineText, 0, inputWidth);
+              let display = cpSlice(formattedLine, 0, inputWidth);
               const currentVisualWidth = stringWidth(display);
               if (currentVisualWidth < inputWidth) {
                 display = display + ' '.repeat(inputWidth - currentVisualWidth);
