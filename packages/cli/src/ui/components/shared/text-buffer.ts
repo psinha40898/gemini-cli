@@ -174,7 +174,6 @@ function calculateVisualLayout(
   const logicalToVisualMap: Array<Array<[number, number]>> = [];
   const visualToLogicalMap: Array<[number, number]> = [];
   let currentVisualCursor: [number, number] = [0, 0];
-
   const imagePathRegex =
     /@((?:(?:\\ )|[^\[\]\s])+\.(?:png|jpg|jpeg|gif|webp|svg|bmp))/i;
 
@@ -202,31 +201,42 @@ function calculateVisualLayout(
       let currentChunkVisualWidth = 0;
       let numCodePointsInChunk = 0;
 
+      const codePointsInLogLine = toCodePoints(logLine);
+
       while (currentPosInLogLine + numCodePointsInChunk < cpLen(logLine)) {
-        const remaining = cpSlice(
+        const remainingText = codePointsInLogLine
+          .slice(currentPosInLogLine + numCodePointsInChunk)
+          .join('');
+        const imageMatch = remainingText.match(imagePathRegex);
+
+        if (imageMatch && imageMatch.index === 0) {
+          // Handle image path as a single token
+          const imagePath = imageMatch[0];
+          const tersePath = getTersePath(imagePath);
+          const tersePathWidth = stringWidth(tersePath);
+
+          if (currentChunkVisualWidth + tersePathWidth > viewportWidth) {
+            // If image path doesn't fit in current line, break here
+            if (currentChunkVisualWidth > 0) {
+              break;
+            }
+            // If it's the only thing on the line, take it anyway
+          }
+
+          currentChunk += tersePath;
+          currentChunkVisualWidth += tersePathWidth;
+          numCodePointsInChunk += imagePath.length;
+          continue;
+        }
+
+        // Regular character processing
+        const token = cpSlice(
           logLine,
           currentPosInLogLine + numCodePointsInChunk,
+          currentPosInLogLine + numCodePointsInChunk + 1,
         );
-        const match = remaining.match(imagePathRegex);
-
-        let token: string;
-        let tokenLogicalLength: number;
-        let tokenVisualWidth: number;
-
-        if (match && match.index === 0) {
-          tokenLogicalLength = cpLen(match[0]);
-          const tersePath = getTersePath(match[0]);
-          token = tersePath;
-          tokenVisualWidth = stringWidth(tersePath);
-        } else {
-          token = cpSlice(
-            logLine,
-            currentPosInLogLine + numCodePointsInChunk,
-            currentPosInLogLine + numCodePointsInChunk + 1,
-          );
-          tokenLogicalLength = 1;
-          tokenVisualWidth = stringWidth(token);
-        }
+        const tokenLogicalLength = 1;
+        const tokenVisualWidth = stringWidth(token);
 
         if (currentChunkVisualWidth + tokenVisualWidth > viewportWidth) {
           if (currentChunkVisualWidth === 0) {
