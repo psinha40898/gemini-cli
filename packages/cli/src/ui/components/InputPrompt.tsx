@@ -47,7 +47,7 @@ function formatLine(line: string): string {
   // This regex finds all occurrences of @ followed by a path, handling escaped spaces.
   // It looks for a word starting with @, followed by non-whitespace characters.
   // The path can contain escaped spaces (\\ ).
-  const regex = /@((?:(?:\ )|[^\s])+\.(?:png|jpg|jpeg|gif|webp|svg|bmp))/gi;
+  const regex = /@((?:(?:\ )|[^@\s])+\.(?:png|jpg|jpeg|gif|webp|svg|bmp))/gi;
 
   return line.replace(regex, (match, filePath) => {
     // Unescape spaces for path processing, but use the original match for replacement context.

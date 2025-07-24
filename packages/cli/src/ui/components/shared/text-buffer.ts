@@ -167,133 +167,244 @@ function calculateVisualLayout(
 ): {
   visualLines: string[];
   visualCursor: [number, number];
-  logicalToVisualMap: Array<Array<[number, number]>>; // For each logical line, an array of [visualLineIndex, startColInLogical]
-  visualToLogicalMap: Array<[number, number]>; // For each visual line, its [logicalLineIndex, startColInLogical]
+  logicalToVisualMap: Array<Array<[number, number]>>;
+  visualToLogicalMap: Array<[number, number]>;
 } {
   const visualLines: string[] = [];
   const logicalToVisualMap: Array<Array<[number, number]>> = [];
   const visualToLogicalMap: Array<[number, number]> = [];
   let currentVisualCursor: [number, number] = [0, 0];
+
+  // NEW: Image path detection regex
   const imagePathRegex =
-    /@((?:(?:\\ )|[^\[\]\s])+\.(?:png|jpg|jpeg|gif|webp|svg|bmp))/i;
+    /@((?:(?:\\ )|[^@\[\]\s])+\.(?:png|jpg|jpeg|gif|webp|svg|bmp))/i;
 
   logicalLines.forEach((logLine, logIndex) => {
     logicalToVisualMap[logIndex] = [];
     if (logLine.length === 0) {
+      // Handle empty logical line (unchanged from func_a)
       logicalToVisualMap[logIndex].push([visualLines.length, 0]);
       visualToLogicalMap.push([logIndex, 0]);
       visualLines.push('');
       if (logIndex === logicalCursor[0] && logicalCursor[1] === 0) {
         currentVisualCursor = [visualLines.length - 1, 0];
       }
-      return;
-    }
-
-    let currentPosInLogLine = 0;
-    while (currentPosInLogLine < cpLen(logLine)) {
-      logicalToVisualMap[logIndex].push([
-        visualLines.length,
-        currentPosInLogLine,
-      ]);
-      visualToLogicalMap.push([logIndex, currentPosInLogLine]);
-
-      let currentChunk = '';
-      let currentChunkVisualWidth = 0;
-      let numCodePointsInChunk = 0;
-
+    } else {
+      // Non-empty logical line
+      let currentPosInLogLine = 0;
       const codePointsInLogLine = toCodePoints(logLine);
 
-      while (currentPosInLogLine + numCodePointsInChunk < cpLen(logLine)) {
-        const remainingText = codePointsInLogLine
-          .slice(currentPosInLogLine + numCodePointsInChunk)
-          .join('');
-        const imageMatch = remainingText.match(imagePathRegex);
+      while (currentPosInLogLine < codePointsInLogLine.length) {
+        let currentChunk = '';
+        let currentChunkVisualWidth = 0;
+        let numCodePointsInChunk = 0;
+        let lastWordBreakPoint = -1;
+        let numCodePointsAtLastWordBreak = 0;
 
-        if (imageMatch && imageMatch.index === 0) {
-          // Handle image path as a single token
-          const imagePath = imageMatch[0];
-          const tersePath = getTersePath(imagePath);
-          const tersePathWidth = stringWidth(tersePath);
+        // Iterate through code points to build the current visual line (chunk)
+        for (let i = currentPosInLogLine; i < codePointsInLogLine.length; i++) {
+          // NEW: Check for image path at current position
+          const remainingText = codePointsInLogLine.slice(i).join('');
+          const imageMatch = remainingText.match(imagePathRegex);
 
-          if (currentChunkVisualWidth + tersePathWidth > viewportWidth) {
-            // If image path doesn't fit in current line, break here
-            if (currentChunkVisualWidth > 0) {
+          if (imageMatch && imageMatch.index === 0) {
+            // NEW: Handle image path as a single token
+            const imagePath = imageMatch[0];
+            const tersePath = getTersePath(imagePath);
+            const tersePathWidth = stringWidth(tersePath);
+
+            if (currentChunkVisualWidth + tersePathWidth > viewportWidth) {
+              // Image path would exceed viewport width
+              if (
+                lastWordBreakPoint !== -1 &&
+                numCodePointsAtLastWordBreak > 0 &&
+                currentPosInLogLine + numCodePointsAtLastWordBreak < i
+              ) {
+                // Use word break point if available
+                currentChunk = codePointsInLogLine
+                  .slice(
+                    currentPosInLogLine,
+                    currentPosInLogLine + numCodePointsAtLastWordBreak,
+                  )
+                  .join('')
+                  .replace(imagePathRegex, (match) => getTersePath(match)); // NEW: Apply terse formatting
+                numCodePointsInChunk = numCodePointsAtLastWordBreak;
+              } else {
+                // No word break available
+                if (currentChunkVisualWidth === 0) {
+                  // Take the image path anyway if it's the only thing on the line
+                  currentChunk = tersePath;
+                  numCodePointsInChunk = imagePath.length;
+                }
+              }
               break;
             }
-            // If it's the only thing on the line, take it anyway
+
+            // Image path fits, add it
+            currentChunk += tersePath;
+            currentChunkVisualWidth += tersePathWidth;
+            numCodePointsInChunk += imagePath.length;
+            i += imagePath.length - 1; // Skip ahead (loop will increment by 1)
+            continue;
           }
 
-          currentChunk += tersePath;
-          currentChunkVisualWidth += tersePathWidth;
-          numCodePointsInChunk += imagePath.length;
-          continue;
-        }
+          // Regular character processing (unchanged from func_a)
+          const char = codePointsInLogLine[i];
+          const charVisualWidth = stringWidth(char);
 
-        // Regular character processing
-        const token = cpSlice(
-          logLine,
-          currentPosInLogLine + numCodePointsInChunk,
-          currentPosInLogLine + numCodePointsInChunk + 1,
-        );
-        const tokenLogicalLength = 1;
-        const tokenVisualWidth = stringWidth(token);
-
-        if (currentChunkVisualWidth + tokenVisualWidth > viewportWidth) {
-          if (currentChunkVisualWidth === 0) {
-            currentChunk = token;
-            numCodePointsInChunk += tokenLogicalLength;
+          if (currentChunkVisualWidth + charVisualWidth > viewportWidth) {
+            if (
+              lastWordBreakPoint !== -1 &&
+              numCodePointsAtLastWordBreak > 0 &&
+              currentPosInLogLine + numCodePointsAtLastWordBreak < i
+            ) {
+              currentChunk = codePointsInLogLine
+                .slice(
+                  currentPosInLogLine,
+                  currentPosInLogLine + numCodePointsAtLastWordBreak,
+                )
+                .join('')
+                .replace(imagePathRegex, (match) => getTersePath(match)); // NEW: Apply terse formatting
+              numCodePointsInChunk = numCodePointsAtLastWordBreak;
+            } else {
+              if (
+                numCodePointsInChunk === 0 &&
+                charVisualWidth > viewportWidth
+              ) {
+                currentChunk = char;
+                numCodePointsInChunk = 1;
+              } else if (
+                numCodePointsInChunk === 0 &&
+                charVisualWidth <= viewportWidth
+              ) {
+                // Handle edge case
+              }
+            }
+            break;
           }
-          break;
+
+          currentChunk += char;
+          currentChunkVisualWidth += charVisualWidth;
+          numCodePointsInChunk++;
+
+          // Check for word break opportunity (unchanged from func_a)
+          if (char === ' ') {
+            lastWordBreakPoint = i;
+            numCodePointsAtLastWordBreak = numCodePointsInChunk - 1;
+          }
         }
 
-        currentChunk += token;
-        currentChunkVisualWidth += tokenVisualWidth;
-        numCodePointsInChunk += tokenLogicalLength;
-      }
+        // Handle edge cases (unchanged from func_a)
+        if (
+          numCodePointsInChunk === 0 &&
+          currentPosInLogLine < codePointsInLogLine.length
+        ) {
+          const firstChar = codePointsInLogLine[currentPosInLogLine];
+          currentChunk = firstChar;
+          numCodePointsInChunk = 1;
+        }
 
-      visualLines.push(currentChunk);
-      currentPosInLogLine += numCodePointsInChunk;
-    }
+        if (
+          numCodePointsInChunk === 0 &&
+          currentPosInLogLine < codePointsInLogLine.length
+        ) {
+          currentChunk = codePointsInLogLine[currentPosInLogLine];
+          numCodePointsInChunk = 1;
+        }
 
-    if (logIndex === logicalCursor[0]) {
-      const cursorLogCol = logicalCursor[1];
-      let found = false;
-      for (let i = 0; i < logicalToVisualMap[logIndex].length; i++) {
-        const [visualLineIndex, logStartCol] = logicalToVisualMap[logIndex][i];
-        const nextLogStartCol =
-          i + 1 < logicalToVisualMap[logIndex].length
-            ? logicalToVisualMap[logIndex][i + 1][1]
-            : cpLen(logLine);
+        logicalToVisualMap[logIndex].push([
+          visualLines.length,
+          currentPosInLogLine,
+        ]);
+        visualToLogicalMap.push([logIndex, currentPosInLogLine]);
+        visualLines.push(currentChunk);
 
-        if (cursorLogCol >= logStartCol && cursorLogCol <= nextLogStartCol) {
-          const logicalPart = cpSlice(logLine, logStartCol, cursorLogCol);
-          const formattedPart = logicalPart.replace(
-            /@((?:(?:\\ )|[^\s])+\.(?:png|jpg|jpeg|gif|webp|svg|bmp))/gi,
-            (match) => getTersePath(match),
-          );
-          currentVisualCursor = [visualLineIndex, stringWidth(formattedPart)];
-          found = true;
-          break;
+        // Cursor mapping logic (modified to handle terse paths)
+        if (logIndex === logicalCursor[0]) {
+          const cursorLogCol = logicalCursor[1];
+          if (
+            cursorLogCol >= currentPosInLogLine &&
+            cursorLogCol < currentPosInLogLine + numCodePointsInChunk
+          ) {
+            // NEW: Calculate visual position considering terse formatting
+            const logicalPart = cpSlice(
+              logLine,
+              currentPosInLogLine,
+              cursorLogCol,
+            );
+            const formattedPart = logicalPart.replace(imagePathRegex, (match) =>
+              getTersePath(match),
+            );
+            currentVisualCursor = [
+              visualLines.length - 1,
+              stringWidth(formattedPart),
+            ];
+          } else if (
+            cursorLogCol === currentPosInLogLine + numCodePointsInChunk &&
+            numCodePointsInChunk > 0
+          ) {
+            currentVisualCursor = [
+              visualLines.length - 1,
+              stringWidth(currentChunk),
+            ];
+          }
+        }
+
+        const logicalStartOfThisChunk = currentPosInLogLine;
+        currentPosInLogLine += numCodePointsInChunk;
+
+        // Skip trailing space (unchanged from func_a)
+        if (
+          logicalStartOfThisChunk + numCodePointsInChunk <
+            codePointsInLogLine.length &&
+          currentPosInLogLine < codePointsInLogLine.length &&
+          codePointsInLogLine[currentPosInLogLine] === ' '
+        ) {
+          currentPosInLogLine++;
         }
       }
-      if (!found && logicalToVisualMap[logIndex].length > 0) {
-        const [lastVisualLine, lastLogStart] =
-          logicalToVisualMap[logIndex][logicalToVisualMap[logIndex].length - 1];
-        if (cursorLogCol > lastLogStart) {
-          const logicalPart = cpSlice(logLine, lastLogStart, cursorLogCol);
-          const formattedPart = logicalPart.replace(
-            /@((?:(?:\\ )|[^\s])+\.(?:png|jpg|jpeg|gif|webp|svg|bmp))/gi,
-            (match) => getTersePath(match),
-          );
-          currentVisualCursor = [lastVisualLine, stringWidth(formattedPart)];
+
+      // Handle cursor at end of logical line (modified for terse formatting)
+      if (
+        logIndex === logicalCursor[0] &&
+        logicalCursor[1] === codePointsInLogLine.length
+      ) {
+        const lastVisualLineIdx = visualLines.length - 1;
+        if (
+          lastVisualLineIdx >= 0 &&
+          visualLines[lastVisualLineIdx] !== undefined
+        ) {
+          currentVisualCursor = [
+            lastVisualLineIdx,
+            stringWidth(visualLines[lastVisualLineIdx]),
+          ];
         }
       }
     }
   });
 
-  if (logicalLines.length === 1 && logicalLines[0] === '') {
-    if (visualLines.length === 0) visualLines.push('');
+  // Handle empty text cases (unchanged from func_a)
+  if (
+    logicalLines.length === 0 ||
+    (logicalLines.length === 1 && logicalLines[0] === '')
+  ) {
+    if (visualLines.length === 0) {
+      visualLines.push('');
+      if (!logicalToVisualMap[0]) logicalToVisualMap[0] = [];
+      logicalToVisualMap[0].push([0, 0]);
+      visualToLogicalMap.push([0, 0]);
+    }
     currentVisualCursor = [0, 0];
+  } else if (
+    logicalCursor[0] === logicalLines.length - 1 &&
+    logicalCursor[1] === cpLen(logicalLines[logicalLines.length - 1]) &&
+    visualLines.length > 0
+  ) {
+    const lastVisLineIdx = visualLines.length - 1;
+    currentVisualCursor = [
+      lastVisLineIdx,
+      stringWidth(visualLines[lastVisLineIdx]),
+    ];
   }
 
   return {
