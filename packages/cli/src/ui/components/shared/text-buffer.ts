@@ -175,7 +175,8 @@ function calculateVisualLayout(
   const visualToLogicalMap: Array<[number, number]> = [];
   let currentVisualCursor: [number, number] = [0, 0];
 
-  const imagePathRegex = /@((?:(?:\\ )|[^\[\]\s])+\.(?:png|jpg|jpeg|gif|webp|svg|bmp))/i;
+  const imagePathRegex =
+    /@((?:(?:\\ )|[^\[\]\s])+\.(?:png|jpg|jpeg|gif|webp|svg|bmp))/i;
 
   logicalLines.forEach((logLine, logIndex) => {
     logicalToVisualMap[logIndex] = [];
