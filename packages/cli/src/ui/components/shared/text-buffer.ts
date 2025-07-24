@@ -175,7 +175,7 @@ function calculateVisualLayout(
   const visualToLogicalMap: Array<[number, number]> = [];
   let currentVisualCursor: [number, number] = [0, 0];
 
-  const imagePathRegex = /@((?:(?:\\ )|[^\s])+)/;
+  const imagePathRegex = /@((?:(?:\\ )|[^\[\]\s])+\.(?:png|jpg|jpeg|gif|webp|svg|bmp))/i;
 
   logicalLines.forEach((logLine, logIndex) => {
     logicalToVisualMap[logIndex] = [];
@@ -257,7 +257,7 @@ function calculateVisualLayout(
         if (cursorLogCol >= logStartCol && cursorLogCol <= nextLogStartCol) {
           const logicalPart = cpSlice(logLine, logStartCol, cursorLogCol);
           const formattedPart = logicalPart.replace(
-            /@((?:(?:\\ )|[^\s])+)/g,
+            /@((?:(?:\\ )|[^\s])+\.(?:png|jpg|jpeg|gif|webp|svg|bmp))/gi,
             (match) => getTersePath(match),
           );
           currentVisualCursor = [visualLineIndex, stringWidth(formattedPart)];
@@ -271,7 +271,7 @@ function calculateVisualLayout(
         if (cursorLogCol > lastLogStart) {
           const logicalPart = cpSlice(logLine, lastLogStart, cursorLogCol);
           const formattedPart = logicalPart.replace(
-            /@((?:(?:\\ )|[^\s])+)/g,
+            /@((?:(?:\\ )|[^\s])+\.(?:png|jpg|jpeg|gif|webp|svg|bmp))/gi,
             (match) => getTersePath(match),
           );
           currentVisualCursor = [lastVisualLine, stringWidth(formattedPart)];
