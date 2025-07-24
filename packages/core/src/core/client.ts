@@ -40,7 +40,10 @@ import {
   createContentGenerator,
 } from './contentGenerator.js';
 import { ProxyAgent, setGlobalDispatcher } from 'undici';
-import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
+import {
+  DEFAULT_GEMINI_FLASH_MODEL,
+  DEFAULT_THINKING_MODE,
+} from '../config/models.js';
 import { LoopDetectionService } from '../services/loopDetectionService.js';
 import { ideContext } from '../services/ideContext.js';
 
@@ -257,7 +260,9 @@ export class GeminiClient {
             ...this.generateContentConfig,
             thinkingConfig: {
               includeThoughts: true,
-              ...(!isThinkingDefault(model) ? { thinkingBudget: -1 } : {}),
+              ...(!isThinkingDefault(model)
+                ? { thinkingBudget: DEFAULT_THINKING_MODE }
+                : {}),
             },
           }
         : this.generateContentConfig;
