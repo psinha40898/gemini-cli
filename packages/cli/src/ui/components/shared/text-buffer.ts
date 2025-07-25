@@ -13,7 +13,7 @@ import { useState, useCallback, useEffect, useMemo, useReducer } from 'react';
 import stringWidth from 'string-width';
 import { unescapePath } from '@google/gemini-cli-core';
 import { toCodePoints, cpLen, cpSlice } from '../../utils/textUtils.js';
-
+import { getTersePath } from '../../utils/clipboardUtils.js';
 export type Direction =
   | 'left'
   | 'right'
@@ -74,6 +74,7 @@ interface UseTextBufferProps {
   onChange?: (text: string) => void; // Callback for when text changes
   isValidPath: (path: string) => boolean;
   shellModeActive?: boolean; // Whether the text buffer is in shell mode
+
 }
 
 interface UndoHistoryEntry {
@@ -174,7 +175,20 @@ function calculateVisualLayout(
   const visualToLogicalMap: Array<[number, number]> = [];
   let currentVisualCursor: [number, number] = [0, 0];
 
-  logicalLines.forEach((logLine, logIndex) => {
+ const imageMap = updateTransformations(logicalLines)
+console.log(imageMap);
+
+
+console.log("l cursor:", logicalCursor)
+
+console.log("l lines:", logicalLines)
+let newLogicalLines = applyTransformations(logicalLines, imageMap)
+const updateMap = updateTransformations(newLogicalLines)
+
+
+console.log(newLogicalLines);
+
+  newLogicalLines.forEach((logLine, logIndex) => {
     logicalToVisualMap[logIndex] = [];
     if (logLine.length === 0) {
       // Handle empty logical line
@@ -344,8 +358,8 @@ function calculateVisualLayout(
 
   // If the entire logical text was empty, ensure there's one empty visual line.
   if (
-    logicalLines.length === 0 ||
-    (logicalLines.length === 1 && logicalLines[0] === '')
+    newLogicalLines.length === 0 ||
+    (newLogicalLines.length === 1 && newLogicalLines[0] === '')
   ) {
     if (visualLines.length === 0) {
       visualLines.push('');
@@ -358,8 +372,8 @@ function calculateVisualLayout(
   // Handle cursor at the very end of the text (after all processing)
   // This case might be covered by the loop end condition now, but kept for safety.
   else if (
-    logicalCursor[0] === logicalLines.length - 1 &&
-    logicalCursor[1] === cpLen(logicalLines[logicalLines.length - 1]) &&
+    logicalCursor[0] === newLogicalLines.length - 1 &&
+    logicalCursor[1] === cpLen(newLogicalLines[newLogicalLines.length - 1]) &&
     visualLines.length > 0
   ) {
     const lastVisLineIdx = visualLines.length - 1;
@@ -376,6 +390,9 @@ function calculateVisualLayout(
 
 // --- Start of reducer logic ---
 
+type StringPair = [string, string];
+type IntToStringPairMap = Record<number, StringPair>;
+
 interface TextBufferState {
   lines: string[];
   cursorRow: number;
@@ -383,6 +400,7 @@ interface TextBufferState {
   preferredCol: number | null; // This is visual preferred col
   undoStack: UndoHistoryEntry[];
   redoStack: UndoHistoryEntry[];
+  logicalToTerseMap?: IntToStringPairMap
   clipboard: string | null;
   selectionAnchor: [number, number] | null;
   viewportWidth: number;
@@ -420,6 +438,76 @@ type TextBufferAction =
   | { type: 'move_to_offset'; payload: { offset: number } }
   | { type: 'create_undo_snapshot' }
   | { type: 'set_viewport_width'; payload: number };
+  type IntToRangeMap = {
+    [key: number]: Array<[number, number]>;  // Maps line number to array of [start, end) ranges
+  };
+  //scans the state
+  //returns array of logical lines
+  function updateTransformations(lines: string[]): IntToRangeMap {
+    const imagePathRegex = /@((?:(?:\\ )|[^@\[\]\s])+\.(?:png|jpg|jpeg|gif|webp|svg|bmp))/gi;
+    const newTransformations: IntToRangeMap = {};
+  
+    lines.forEach((line, rowIndex) => {
+      let match;
+      // Reset lastIndex in case the regex has the global flag
+      imagePathRegex.lastIndex = 0;
+      
+      while ((match = imagePathRegex.exec(line)) !== null) {
+        const fullMatch = match[0]; // The full match including @
+        const path = match[1];      // Just the path part
+        const startIndex = match.index;
+        const endIndex = startIndex + fullMatch.length;
+        
+        // Store the start and end indices (1-based for the line)
+        if (!newTransformations[rowIndex]) {
+          newTransformations[rowIndex] = [];
+        }
+        // Store as [start, end) - end is exclusive
+        newTransformations[rowIndex].push([startIndex, endIndex]);
+      }
+    });
+  
+    return newTransformations;
+  }
+
+function applyTransformations(
+  lines: string[],
+  transformations: IntToRangeMap
+): string[] {
+  // Create a deep copy of the lines array to avoid mutating the original
+  const newLines = [...lines];
+
+  // Process transformations in reverse line order to prevent position shifts
+  const sortedLineNumbers = Object.keys(transformations)
+    .map(Number)
+    .sort((a, b) => b - a); // Sort in reverse order
+
+  for (const lineNumber of sortedLineNumbers) {
+    const line = newLines[lineNumber];
+    if (!line) continue;
+
+    // Process transformations in reverse order to prevent position shifts
+    const sortedRanges = [...(transformations[lineNumber] || [])].sort((a, b) => b[0] - a[0]);
+
+    let modifiedLine = line;
+    for (const [start, end] of sortedRanges) {
+      const originalPath = line.slice(start, end);
+      const tersePath = getTersePath(originalPath);
+      
+      // Replace the original path with the terse version
+      modifiedLine = 
+        modifiedLine.slice(0, start) + 
+        tersePath + 
+        modifiedLine.slice(end);
+    }
+
+    newLines[lineNumber] = modifiedLine;
+  }
+
+  return newLines;
+}
+
+
 
 export function textBufferReducer(
   state: TextBufferState,
@@ -440,6 +528,7 @@ export function textBufferReducer(
 
   const currentLine = (r: number): string => state.lines[r] ?? '';
   const currentLineLen = (r: number): number => cpLen(currentLine(r));
+  
 
   switch (action.type) {
     case 'set_text': {
@@ -548,6 +637,7 @@ export function textBufferReducer(
     case 'move': {
       const { dir } = action.payload;
       const { lines, cursorRow, cursorCol, viewportWidth } = state;
+
       const visualLayout = calculateVisualLayout(
         lines,
         [cursorRow, cursorCol],
@@ -783,6 +873,7 @@ export function textBufferReducer(
       const nextState = pushUndo(state);
       let end = cursorCol;
       while (end < arr.length && !isWordChar(arr[end])) end++;
+      //finding a nonWordchar is the end of a word
       while (end < arr.length && isWordChar(arr[end])) end++;
       const newLines = [...nextState.lines];
       newLines[cursorRow] =
@@ -964,6 +1055,7 @@ export function useTextBuffer({
   shellModeActive = false,
 }: UseTextBufferProps): TextBuffer {
   const initialState = useMemo((): TextBufferState => {
+
     const lines = initialText.split('\n');
     const [initialCursorRow, initialCursorCol] = calculateInitialCursorPosition(
       lines.length === 0 ? [''] : lines,
@@ -982,10 +1074,19 @@ export function useTextBuffer({
     };
   }, [initialText, initialCursorOffset, viewport.width]);
 
+
+
+
   const [state, dispatch] = useReducer(textBufferReducer, initialState);
+ 
   const { lines, cursorRow, cursorCol, preferredCol, selectionAnchor } = state;
 
   const text = useMemo(() => lines.join('\n'), [lines]);
+
+
+
+
+
 
   const visualLayout = useMemo(
     () =>

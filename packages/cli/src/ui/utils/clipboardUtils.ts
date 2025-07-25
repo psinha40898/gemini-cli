@@ -11,6 +11,14 @@ import * as path from 'path';
 
 const execAsync = promisify(exec);
 
+
+
+
+export function getTersePath(filePath: string): string {
+  const fileName = path.basename(filePath);
+  return `[Image ${fileName}]`;
+}
+
 /**
  * Checks if the system clipboard contains an image (macOS only for now)
  * @returns true if clipboard contains an image
