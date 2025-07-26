@@ -11,9 +11,6 @@ import * as path from 'path';
 
 const execAsync = promisify(exec);
 
-
-
-
 export function getTersePath(filePath: string): string {
   const fileName = path.basename(filePath);
   return `[Image ${fileName}]`;

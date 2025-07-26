@@ -1,4 +1,4 @@
-"use client"
+'use client';
 
 /**
  * @license
@@ -6,24 +6,32 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import stripAnsi from "strip-ansi"
-import { spawnSync } from "child_process"
-import fs from "fs"
-import os from "os"
-import pathMod from "path"
-import { useState, useCallback, useEffect, useMemo, useReducer } from "react"
-import stringWidth from "string-width"
-import { unescapePath } from "@google/gemini-cli-core"
-import { toCodePoints, cpLen, cpSlice } from "../../utils/textUtils.js"
-import { getTersePath } from "../../utils/clipboardUtils.js"
-export type Direction = "left" | "right" | "up" | "down" | "wordLeft" | "wordRight" | "home" | "end"
+import stripAnsi from 'strip-ansi';
+import { spawnSync } from 'child_process';
+import fs from 'fs';
+import os from 'os';
+import pathMod from 'path';
+import { useState, useCallback, useEffect, useMemo, useReducer } from 'react';
+import stringWidth from 'string-width';
+import { unescapePath } from '@google/gemini-cli-core';
+import { toCodePoints, cpLen, cpSlice } from '../../utils/textUtils.js';
+import { getTersePath } from '../../utils/clipboardUtils.js';
+export type Direction =
+  | 'left'
+  | 'right'
+  | 'up'
+  | 'down'
+  | 'wordLeft'
+  | 'wordRight'
+  | 'home'
+  | 'end';
 
 // Simple helper for word‑wise ops.
 function isWordChar(ch: string | undefined): boolean {
   if (ch === undefined) {
-    return false
+    return false;
   }
-  return !/[\s,.;!?]/.test(ch)
+  return !/[\s,.;!?]/.test(ch);
 }
 
 /**
@@ -33,138 +41,150 @@ function isWordChar(ch: string | undefined): boolean {
  * Control characters such as delete break terminal UI rendering.
  */
 function stripUnsafeCharacters(str: string): string {
-  const stripped = stripAnsi(str)
+  const stripped = stripAnsi(str);
   return toCodePoints(stripped)
     .filter((char) => {
-      if (char.length > 1) return false
-      const code = char.codePointAt(0)
+      if (char.length > 1) return false;
+      const code = char.codePointAt(0);
       if (code === undefined) {
-        return false
+        return false;
       }
-      const isUnsafe = code === 127 || (code <= 31 && code !== 13 && code !== 10)
-      return !isUnsafe
+      const isUnsafe =
+        code === 127 || (code <= 31 && code !== 13 && code !== 10);
+      return !isUnsafe;
     })
-    .join("")
+    .join('');
 }
 
 export interface Viewport {
-  height: number
-  width: number
+  height: number;
+  width: number;
 }
 
 function clamp(v: number, min: number, max: number): number {
-  return v < min ? min : v > max ? max : v
+  return v < min ? min : v > max ? max : v;
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
 
 interface UseTextBufferProps {
-  initialText?: string
-  initialCursorOffset?: number
-  viewport: Viewport // Viewport dimensions needed for scrolling
-  stdin?: NodeJS.ReadStream | null // For external editor
-  setRawMode?: (mode: boolean) => void // For external editor
-  onChange?: (text: string) => void // Callback for when text changes
-  isValidPath: (path: string) => boolean
-  shellModeActive?: boolean // Whether the text buffer is in shell mode
+  initialText?: string;
+  initialCursorOffset?: number;
+  viewport: Viewport; // Viewport dimensions needed for scrolling
+  stdin?: NodeJS.ReadStream | null; // For external editor
+  setRawMode?: (mode: boolean) => void; // For external editor
+  onChange?: (text: string) => void; // Callback for when text changes
+  isValidPath: (path: string) => boolean;
+  shellModeActive?: boolean; // Whether the text buffer is in shell mode
 }
 
 interface UndoHistoryEntry {
-  lines: string[]
-  cursorRow: number
-  cursorCol: number
+  lines: string[];
+  cursorRow: number;
+  cursorCol: number;
 }
 
-function calculateInitialCursorPosition(initialLines: string[], offset: number): [number, number] {
-  let remainingChars = offset
-  let row = 0
+function calculateInitialCursorPosition(
+  initialLines: string[],
+  offset: number,
+): [number, number] {
+  let remainingChars = offset;
+  let row = 0;
   while (row < initialLines.length) {
-    const lineLength = cpLen(initialLines[row])
+    const lineLength = cpLen(initialLines[row]);
     // Add 1 for the newline character (except for the last line)
-    const totalCharsInLineAndNewline = lineLength + (row < initialLines.length - 1 ? 1 : 0)
+    const totalCharsInLineAndNewline =
+      lineLength + (row < initialLines.length - 1 ? 1 : 0);
 
     if (remainingChars <= lineLength) {
       // Cursor is on this line
-      return [row, remainingChars]
+      return [row, remainingChars];
     }
-    remainingChars -= totalCharsInLineAndNewline
-    row++
+    remainingChars -= totalCharsInLineAndNewline;
+    row++;
   }
   // Offset is beyond the text, place cursor at the end of the last line
   if (initialLines.length > 0) {
-    const lastRow = initialLines.length - 1
-    return [lastRow, cpLen(initialLines[lastRow])]
+    const lastRow = initialLines.length - 1;
+    return [lastRow, cpLen(initialLines[lastRow])];
   }
-  return [0, 0] // Default for empty text
+  return [0, 0]; // Default for empty text
 }
 
-export function offsetToLogicalPos(text: string, offset: number): [number, number] {
-  let row = 0
-  let col = 0
-  let currentOffset = 0
+export function offsetToLogicalPos(
+  text: string,
+  offset: number,
+): [number, number] {
+  let row = 0;
+  let col = 0;
+  let currentOffset = 0;
 
-  if (offset === 0) return [0, 0]
+  if (offset === 0) return [0, 0];
 
-  const lines = text.split("\n")
+  const lines = text.split('\n');
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    const lineLength = cpLen(line)
-    const lineLengthWithNewline = lineLength + (i < lines.length - 1 ? 1 : 0)
+    const line = lines[i];
+    const lineLength = cpLen(line);
+    const lineLengthWithNewline = lineLength + (i < lines.length - 1 ? 1 : 0);
 
     if (offset <= currentOffset + lineLength) {
       // Check against lineLength first
-      row = i
-      col = offset - currentOffset
-      return [row, col]
+      row = i;
+      col = offset - currentOffset;
+      return [row, col];
     } else if (offset <= currentOffset + lineLengthWithNewline) {
       // Check if offset is the newline itself
-      row = i
-      col = lineLength // Position cursor at the end of the current line content
+      row = i;
+      col = lineLength; // Position cursor at the end of the current line content
       // If the offset IS the newline, and it's not the last line, advance to next line, col 0
-      if (offset === currentOffset + lineLengthWithNewline && i < lines.length - 1) {
-        return [i + 1, 0]
+      if (
+        offset === currentOffset + lineLengthWithNewline &&
+        i < lines.length - 1
+      ) {
+        return [i + 1, 0];
       }
-      return [row, col] // Otherwise, it's at the end of the current line content
+      return [row, col]; // Otherwise, it's at the end of the current line content
     }
-    currentOffset += lineLengthWithNewline
+    currentOffset += lineLengthWithNewline;
   }
 
   // If offset is beyond the text length, place cursor at the end of the last line
   // or [0,0] if text is empty
   if (lines.length > 0) {
-    row = lines.length - 1
-    col = cpLen(lines[row])
+    row = lines.length - 1;
+    col = cpLen(lines[row]);
   } else {
-    row = 0
-    col = 0
+    row = 0;
+    col = 0;
   }
-  return [row, col]
+  return [row, col];
 }
 
 // --- Start of visual transformation logic ---
 
 interface Transformation {
-  logStart: number
-  logEnd: number
-  rawText: string
-  terseText: string
+  logStart: number;
+  logEnd: number;
+  rawText: string;
+  terseText: string;
 }
 
 function getTransformationsForLine(line: string): Transformation[] {
-  const imagePathRegex = /@((?:(?:\\ )|[^@[\]\s])+\.(?:png|jpg|jpeg|gif|webp|svg|bmp))/gi
-  const transformations: Transformation[] = []
-  let match
+  const imagePathRegex =
+    /@((?:(?:\\ )|[^@[\]\s])+\.(?:png|jpg|jpeg|gif|webp|svg|bmp))/gi;
+  const transformations: Transformation[] = [];
+  let match;
   while ((match = imagePathRegex.exec(line)) !== null) {
-    const rawText = match[0]
-    const terseText = getTersePath(rawText)
+    const rawText = match[0];
+    const terseText = getTersePath(rawText);
     transformations.push({
       logStart: match.index,
       logEnd: match.index + rawText.length,
       rawText,
       terseText,
-    })
+    });
   }
-  return transformations.sort((a, b) => a.logStart - b.logStart)
+  return transformations.sort((a, b) => a.logStart - b.logStart);
 }
 
 function buildDisplayLineAndMap(
@@ -173,50 +193,53 @@ function buildDisplayLineAndMap(
   logicalCursor: [number, number],
   transformations: Transformation[],
 ): { displayLine: string; displayToLogMap: number[] } {
-  let displayLine = ""
-  const displayToLogMap: number[] = []
-  let lastLogPos = 0
+  let displayLine = '';
+  const displayToLogMap: number[] = [];
+  let lastLogPos = 0;
 
-  const cursorIsOnThisLine = logIndex === logicalCursor[0]
-  const cursorCol = logicalCursor[1]
+  const cursorIsOnThisLine = logIndex === logicalCursor[0];
+  const cursorCol = logicalCursor[1];
 
   for (const transform of transformations) {
     // Append text before transform
-    const prefix = logLine.substring(lastLogPos, transform.logStart)
-    displayLine += prefix
+    const prefix = logLine.substring(lastLogPos, transform.logStart);
+    displayLine += prefix;
     for (let i = 0; i < prefix.length; i++) {
-      displayToLogMap.push(lastLogPos + i)
+      displayToLogMap.push(lastLogPos + i);
     }
 
-    const isExpanded = cursorIsOnThisLine && cursorCol >= transform.logStart && cursorCol <= transform.logEnd
-    const textToDisplay = isExpanded ? transform.rawText : transform.terseText
-    displayLine += textToDisplay
+    const isExpanded =
+      cursorIsOnThisLine &&
+      cursorCol >= transform.logStart &&
+      cursorCol <= transform.logEnd;
+    const textToDisplay = isExpanded ? transform.rawText : transform.terseText;
+    displayLine += textToDisplay;
 
     // Map display characters back to logical characters
     for (let i = 0; i < textToDisplay.length; i++) {
       if (isExpanded) {
         // 1-to-1 mapping
-        displayToLogMap.push(transform.logStart + i)
+        displayToLogMap.push(transform.logStart + i);
       } else {
         // When collapsed, moving inside the terse text should jump the logical cursor
         // to the start of the raw path, which will expand it on the next render.
-        displayToLogMap.push(transform.logStart)
+        displayToLogMap.push(transform.logStart);
       }
     }
-    lastLogPos = transform.logEnd
+    lastLogPos = transform.logEnd;
   }
 
   // Append text after last transform
-  const suffix = logLine.substring(lastLogPos)
-  displayLine += suffix
+  const suffix = logLine.substring(lastLogPos);
+  displayLine += suffix;
   for (let i = 0; i < suffix.length; i++) {
-    displayToLogMap.push(lastLogPos + i)
+    displayToLogMap.push(lastLogPos + i);
   }
 
   // For a cursor at the very end of the display line
-  displayToLogMap.push(cpLen(logLine))
+  displayToLogMap.push(cpLen(logLine));
 
-  return { displayLine, displayToLogMap }
+  return { displayLine, displayToLogMap };
 }
 
 // --- End of visual transformation logic ---
@@ -227,49 +250,58 @@ function calculateVisualLayout(
   logicalCursor: [number, number],
   viewportWidth: number,
 ): {
-  visualLines: string[]
-  visualCursor: [number, number]
-  logicalToVisualMap: Array<Array<[number, number]>> // For each logical line, an array of [visualLineIndex, startColInLogical]
-  visualToLogicalMap: Array<[number, number]> // For each visual line, its [logicalLineIndex, startColInDisplay]
-  displayToLogicalMaps: Record<number, number[]> // For each logical line, a map from display col to logical col
+  visualLines: string[];
+  visualCursor: [number, number];
+  logicalToVisualMap: Array<Array<[number, number]>>; // For each logical line, an array of [visualLineIndex, startColInLogical]
+  visualToLogicalMap: Array<[number, number]>; // For each visual line, its [logicalLineIndex, startColInDisplay]
+  displayToLogicalMaps: Record<number, number[]>; // For each logical line, a map from display col to logical col
 } {
-  const visualLines: string[] = []
-  const logicalToVisualMap: Array<Array<[number, number]>> = []
-  const visualToLogicalMap: Array<[number, number]> = []
-  const displayToLogicalMaps: Record<number, number[]> = {}
-  let currentVisualCursor: [number, number] = [0, 0]
+  const visualLines: string[] = [];
+  const logicalToVisualMap: Array<Array<[number, number]>> = [];
+  const visualToLogicalMap: Array<[number, number]> = [];
+  const displayToLogicalMaps: Record<number, number[]> = {};
+  let currentVisualCursor: [number, number] = [0, 0];
 
   logicalLines.forEach((logLine, logIndex) => {
-    logicalToVisualMap[logIndex] = []
+    logicalToVisualMap[logIndex] = [];
 
-    const transformations = getTransformationsForLine(logLine)
-    const { displayLine, displayToLogMap } = buildDisplayLineAndMap(logLine, logIndex, logicalCursor, transformations)
-    displayToLogicalMaps[logIndex] = displayToLogMap
+    const transformations = getTransformationsForLine(logLine);
+    const { displayLine, displayToLogMap } = buildDisplayLineAndMap(
+      logLine,
+      logIndex,
+      logicalCursor,
+      transformations,
+    );
+    displayToLogicalMaps[logIndex] = displayToLogMap;
 
     if (displayLine.length === 0) {
       // Handle empty logical line
-      logicalToVisualMap[logIndex].push([visualLines.length, 0])
-      visualToLogicalMap.push([logIndex, 0])
-      visualLines.push("")
+      logicalToVisualMap[logIndex].push([visualLines.length, 0]);
+      visualToLogicalMap.push([logIndex, 0]);
+      visualLines.push('');
       if (logIndex === logicalCursor[0] && logicalCursor[1] === 0) {
-        currentVisualCursor = [visualLines.length - 1, 0]
+        currentVisualCursor = [visualLines.length - 1, 0];
       }
     } else {
       // Non-empty logical line
-      let currentPosInDisplayLine = 0 // Tracks position within the current display line
-      const codePointsInDisplayLine = toCodePoints(displayLine)
+      let currentPosInDisplayLine = 0; // Tracks position within the current display line
+      const codePointsInDisplayLine = toCodePoints(displayLine);
 
       while (currentPosInDisplayLine < codePointsInDisplayLine.length) {
-        let currentChunk = ""
-        let currentChunkVisualWidth = 0
-        let numCodePointsInChunk = 0
-        let lastWordBreakPoint = -1 // Index in codePointsInDisplayLine for word break
-        let numCodePointsAtLastWordBreak = 0
+        let currentChunk = '';
+        let currentChunkVisualWidth = 0;
+        let numCodePointsInChunk = 0;
+        let lastWordBreakPoint = -1; // Index in codePointsInDisplayLine for word break
+        let numCodePointsAtLastWordBreak = 0;
 
         // Iterate through code points to build the current visual line (chunk)
-        for (let i = currentPosInDisplayLine; i < codePointsInDisplayLine.length; i++) {
-          const char = codePointsInDisplayLine[i]
-          const charVisualWidth = stringWidth(char)
+        for (
+          let i = currentPosInDisplayLine;
+          i < codePointsInDisplayLine.length;
+          i++
+        ) {
+          const char = codePointsInDisplayLine[i];
+          const charVisualWidth = stringWidth(char);
 
           if (currentChunkVisualWidth + charVisualWidth > viewportWidth) {
             if (
@@ -278,107 +310,140 @@ function calculateVisualLayout(
               currentPosInDisplayLine + numCodePointsAtLastWordBreak < i
             ) {
               currentChunk = codePointsInDisplayLine
-                .slice(currentPosInDisplayLine, currentPosInDisplayLine + numCodePointsAtLastWordBreak)
-                .join("")
-              numCodePointsInChunk = numCodePointsAtLastWordBreak
+                .slice(
+                  currentPosInDisplayLine,
+                  currentPosInDisplayLine + numCodePointsAtLastWordBreak,
+                )
+                .join('');
+              numCodePointsInChunk = numCodePointsAtLastWordBreak;
             }
-            break
+            break;
           }
 
-          currentChunk += char
-          currentChunkVisualWidth += charVisualWidth
-          numCodePointsInChunk++
+          currentChunk += char;
+          currentChunkVisualWidth += charVisualWidth;
+          numCodePointsInChunk++;
 
-          if (char === " ") {
-            lastWordBreakPoint = i
-            numCodePointsAtLastWordBreak = numCodePointsInChunk - 1
+          if (char === ' ') {
+            lastWordBreakPoint = i;
+            numCodePointsAtLastWordBreak = numCodePointsInChunk - 1;
           }
         }
 
-        if (numCodePointsInChunk === 0 && currentPosInDisplayLine < codePointsInDisplayLine.length) {
-          const firstChar = codePointsInDisplayLine[currentPosInDisplayLine]
-          currentChunk = firstChar
-          numCodePointsInChunk = 1
+        if (
+          numCodePointsInChunk === 0 &&
+          currentPosInDisplayLine < codePointsInDisplayLine.length
+        ) {
+          const firstChar = codePointsInDisplayLine[currentPosInDisplayLine];
+          currentChunk = firstChar;
+          numCodePointsInChunk = 1;
         }
 
-        if (numCodePointsInChunk === 0 && currentPosInDisplayLine < codePointsInDisplayLine.length) {
-          currentChunk = codePointsInDisplayLine[currentPosInDisplayLine]
-          numCodePointsInChunk = 1
+        if (
+          numCodePointsInChunk === 0 &&
+          currentPosInDisplayLine < codePointsInDisplayLine.length
+        ) {
+          currentChunk = codePointsInDisplayLine[currentPosInDisplayLine];
+          numCodePointsInChunk = 1;
         }
 
-        const logicalStartOfChunk = displayToLogMap[currentPosInDisplayLine] ?? cpLen(logLine)
-        logicalToVisualMap[logIndex].push([visualLines.length, logicalStartOfChunk])
-        visualToLogicalMap.push([logIndex, currentPosInDisplayLine])
-        visualLines.push(currentChunk)
+        const logicalStartOfChunk =
+          displayToLogMap[currentPosInDisplayLine] ?? cpLen(logLine);
+        logicalToVisualMap[logIndex].push([
+          visualLines.length,
+          logicalStartOfChunk,
+        ]);
+        visualToLogicalMap.push([logIndex, currentPosInDisplayLine]);
+        visualLines.push(currentChunk);
 
         // Cursor mapping logic
         if (logIndex === logicalCursor[0]) {
-          const cursorLogCol = logicalCursor[1]
-          let displayColForCursor
-          const exactMatchIndex = displayToLogMap.indexOf(cursorLogCol)
+          const cursorLogCol = logicalCursor[1];
+          let displayColForCursor;
+          const exactMatchIndex = displayToLogMap.indexOf(cursorLogCol);
 
           if (exactMatchIndex !== -1) {
-            displayColForCursor = exactMatchIndex
+            displayColForCursor = exactMatchIndex;
           } else {
             // A compatible way to find the last index that satisfies the condition.
-            let lastValidIndex = -1
+            let lastValidIndex = -1;
             for (let i = displayToLogMap.length - 1; i >= 0; i--) {
               if (displayToLogMap[i] <= cursorLogCol) {
-                lastValidIndex = i
-                break
+                lastValidIndex = i;
+                break;
               }
             }
-            displayColForCursor = lastValidIndex
+            displayColForCursor = lastValidIndex;
           }
 
           if (
             displayColForCursor >= currentPosInDisplayLine &&
             displayColForCursor < currentPosInDisplayLine + numCodePointsInChunk
           ) {
-            currentVisualCursor = [visualLines.length - 1, displayColForCursor - currentPosInDisplayLine]
+            currentVisualCursor = [
+              visualLines.length - 1,
+              displayColForCursor - currentPosInDisplayLine,
+            ];
           } else if (
-            displayColForCursor === currentPosInDisplayLine + numCodePointsInChunk &&
+            displayColForCursor ===
+              currentPosInDisplayLine + numCodePointsInChunk &&
             numCodePointsInChunk > 0
           ) {
-            currentVisualCursor = [visualLines.length - 1, numCodePointsInChunk]
+            currentVisualCursor = [
+              visualLines.length - 1,
+              numCodePointsInChunk,
+            ];
           }
         }
 
-        const displayStartOfThisChunk = currentPosInDisplayLine
-        currentPosInDisplayLine += numCodePointsInChunk
+        const displayStartOfThisChunk = currentPosInDisplayLine;
+        currentPosInDisplayLine += numCodePointsInChunk;
 
         if (
-          displayStartOfThisChunk + numCodePointsInChunk < codePointsInDisplayLine.length &&
+          displayStartOfThisChunk + numCodePointsInChunk <
+            codePointsInDisplayLine.length &&
           currentPosInDisplayLine < codePointsInDisplayLine.length &&
-          codePointsInDisplayLine[currentPosInDisplayLine] === " "
+          codePointsInDisplayLine[currentPosInDisplayLine] === ' '
         ) {
-          currentPosInDisplayLine++
+          currentPosInDisplayLine++;
         }
       }
-      if (logIndex === logicalCursor[0] && logicalCursor[1] === cpLen(logLine)) {
-        const lastVisualLineIdx = visualLines.length - 1
-        if (lastVisualLineIdx >= 0 && visualLines[lastVisualLineIdx] !== undefined) {
-          currentVisualCursor = [lastVisualLineIdx, cpLen(visualLines[lastVisualLineIdx])]
+      if (
+        logIndex === logicalCursor[0] &&
+        logicalCursor[1] === cpLen(logLine)
+      ) {
+        const lastVisualLineIdx = visualLines.length - 1;
+        if (
+          lastVisualLineIdx >= 0 &&
+          visualLines[lastVisualLineIdx] !== undefined
+        ) {
+          currentVisualCursor = [
+            lastVisualLineIdx,
+            cpLen(visualLines[lastVisualLineIdx]),
+          ];
         }
       }
     }
-  })
+  });
 
-  if (logicalLines.length === 0 || (logicalLines.length === 1 && logicalLines[0] === "")) {
+  if (
+    logicalLines.length === 0 ||
+    (logicalLines.length === 1 && logicalLines[0] === '')
+  ) {
     if (visualLines.length === 0) {
-      visualLines.push("")
-      if (!logicalToVisualMap[0]) logicalToVisualMap[0] = []
-      logicalToVisualMap[0].push([0, 0])
-      visualToLogicalMap.push([0, 0])
+      visualLines.push('');
+      if (!logicalToVisualMap[0]) logicalToVisualMap[0] = [];
+      logicalToVisualMap[0].push([0, 0]);
+      visualToLogicalMap.push([0, 0]);
     }
-    currentVisualCursor = [0, 0]
+    currentVisualCursor = [0, 0];
   } else if (
     logicalCursor[0] === logicalLines.length - 1 &&
     logicalCursor[1] === cpLen(logicalLines[logicalLines.length - 1]) &&
     visualLines.length > 0
   ) {
-    const lastVisLineIdx = visualLines.length - 1
-    currentVisualCursor = [lastVisLineIdx, cpLen(visualLines[lastVisLineIdx])]
+    const lastVisLineIdx = visualLines.length - 1;
+    currentVisualCursor = [lastVisLineIdx, cpLen(visualLines[lastVisLineIdx])];
   }
 
   return {
@@ -387,116 +452,127 @@ function calculateVisualLayout(
     logicalToVisualMap,
     visualToLogicalMap,
     displayToLogicalMaps,
-  }
+  };
 }
 
 // --- Start of reducer logic ---
 
 interface TextBufferState {
-  lines: string[]
-  cursorRow: number
-  cursorCol: number
-  preferredCol: number | null // This is visual preferred col
-  undoStack: UndoHistoryEntry[]
-  redoStack: UndoHistoryEntry[]
-  clipboard: string | null
-  selectionAnchor: [number, number] | null
-  viewportWidth: number
+  lines: string[];
+  cursorRow: number;
+  cursorCol: number;
+  preferredCol: number | null; // This is visual preferred col
+  undoStack: UndoHistoryEntry[];
+  redoStack: UndoHistoryEntry[];
+  clipboard: string | null;
+  selectionAnchor: [number, number] | null;
+  viewportWidth: number;
 }
 
-const historyLimit = 100
+const historyLimit = 100;
 
 type TextBufferAction =
-  | { type: "set_text"; payload: string; pushToUndo?: boolean }
-  | { type: "insert"; payload: string }
-  | { type: "backspace" }
+  | { type: 'set_text'; payload: string; pushToUndo?: boolean }
+  | { type: 'insert'; payload: string }
+  | { type: 'backspace' }
   | {
-      type: "move"
+      type: 'move';
       payload: {
-        dir: Direction
-      }
+        dir: Direction;
+      };
     }
-  | { type: "delete" }
-  | { type: "delete_word_left" }
-  | { type: "delete_word_right" }
-  | { type: "kill_line_right" }
-  | { type: "kill_line_left" }
-  | { type: "undo" }
-  | { type: "redo" }
+  | { type: 'delete' }
+  | { type: 'delete_word_left' }
+  | { type: 'delete_word_right' }
+  | { type: 'kill_line_right' }
+  | { type: 'kill_line_left' }
+  | { type: 'undo' }
+  | { type: 'redo' }
   | {
-      type: "replace_range"
+      type: 'replace_range';
       payload: {
-        startRow: number
-        startCol: number
-        endRow: number
-        endCol: number
-        text: string
-      }
+        startRow: number;
+        startCol: number;
+        endRow: number;
+        endCol: number;
+        text: string;
+      };
     }
-  | { type: "move_to_offset"; payload: { offset: number } }
-  | { type: "create_undo_snapshot" }
-  | { type: "set_viewport_width"; payload: number }
+  | { type: 'move_to_offset'; payload: { offset: number } }
+  | { type: 'create_undo_snapshot' }
+  | { type: 'set_viewport_width'; payload: number };
 
-export function textBufferReducer(state: TextBufferState, action: TextBufferAction): TextBufferState {
+export function textBufferReducer(
+  state: TextBufferState,
+  action: TextBufferAction,
+): TextBufferState {
   const pushUndo = (currentState: TextBufferState): TextBufferState => {
     const snapshot = {
       lines: [...currentState.lines],
       cursorRow: currentState.cursorRow,
       cursorCol: currentState.cursorCol,
-    }
-    const newStack = [...currentState.undoStack, snapshot]
+    };
+    const newStack = [...currentState.undoStack, snapshot];
     if (newStack.length > historyLimit) {
-      newStack.shift()
+      newStack.shift();
     }
-    return { ...currentState, undoStack: newStack, redoStack: [] }
-  }
+    return { ...currentState, undoStack: newStack, redoStack: [] };
+  };
 
-  const currentLine = (r: number): string => state.lines[r] ?? ""
-  const currentLineLen = (r: number): number => cpLen(currentLine(r))
+  const currentLine = (r: number): string => state.lines[r] ?? '';
+  const currentLineLen = (r: number): number => cpLen(currentLine(r));
 
   switch (action.type) {
-    case "set_text": {
-      let nextState = state
+    case 'set_text': {
+      let nextState = state;
       if (action.pushToUndo !== false) {
-        nextState = pushUndo(state)
+        nextState = pushUndo(state);
       }
-      const newContentLines = action.payload.replace(/\r\n?/g, "\n").split("\n")
-      const lines = newContentLines.length === 0 ? [""] : newContentLines
-      const lastNewLineIndex = lines.length - 1
+      const newContentLines = action.payload
+        .replace(/\r\n?/g, '\n')
+        .split('\n');
+      const lines = newContentLines.length === 0 ? [''] : newContentLines;
+      const lastNewLineIndex = lines.length - 1;
       return {
         ...nextState,
         lines,
         cursorRow: lastNewLineIndex,
-        cursorCol: cpLen(lines[lastNewLineIndex] ?? ""),
+        cursorCol: cpLen(lines[lastNewLineIndex] ?? ''),
         preferredCol: null,
-      }
+      };
     }
 
-    case "insert": {
-      const nextState = pushUndo(state)
-      const newLines = [...nextState.lines]
-      let newCursorRow = nextState.cursorRow
-      let newCursorCol = nextState.cursorCol
+    case 'insert': {
+      const nextState = pushUndo(state);
+      const newLines = [...nextState.lines];
+      let newCursorRow = nextState.cursorRow;
+      let newCursorCol = nextState.cursorCol;
 
-      const currentLine = (r: number) => newLines[r] ?? ""
+      const currentLine = (r: number) => newLines[r] ?? '';
 
-      const str = stripUnsafeCharacters(action.payload.replace(/\r\n/g, "\n").replace(/\r/g, "\n"))
-      const parts = str.split("\n")
-      const lineContent = currentLine(newCursorRow)
-      const before = cpSlice(lineContent, 0, newCursorCol)
-      const after = cpSlice(lineContent, newCursorCol)
+      const str = stripUnsafeCharacters(
+        action.payload.replace(/\r\n/g, '\n').replace(/\r/g, '\n'),
+      );
+      const parts = str.split('\n');
+      const lineContent = currentLine(newCursorRow);
+      const before = cpSlice(lineContent, 0, newCursorCol);
+      const after = cpSlice(lineContent, newCursorCol);
 
       if (parts.length > 1) {
-        newLines[newCursorRow] = before + parts[0]
-        const remainingParts = parts.slice(1)
-        const lastPartOriginal = remainingParts.pop() ?? ""
-        newLines.splice(newCursorRow + 1, 0, ...remainingParts)
-        newLines.splice(newCursorRow + parts.length - 1, 0, lastPartOriginal + after)
-        newCursorRow = newCursorRow + parts.length - 1
-        newCursorCol = cpLen(lastPartOriginal)
+        newLines[newCursorRow] = before + parts[0];
+        const remainingParts = parts.slice(1);
+        const lastPartOriginal = remainingParts.pop() ?? '';
+        newLines.splice(newCursorRow + 1, 0, ...remainingParts);
+        newLines.splice(
+          newCursorRow + parts.length - 1,
+          0,
+          lastPartOriginal + after,
+        );
+        newCursorRow = newCursorRow + parts.length - 1;
+        newCursorCol = cpLen(lastPartOriginal);
       } else {
-        newLines[newCursorRow] = before + parts[0] + after
-        newCursorCol = cpLen(before) + cpLen(parts[0])
+        newLines[newCursorRow] = before + parts[0] + after;
+        newCursorCol = cpLen(before) + cpLen(parts[0]);
       }
 
       return {
@@ -505,31 +581,33 @@ export function textBufferReducer(state: TextBufferState, action: TextBufferActi
         cursorRow: newCursorRow,
         cursorCol: newCursorCol,
         preferredCol: null,
-      }
+      };
     }
 
-    case "backspace": {
-      const nextState = pushUndo(state)
-      const newLines = [...nextState.lines]
-      let newCursorRow = nextState.cursorRow
-      let newCursorCol = nextState.cursorCol
+    case 'backspace': {
+      const nextState = pushUndo(state);
+      const newLines = [...nextState.lines];
+      let newCursorRow = nextState.cursorRow;
+      let newCursorCol = nextState.cursorCol;
 
-      const currentLine = (r: number) => newLines[r] ?? ""
+      const currentLine = (r: number) => newLines[r] ?? '';
 
-      if (newCursorCol === 0 && newCursorRow === 0) return state
+      if (newCursorCol === 0 && newCursorRow === 0) return state;
 
       if (newCursorCol > 0) {
-        const lineContent = currentLine(newCursorRow)
-        newLines[newCursorRow] = cpSlice(lineContent, 0, newCursorCol - 1) + cpSlice(lineContent, newCursorCol)
-        newCursorCol--
+        const lineContent = currentLine(newCursorRow);
+        newLines[newCursorRow] =
+          cpSlice(lineContent, 0, newCursorCol - 1) +
+          cpSlice(lineContent, newCursorCol);
+        newCursorCol--;
       } else if (newCursorRow > 0) {
-        const prevLineContent = currentLine(newCursorRow - 1)
-        const currentLineContentVal = currentLine(newCursorRow)
-        const newCol = cpLen(prevLineContent)
-        newLines[newCursorRow - 1] = prevLineContent + currentLineContentVal
-        newLines.splice(newCursorRow, 1)
-        newCursorRow--
-        newCursorCol = newCol
+        const prevLineContent = currentLine(newCursorRow - 1);
+        const currentLineContentVal = currentLine(newCursorRow);
+        const newCol = cpLen(prevLineContent);
+        newLines[newCursorRow - 1] = prevLineContent + currentLineContentVal;
+        newLines.splice(newCursorRow, 1);
+        newCursorRow--;
+        newCursorCol = newCol;
       }
 
       return {
@@ -538,317 +616,343 @@ export function textBufferReducer(state: TextBufferState, action: TextBufferActi
         cursorRow: newCursorRow,
         cursorCol: newCursorCol,
         preferredCol: null,
-      }
+      };
     }
 
-    case "set_viewport_width": {
+    case 'set_viewport_width': {
       if (action.payload === state.viewportWidth) {
-        return state
+        return state;
       }
-      return { ...state, viewportWidth: action.payload }
+      return { ...state, viewportWidth: action.payload };
     }
 
-    case "move": {
-      const { dir } = action.payload
-      const { lines, cursorRow, cursorCol, viewportWidth } = state
+    case 'move': {
+      const { dir } = action.payload;
+      const { lines, cursorRow, cursorCol, viewportWidth } = state;
 
-      const visualLayout = calculateVisualLayout(lines, [cursorRow, cursorCol], viewportWidth)
-      const { visualLines, visualCursor, visualToLogicalMap, displayToLogicalMaps } = visualLayout
+      const visualLayout = calculateVisualLayout(
+        lines,
+        [cursorRow, cursorCol],
+        viewportWidth,
+      );
+      const {
+        visualLines,
+        visualCursor,
+        visualToLogicalMap,
+        displayToLogicalMaps,
+      } = visualLayout;
 
-      let newVisualRow = visualCursor[0]
-      let newVisualCol = visualCursor[1]
-      let newPreferredCol = state.preferredCol
+      let newVisualRow = visualCursor[0];
+      let newVisualCol = visualCursor[1];
+      let newPreferredCol = state.preferredCol;
 
-      const currentVisLineLen = cpLen(visualLines[newVisualRow] ?? "")
+      const currentVisLineLen = cpLen(visualLines[newVisualRow] ?? '');
 
       switch (dir) {
-        case "left":
-          newPreferredCol = null
+        case 'left':
+          newPreferredCol = null;
           if (newVisualCol > 0) {
-            newVisualCol--
+            newVisualCol--;
           } else if (newVisualRow > 0) {
-            newVisualRow--
-            newVisualCol = cpLen(visualLines[newVisualRow] ?? "")
+            newVisualRow--;
+            newVisualCol = cpLen(visualLines[newVisualRow] ?? '');
           }
-          break
-        case "right":
-          newPreferredCol = null
+          break;
+        case 'right':
+          newPreferredCol = null;
           if (newVisualCol < currentVisLineLen) {
-            newVisualCol++
+            newVisualCol++;
           } else if (newVisualRow < visualLines.length - 1) {
-            newVisualRow++
-            newVisualCol = 0
+            newVisualRow++;
+            newVisualCol = 0;
           }
-          break
-        case "up":
+          break;
+        case 'up':
           if (newVisualRow > 0) {
-            if (newPreferredCol === null) newPreferredCol = newVisualCol
-            newVisualRow--
-            newVisualCol = clamp(newPreferredCol, 0, cpLen(visualLines[newVisualRow] ?? ""))
+            if (newPreferredCol === null) newPreferredCol = newVisualCol;
+            newVisualRow--;
+            newVisualCol = clamp(
+              newPreferredCol,
+              0,
+              cpLen(visualLines[newVisualRow] ?? ''),
+            );
           }
-          break
-        case "down":
+          break;
+        case 'down':
           if (newVisualRow < visualLines.length - 1) {
-            if (newPreferredCol === null) newPreferredCol = newVisualCol
-            newVisualRow++
-            newVisualCol = clamp(newPreferredCol, 0, cpLen(visualLines[newVisualRow] ?? ""))
+            if (newPreferredCol === null) newPreferredCol = newVisualCol;
+            newVisualRow++;
+            newVisualCol = clamp(
+              newPreferredCol,
+              0,
+              cpLen(visualLines[newVisualRow] ?? ''),
+            );
           }
-          break
-        case "home":
-          newPreferredCol = null
-          newVisualCol = 0
-          break
-        case "end":
-          newPreferredCol = null
-          newVisualCol = currentVisLineLen
-          break
-        case "wordLeft": {
-          const { cursorRow, cursorCol, lines } = state
-          if (cursorCol === 0 && cursorRow === 0) return state
+          break;
+        case 'home':
+          newPreferredCol = null;
+          newVisualCol = 0;
+          break;
+        case 'end':
+          newPreferredCol = null;
+          newVisualCol = currentVisLineLen;
+          break;
+        case 'wordLeft': {
+          const { cursorRow, cursorCol, lines } = state;
+          if (cursorCol === 0 && cursorRow === 0) return state;
 
-          let newCursorRow = cursorRow
-          let newCursorCol = cursorCol
+          let newCursorRow = cursorRow;
+          let newCursorCol = cursorCol;
 
           if (cursorCol === 0) {
-            newCursorRow--
-            newCursorCol = cpLen(lines[newCursorRow] ?? "")
+            newCursorRow--;
+            newCursorCol = cpLen(lines[newCursorRow] ?? '');
           } else {
-            const lineContent = lines[cursorRow]
-            const arr = toCodePoints(lineContent)
-            let start = cursorCol
-            let onlySpaces = true
+            const lineContent = lines[cursorRow];
+            const arr = toCodePoints(lineContent);
+            let start = cursorCol;
+            let onlySpaces = true;
             for (let i = 0; i < start; i++) {
               if (isWordChar(arr[i])) {
-                onlySpaces = false
-                break
+                onlySpaces = false;
+                break;
               }
             }
             if (onlySpaces && start > 0) {
-              start--
+              start--;
             } else {
-              while (start > 0 && !isWordChar(arr[start - 1])) start--
-              while (start > 0 && isWordChar(arr[start - 1])) start--
+              while (start > 0 && !isWordChar(arr[start - 1])) start--;
+              while (start > 0 && isWordChar(arr[start - 1])) start--;
             }
-            newCursorCol = start
+            newCursorCol = start;
           }
           return {
             ...state,
             cursorRow: newCursorRow,
             cursorCol: newCursorCol,
             preferredCol: null,
-          }
+          };
         }
-        case "wordRight": {
-          const { cursorRow, cursorCol, lines } = state
-          if (cursorRow === lines.length - 1 && cursorCol === cpLen(lines[cursorRow] ?? "")) {
-            return state
+        case 'wordRight': {
+          const { cursorRow, cursorCol, lines } = state;
+          if (
+            cursorRow === lines.length - 1 &&
+            cursorCol === cpLen(lines[cursorRow] ?? '')
+          ) {
+            return state;
           }
 
-          let newCursorRow = cursorRow
-          let newCursorCol = cursorCol
-          const lineContent = lines[cursorRow] ?? ""
-          const arr = toCodePoints(lineContent)
+          let newCursorRow = cursorRow;
+          let newCursorCol = cursorCol;
+          const lineContent = lines[cursorRow] ?? '';
+          const arr = toCodePoints(lineContent);
 
           if (cursorCol >= arr.length) {
-            newCursorRow++
-            newCursorCol = 0
+            newCursorRow++;
+            newCursorCol = 0;
           } else {
-            let end = cursorCol
-            while (end < arr.length && !isWordChar(arr[end])) end++
-            while (end < arr.length && isWordChar(arr[end])) end++
-            newCursorCol = end
+            let end = cursorCol;
+            while (end < arr.length && !isWordChar(arr[end])) end++;
+            while (end < arr.length && isWordChar(arr[end])) end++;
+            newCursorCol = end;
           }
           return {
             ...state,
             cursorRow: newCursorRow,
             cursorCol: newCursorCol,
             preferredCol: null,
-          }
+          };
         }
         default:
-          break
+          break;
       }
 
       if (visualToLogicalMap[newVisualRow]) {
-        const [logRow, displayStartCol] = visualToLogicalMap[newVisualRow]
-        const displayCol = displayStartCol + newVisualCol
-        const displayToLogMap = displayToLogicalMaps[logRow]
+        const [logRow, displayStartCol] = visualToLogicalMap[newVisualRow];
+        const displayCol = displayStartCol + newVisualCol;
+        const displayToLogMap = displayToLogicalMaps[logRow];
         if (displayToLogMap) {
-          const newLogicalCol = displayToLogMap[displayCol] ?? cpLen(state.lines[logRow] ?? "")
+          const newLogicalCol =
+            displayToLogMap[displayCol] ?? cpLen(state.lines[logRow] ?? '');
           return {
             ...state,
             cursorRow: logRow,
             cursorCol: newLogicalCol,
             preferredCol: newPreferredCol,
-          }
+          };
         }
       }
-      return state
+      return state;
     }
 
-    case "delete": {
-      const { cursorRow, cursorCol, lines } = state
-      const lineContent = currentLine(cursorRow)
+    case 'delete': {
+      const { cursorRow, cursorCol, lines } = state;
+      const lineContent = currentLine(cursorRow);
       if (cursorCol < currentLineLen(cursorRow)) {
-        const nextState = pushUndo(state)
-        const newLines = [...nextState.lines]
-        newLines[cursorRow] = cpSlice(lineContent, 0, cursorCol) + cpSlice(lineContent, cursorCol + 1)
-        return { ...nextState, lines: newLines, preferredCol: null }
+        const nextState = pushUndo(state);
+        const newLines = [...nextState.lines];
+        newLines[cursorRow] =
+          cpSlice(lineContent, 0, cursorCol) +
+          cpSlice(lineContent, cursorCol + 1);
+        return { ...nextState, lines: newLines, preferredCol: null };
       } else if (cursorRow < lines.length - 1) {
-        const nextState = pushUndo(state)
-        const nextLineContent = currentLine(cursorRow + 1)
-        const newLines = [...nextState.lines]
-        newLines[cursorRow] = lineContent + nextLineContent
-        newLines.splice(cursorRow + 1, 1)
-        return { ...nextState, lines: newLines, preferredCol: null }
+        const nextState = pushUndo(state);
+        const nextLineContent = currentLine(cursorRow + 1);
+        const newLines = [...nextState.lines];
+        newLines[cursorRow] = lineContent + nextLineContent;
+        newLines.splice(cursorRow + 1, 1);
+        return { ...nextState, lines: newLines, preferredCol: null };
       }
-      return state
+      return state;
     }
 
-    case "delete_word_left": {
-      const { cursorRow, cursorCol } = state
-      if (cursorCol === 0 && cursorRow === 0) return state
+    case 'delete_word_left': {
+      const { cursorRow, cursorCol } = state;
+      if (cursorCol === 0 && cursorRow === 0) return state;
       if (cursorCol === 0) {
         // Act as a backspace
-        const nextState = pushUndo(state)
-        const prevLineContent = currentLine(cursorRow - 1)
-        const currentLineContentVal = currentLine(cursorRow)
-        const newCol = cpLen(prevLineContent)
-        const newLines = [...nextState.lines]
-        newLines[cursorRow - 1] = prevLineContent + currentLineContentVal
-        newLines.splice(cursorRow, 1)
+        const nextState = pushUndo(state);
+        const prevLineContent = currentLine(cursorRow - 1);
+        const currentLineContentVal = currentLine(cursorRow);
+        const newCol = cpLen(prevLineContent);
+        const newLines = [...nextState.lines];
+        newLines[cursorRow - 1] = prevLineContent + currentLineContentVal;
+        newLines.splice(cursorRow, 1);
         return {
           ...nextState,
           lines: newLines,
           cursorRow: cursorRow - 1,
           cursorCol: newCol,
           preferredCol: null,
-        }
+        };
       }
-      const nextState = pushUndo(state)
-      const lineContent = currentLine(cursorRow)
-      const arr = toCodePoints(lineContent)
-      let start = cursorCol
-      let onlySpaces = true
+      const nextState = pushUndo(state);
+      const lineContent = currentLine(cursorRow);
+      const arr = toCodePoints(lineContent);
+      let start = cursorCol;
+      let onlySpaces = true;
       for (let i = 0; i < start; i++) {
         if (isWordChar(arr[i])) {
-          onlySpaces = false
-          break
+          onlySpaces = false;
+          break;
         }
       }
       if (onlySpaces && start > 0) {
-        start--
+        start--;
       } else {
-        while (start > 0 && !isWordChar(arr[start - 1])) start--
-        while (start > 0 && isWordChar(arr[start - 1])) start--
+        while (start > 0 && !isWordChar(arr[start - 1])) start--;
+        while (start > 0 && isWordChar(arr[start - 1])) start--;
       }
-      const newLines = [...nextState.lines]
-      newLines[cursorRow] = cpSlice(lineContent, 0, start) + cpSlice(lineContent, cursorCol)
+      const newLines = [...nextState.lines];
+      newLines[cursorRow] =
+        cpSlice(lineContent, 0, start) + cpSlice(lineContent, cursorCol);
       return {
         ...nextState,
         lines: newLines,
         cursorCol: start,
         preferredCol: null,
-      }
+      };
     }
 
-    case "delete_word_right": {
-      const { cursorRow, cursorCol, lines } = state
-      const lineContent = currentLine(cursorRow)
-      const arr = toCodePoints(lineContent)
-      if (cursorCol >= arr.length && cursorRow === lines.length - 1) return state
+    case 'delete_word_right': {
+      const { cursorRow, cursorCol, lines } = state;
+      const lineContent = currentLine(cursorRow);
+      const arr = toCodePoints(lineContent);
+      if (cursorCol >= arr.length && cursorRow === lines.length - 1)
+        return state;
       if (cursorCol >= arr.length) {
         // Act as a delete
-        const nextState = pushUndo(state)
-        const nextLineContent = currentLine(cursorRow + 1)
-        const newLines = [...nextState.lines]
-        newLines[cursorRow] = lineContent + nextLineContent
-        newLines.splice(cursorRow + 1, 1)
-        return { ...nextState, lines: newLines, preferredCol: null }
+        const nextState = pushUndo(state);
+        const nextLineContent = currentLine(cursorRow + 1);
+        const newLines = [...nextState.lines];
+        newLines[cursorRow] = lineContent + nextLineContent;
+        newLines.splice(cursorRow + 1, 1);
+        return { ...nextState, lines: newLines, preferredCol: null };
       }
-      const nextState = pushUndo(state)
-      let end = cursorCol
-      while (end < arr.length && !isWordChar(arr[end])) end++
+      const nextState = pushUndo(state);
+      let end = cursorCol;
+      while (end < arr.length && !isWordChar(arr[end])) end++;
       //finding a nonWordchar is the end of a word
-      while (end < arr.length && isWordChar(arr[end])) end++
-      const newLines = [...nextState.lines]
-      newLines[cursorRow] = cpSlice(lineContent, 0, cursorCol) + cpSlice(lineContent, end)
-      return { ...nextState, lines: newLines, preferredCol: null }
+      while (end < arr.length && isWordChar(arr[end])) end++;
+      const newLines = [...nextState.lines];
+      newLines[cursorRow] =
+        cpSlice(lineContent, 0, cursorCol) + cpSlice(lineContent, end);
+      return { ...nextState, lines: newLines, preferredCol: null };
     }
 
-    case "kill_line_right": {
-      const { cursorRow, cursorCol, lines } = state
-      const lineContent = currentLine(cursorRow)
+    case 'kill_line_right': {
+      const { cursorRow, cursorCol, lines } = state;
+      const lineContent = currentLine(cursorRow);
       if (cursorCol < currentLineLen(cursorRow)) {
-        const nextState = pushUndo(state)
-        const newLines = [...nextState.lines]
-        newLines[cursorRow] = cpSlice(lineContent, 0, cursorCol)
-        return { ...nextState, lines: newLines }
+        const nextState = pushUndo(state);
+        const newLines = [...nextState.lines];
+        newLines[cursorRow] = cpSlice(lineContent, 0, cursorCol);
+        return { ...nextState, lines: newLines };
       } else if (cursorRow < lines.length - 1) {
         // Act as a delete
-        const nextState = pushUndo(state)
-        const nextLineContent = currentLine(cursorRow + 1)
-        const newLines = [...nextState.lines]
-        newLines[cursorRow] = lineContent + nextLineContent
-        newLines.splice(cursorRow + 1, 1)
-        return { ...nextState, lines: newLines, preferredCol: null }
+        const nextState = pushUndo(state);
+        const nextLineContent = currentLine(cursorRow + 1);
+        const newLines = [...nextState.lines];
+        newLines[cursorRow] = lineContent + nextLineContent;
+        newLines.splice(cursorRow + 1, 1);
+        return { ...nextState, lines: newLines, preferredCol: null };
       }
-      return state
+      return state;
     }
 
-    case "kill_line_left": {
-      const { cursorRow, cursorCol } = state
+    case 'kill_line_left': {
+      const { cursorRow, cursorCol } = state;
       if (cursorCol > 0) {
-        const nextState = pushUndo(state)
-        const lineContent = currentLine(cursorRow)
-        const newLines = [...nextState.lines]
-        newLines[cursorRow] = cpSlice(lineContent, cursorCol)
+        const nextState = pushUndo(state);
+        const lineContent = currentLine(cursorRow);
+        const newLines = [...nextState.lines];
+        newLines[cursorRow] = cpSlice(lineContent, cursorCol);
         return {
           ...nextState,
           lines: newLines,
           cursorCol: 0,
           preferredCol: null,
-        }
+        };
       }
-      return state
+      return state;
     }
 
-    case "undo": {
-      const stateToRestore = state.undoStack[state.undoStack.length - 1]
-      if (!stateToRestore) return state
+    case 'undo': {
+      const stateToRestore = state.undoStack[state.undoStack.length - 1];
+      if (!stateToRestore) return state;
 
       const currentSnapshot = {
         lines: [...state.lines],
         cursorRow: state.cursorRow,
         cursorCol: state.cursorCol,
-      }
+      };
       return {
         ...state,
         ...stateToRestore,
         undoStack: state.undoStack.slice(0, -1),
         redoStack: [...state.redoStack, currentSnapshot],
-      }
+      };
     }
 
-    case "redo": {
-      const stateToRestore = state.redoStack[state.redoStack.length - 1]
-      if (!stateToRestore) return state
+    case 'redo': {
+      const stateToRestore = state.redoStack[state.redoStack.length - 1];
+      if (!stateToRestore) return state;
 
       const currentSnapshot = {
         lines: [...state.lines],
         cursorRow: state.cursorRow,
         cursorCol: state.cursorCol,
-      }
+      };
       return {
         ...state,
         ...stateToRestore,
         redoStack: state.redoStack.slice(0, -1),
         undoStack: [...state.undoStack, currentSnapshot],
-      }
+      };
     }
 
-    case "replace_range": {
-      const { startRow, startCol, endRow, endCol, text } = action.payload
+    case 'replace_range': {
+      const { startRow, startCol, endRow, endCol, text } = action.payload;
       if (
         startRow > endRow ||
         (startRow === endRow && startCol > endCol) ||
@@ -857,40 +961,50 @@ export function textBufferReducer(state: TextBufferState, action: TextBufferActi
         endRow >= state.lines.length ||
         (endRow < state.lines.length && endCol > currentLineLen(endRow))
       ) {
-        return state // Invalid range
+        return state; // Invalid range
       }
 
-      const nextState = pushUndo(state)
-      const newLines = [...nextState.lines]
+      const nextState = pushUndo(state);
+      const newLines = [...nextState.lines];
 
-      const sCol = clamp(startCol, 0, currentLineLen(startRow))
-      const eCol = clamp(endCol, 0, currentLineLen(endRow))
+      const sCol = clamp(startCol, 0, currentLineLen(startRow));
+      const eCol = clamp(endCol, 0, currentLineLen(endRow));
 
-      const prefix = cpSlice(currentLine(startRow), 0, sCol)
-      const suffix = cpSlice(currentLine(endRow), eCol)
+      const prefix = cpSlice(currentLine(startRow), 0, sCol);
+      const suffix = cpSlice(currentLine(endRow), eCol);
 
-      const normalisedReplacement = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n")
-      const replacementParts = normalisedReplacement.split("\n")
+      const normalisedReplacement = text
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n');
+      const replacementParts = normalisedReplacement.split('\n');
 
       // Replace the content
       if (startRow === endRow) {
-        newLines[startRow] = prefix + normalisedReplacement + suffix
+        newLines[startRow] = prefix + normalisedReplacement + suffix;
       } else {
-        const firstLine = prefix + replacementParts[0]
+        const firstLine = prefix + replacementParts[0];
         if (replacementParts.length === 1) {
           // Single line of replacement text, but spanning multiple original lines
-          newLines.splice(startRow, endRow - startRow + 1, firstLine + suffix)
+          newLines.splice(startRow, endRow - startRow + 1, firstLine + suffix);
         } else {
           // Multi-line replacement text
-          const lastLine = replacementParts[replacementParts.length - 1] + suffix
-          const middleLines = replacementParts.slice(1, -1)
-          newLines.splice(startRow, endRow - startRow + 1, firstLine, ...middleLines, lastLine)
+          const lastLine =
+            replacementParts[replacementParts.length - 1] + suffix;
+          const middleLines = replacementParts.slice(1, -1);
+          newLines.splice(
+            startRow,
+            endRow - startRow + 1,
+            firstLine,
+            ...middleLines,
+            lastLine,
+          );
         }
       }
 
-      const finalCursorRow = startRow + replacementParts.length - 1
+      const finalCursorRow = startRow + replacementParts.length - 1;
       const finalCursorCol =
-        (replacementParts.length > 1 ? 0 : sCol) + cpLen(replacementParts[replacementParts.length - 1])
+        (replacementParts.length > 1 ? 0 : sCol) +
+        cpLen(replacementParts[replacementParts.length - 1]);
 
       return {
         ...nextState,
@@ -898,28 +1012,31 @@ export function textBufferReducer(state: TextBufferState, action: TextBufferActi
         cursorRow: finalCursorRow,
         cursorCol: finalCursorCol,
         preferredCol: null,
-      }
+      };
     }
 
-    case "move_to_offset": {
-      const { offset } = action.payload
-      const [newRow, newCol] = offsetToLogicalPos(state.lines.join("\n"), offset)
+    case 'move_to_offset': {
+      const { offset } = action.payload;
+      const [newRow, newCol] = offsetToLogicalPos(
+        state.lines.join('\n'),
+        offset,
+      );
       return {
         ...state,
         cursorRow: newRow,
         cursorCol: newCol,
         preferredCol: null,
-      }
+      };
     }
 
-    case "create_undo_snapshot": {
-      return pushUndo(state)
+    case 'create_undo_snapshot': {
+      return pushUndo(state);
     }
 
     default: {
-      const exhaustiveCheck: never = action
-      console.error(`Unknown action encountered: ${exhaustiveCheck}`)
-      return state
+      const exhaustiveCheck: never = action;
+      console.error(`Unknown action encountered: ${exhaustiveCheck}`);
+      return state;
     }
   }
 }
@@ -927,7 +1044,7 @@ export function textBufferReducer(state: TextBufferState, action: TextBufferActi
 // --- End of reducer logic ---
 
 export function useTextBuffer({
-  initialText = "",
+  initialText = '',
   initialCursorOffset = 0,
   viewport,
   stdin,
@@ -937,13 +1054,13 @@ export function useTextBuffer({
   shellModeActive = false,
 }: UseTextBufferProps): TextBuffer {
   const initialState = useMemo((): TextBufferState => {
-    const lines = initialText.split("\n")
+    const lines = initialText.split('\n');
     const [initialCursorRow, initialCursorCol] = calculateInitialCursorPosition(
-      lines.length === 0 ? [""] : lines,
+      lines.length === 0 ? [''] : lines,
       initialCursorOffset,
-    )
+    );
     return {
-      lines: lines.length === 0 ? [""] : lines,
+      lines: lines.length === 0 ? [''] : lines,
       cursorRow: initialCursorRow,
       cursorCol: initialCursorCol,
       preferredCol: null,
@@ -952,247 +1069,270 @@ export function useTextBuffer({
       clipboard: null,
       selectionAnchor: null,
       viewportWidth: viewport.width,
-    }
-  }, [initialText, initialCursorOffset, viewport.width])
+    };
+  }, [initialText, initialCursorOffset, viewport.width]);
 
-  const [state, dispatch] = useReducer(textBufferReducer, initialState)
+  const [state, dispatch] = useReducer(textBufferReducer, initialState);
 
-  const { lines, cursorRow, cursorCol, preferredCol, selectionAnchor } = state
+  const { lines, cursorRow, cursorCol, preferredCol, selectionAnchor } = state;
 
-  const text = useMemo(() => lines.join("\n"), [lines])
+  const text = useMemo(() => lines.join('\n'), [lines]);
 
   const visualLayout = useMemo(
-    () => calculateVisualLayout(lines, [cursorRow, cursorCol], state.viewportWidth),
+    () =>
+      calculateVisualLayout(lines, [cursorRow, cursorCol], state.viewportWidth),
     [lines, cursorRow, cursorCol, state.viewportWidth],
-  )
+  );
 
-  const { visualLines, visualCursor } = visualLayout
+  const { visualLines, visualCursor } = visualLayout;
 
-  const [visualScrollRow, setVisualScrollRow] = useState<number>(0)
+  const [visualScrollRow, setVisualScrollRow] = useState<number>(0);
 
   useEffect(() => {
     if (onChange) {
-      onChange(text)
+      onChange(text);
     }
-  }, [text, onChange])
+  }, [text, onChange]);
 
   useEffect(() => {
-    dispatch({ type: "set_viewport_width", payload: viewport.width })
-  }, [viewport.width])
+    dispatch({ type: 'set_viewport_width', payload: viewport.width });
+  }, [viewport.width]);
 
   // Update visual scroll (vertical)
   useEffect(() => {
-    const { height } = viewport
-    let newVisualScrollRow = visualScrollRow
+    const { height } = viewport;
+    let newVisualScrollRow = visualScrollRow;
 
     if (visualCursor[0] < visualScrollRow) {
-      newVisualScrollRow = visualCursor[0]
+      newVisualScrollRow = visualCursor[0];
     } else if (visualCursor[0] >= visualScrollRow + height) {
-      newVisualScrollRow = visualCursor[0] - height + 1
+      newVisualScrollRow = visualCursor[0] - height + 1;
     }
     if (newVisualScrollRow !== visualScrollRow) {
-      setVisualScrollRow(newVisualScrollRow)
+      setVisualScrollRow(newVisualScrollRow);
     }
-  }, [visualCursor, visualScrollRow, viewport])
+  }, [visualCursor, visualScrollRow, viewport]);
 
   const insert = useCallback(
     (ch: string): void => {
       if (/[\n\r]/.test(ch)) {
-        dispatch({ type: "insert", payload: ch })
-        return
+        dispatch({ type: 'insert', payload: ch });
+        return;
       }
 
-      const minLengthToInferAsDragDrop = 3
+      const minLengthToInferAsDragDrop = 3;
       if (ch.length >= minLengthToInferAsDragDrop && !shellModeActive) {
-        let potentialPath = ch
-        if (potentialPath.length > 2 && potentialPath.startsWith("'") && potentialPath.endsWith("'")) {
-          potentialPath = ch.slice(1, -1)
+        let potentialPath = ch;
+        if (
+          potentialPath.length > 2 &&
+          potentialPath.startsWith("'") &&
+          potentialPath.endsWith("'")
+        ) {
+          potentialPath = ch.slice(1, -1);
         }
 
-        potentialPath = potentialPath.trim()
+        potentialPath = potentialPath.trim();
         if (isValidPath(unescapePath(potentialPath))) {
-          ch = `@${potentialPath}`
+          ch = `@${potentialPath}`;
         }
       }
 
-      let currentText = ""
+      let currentText = '';
       for (const char of toCodePoints(ch)) {
         if (char.codePointAt(0) === 127) {
           if (currentText.length > 0) {
-            dispatch({ type: "insert", payload: currentText })
-            currentText = ""
+            dispatch({ type: 'insert', payload: currentText });
+            currentText = '';
           }
-          dispatch({ type: "backspace" })
+          dispatch({ type: 'backspace' });
         } else {
-          currentText += char
+          currentText += char;
         }
       }
       if (currentText.length > 0) {
-        dispatch({ type: "insert", payload: currentText })
+        dispatch({ type: 'insert', payload: currentText });
       }
     },
     [isValidPath, shellModeActive],
-  )
+  );
 
   const newline = useCallback((): void => {
-    dispatch({ type: "insert", payload: "\n" })
-  }, [])
+    dispatch({ type: 'insert', payload: '\n' });
+  }, []);
 
   const backspace = useCallback((): void => {
-    dispatch({ type: "backspace" })
-  }, [])
+    dispatch({ type: 'backspace' });
+  }, []);
 
   const del = useCallback((): void => {
-    dispatch({ type: "delete" })
-  }, [])
+    dispatch({ type: 'delete' });
+  }, []);
 
   const move = useCallback((dir: Direction): void => {
-    dispatch({ type: "move", payload: { dir } })
-  }, [])
+    dispatch({ type: 'move', payload: { dir } });
+  }, []);
 
   const undo = useCallback((): void => {
-    dispatch({ type: "undo" })
-  }, [])
+    dispatch({ type: 'undo' });
+  }, []);
 
   const redo = useCallback((): void => {
-    dispatch({ type: "redo" })
-  }, [])
+    dispatch({ type: 'redo' });
+  }, []);
 
   const setText = useCallback((newText: string): void => {
-    dispatch({ type: "set_text", payload: newText })
-  }, [])
+    dispatch({ type: 'set_text', payload: newText });
+  }, []);
 
   const deleteWordLeft = useCallback((): void => {
-    dispatch({ type: "delete_word_left" })
-  }, [])
+    dispatch({ type: 'delete_word_left' });
+  }, []);
 
   const deleteWordRight = useCallback((): void => {
-    dispatch({ type: "delete_word_right" })
-  }, [])
+    dispatch({ type: 'delete_word_right' });
+  }, []);
 
   const killLineRight = useCallback((): void => {
-    dispatch({ type: "kill_line_right" })
-  }, [])
+    dispatch({ type: 'kill_line_right' });
+  }, []);
 
   const killLineLeft = useCallback((): void => {
-    dispatch({ type: "kill_line_left" })
-  }, [])
+    dispatch({ type: 'kill_line_left' });
+  }, []);
 
   const openInExternalEditor = useCallback(
     async (opts: { editor?: string } = {}): Promise<void> => {
       const editor =
         opts.editor ??
-        process.env["VISUAL"] ??
-        process.env["EDITOR"] ??
-        (process.platform === "win32" ? "notepad" : "vi")
-      const tmpDir = fs.mkdtempSync(pathMod.join(os.tmpdir(), "gemini-edit-"))
-      const filePath = pathMod.join(tmpDir, "buffer.txt")
-      fs.writeFileSync(filePath, text, "utf8")
+        process.env['VISUAL'] ??
+        process.env['EDITOR'] ??
+        (process.platform === 'win32' ? 'notepad' : 'vi');
+      const tmpDir = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'gemini-edit-'));
+      const filePath = pathMod.join(tmpDir, 'buffer.txt');
+      fs.writeFileSync(filePath, text, 'utf8');
 
-      dispatch({ type: "create_undo_snapshot" })
+      dispatch({ type: 'create_undo_snapshot' });
 
-      const wasRaw = stdin?.isRaw ?? false
+      const wasRaw = stdin?.isRaw ?? false;
       try {
-        setRawMode?.(false)
+        setRawMode?.(false);
         const { status, error } = spawnSync(editor, [filePath], {
-          stdio: "inherit",
-        })
-        if (error) throw error
-        if (typeof status === "number" && status !== 0) throw new Error(`External editor exited with status ${status}`)
+          stdio: 'inherit',
+        });
+        if (error) throw error;
+        if (typeof status === 'number' && status !== 0)
+          throw new Error(`External editor exited with status ${status}`);
 
-        let newText = fs.readFileSync(filePath, "utf8")
-        newText = newText.replace(/\r\n?/g, "\n")
-        dispatch({ type: "set_text", payload: newText, pushToUndo: false })
+        let newText = fs.readFileSync(filePath, 'utf8');
+        newText = newText.replace(/\r\n?/g, '\n');
+        dispatch({ type: 'set_text', payload: newText, pushToUndo: false });
       } catch (err) {
-        console.error("[useTextBuffer] external editor error", err)
+        console.error('[useTextBuffer] external editor error', err);
       } finally {
-        if (wasRaw) setRawMode?.(true)
+        if (wasRaw) setRawMode?.(true);
         try {
-          fs.unlinkSync(filePath)
+          fs.unlinkSync(filePath);
         } catch {
           /* ignore */
         }
         try {
-          fs.rmdirSync(tmpDir)
+          fs.rmdirSync(tmpDir);
         } catch {
           /* ignore */
         }
       }
     },
     [text, stdin, setRawMode],
-  )
+  );
 
   const handleInput = useCallback(
     (key: {
-      name: string
-      ctrl: boolean
-      meta: boolean
-      shift: boolean
-      paste: boolean
-      sequence: string
+      name: string;
+      ctrl: boolean;
+      meta: boolean;
+      shift: boolean;
+      paste: boolean;
+      sequence: string;
     }): void => {
-      const { sequence: input } = key
+      const { sequence: input } = key;
 
       if (
-        key.name === "return" ||
-        input === "\r" ||
-        input === "\n" ||
-        input === "\\\r" // VSCode terminal represents shift + enter this way
+        key.name === 'return' ||
+        input === '\r' ||
+        input === '\n' ||
+        input === '\\\r' // VSCode terminal represents shift + enter this way
       )
-        newline()
-      else if (key.name === "left" && !key.meta && !key.ctrl) move("left")
-      else if (key.ctrl && key.name === "b") move("left")
-      else if (key.name === "right" && !key.meta && !key.ctrl) move("right")
-      else if (key.ctrl && key.name === "f") move("right")
-      else if (key.name === "up") move("up")
-      else if (key.name === "down") move("down")
-      else if ((key.ctrl || key.meta) && key.name === "left") move("wordLeft")
-      else if (key.meta && key.name === "b") move("wordLeft")
-      else if ((key.ctrl || key.meta) && key.name === "right") move("wordRight")
-      else if (key.meta && key.name === "f") move("wordRight")
-      else if (key.name === "home") move("home")
-      else if (key.ctrl && key.name === "a") move("home")
-      else if (key.name === "end") move("end")
-      else if (key.ctrl && key.name === "e") move("end")
-      else if (key.ctrl && key.name === "w") deleteWordLeft()
-      else if ((key.meta || key.ctrl) && (key.name === "backspace" || input === "\x7f")) deleteWordLeft()
-      else if ((key.meta || key.ctrl) && key.name === "delete") deleteWordRight()
-      else if (key.name === "backspace" || input === "\x7f" || (key.ctrl && key.name === "h")) backspace()
-      else if (key.name === "delete" || (key.ctrl && key.name === "d")) del()
+        newline();
+      else if (key.name === 'left' && !key.meta && !key.ctrl) move('left');
+      else if (key.ctrl && key.name === 'b') move('left');
+      else if (key.name === 'right' && !key.meta && !key.ctrl) move('right');
+      else if (key.ctrl && key.name === 'f') move('right');
+      else if (key.name === 'up') move('up');
+      else if (key.name === 'down') move('down');
+      else if ((key.ctrl || key.meta) && key.name === 'left') move('wordLeft');
+      else if (key.meta && key.name === 'b') move('wordLeft');
+      else if ((key.ctrl || key.meta) && key.name === 'right')
+        move('wordRight');
+      else if (key.meta && key.name === 'f') move('wordRight');
+      else if (key.name === 'home') move('home');
+      else if (key.ctrl && key.name === 'a') move('home');
+      else if (key.name === 'end') move('end');
+      else if (key.ctrl && key.name === 'e') move('end');
+      else if (key.ctrl && key.name === 'w') deleteWordLeft();
+      else if (
+        (key.meta || key.ctrl) &&
+        (key.name === 'backspace' || input === '\x7f')
+      )
+        deleteWordLeft();
+      else if ((key.meta || key.ctrl) && key.name === 'delete')
+        deleteWordRight();
+      else if (
+        key.name === 'backspace' ||
+        input === '\x7f' ||
+        (key.ctrl && key.name === 'h')
+      )
+        backspace();
+      else if (key.name === 'delete' || (key.ctrl && key.name === 'd')) del();
       else if (input && !key.ctrl && !key.meta) {
-        insert(input)
+        insert(input);
       }
     },
     [newline, move, deleteWordLeft, deleteWordRight, backspace, del, insert],
-  )
+  );
 
   const renderedVisualLines = useMemo(
     () => visualLines.slice(visualScrollRow, visualScrollRow + viewport.height),
     [visualLines, visualScrollRow, viewport.height],
-  )
+  );
 
   const replaceRange = useCallback(
-    (startRow: number, startCol: number, endRow: number, endCol: number, text: string): void => {
+    (
+      startRow: number,
+      startCol: number,
+      endRow: number,
+      endCol: number,
+      text: string,
+    ): void => {
       dispatch({
-        type: "replace_range",
+        type: 'replace_range',
         payload: { startRow, startCol, endRow, endCol, text },
-      })
+      });
     },
     [],
-  )
+  );
 
   const replaceRangeByOffset = useCallback(
     (startOffset: number, endOffset: number, replacementText: string): void => {
-      const [startRow, startCol] = offsetToLogicalPos(text, startOffset)
-      const [endRow, endCol] = offsetToLogicalPos(text, endOffset)
-      replaceRange(startRow, startCol, endRow, endCol, replacementText)
+      const [startRow, startCol] = offsetToLogicalPos(text, startOffset);
+      const [endRow, endCol] = offsetToLogicalPos(text, endOffset);
+      replaceRange(startRow, startCol, endRow, endCol, replacementText);
     },
     [text, replaceRange],
-  )
+  );
 
   const moveToOffset = useCallback((offset: number): void => {
-    dispatch({ type: "move_to_offset", payload: { offset } })
-  }, [])
+    dispatch({ type: 'move_to_offset', payload: { offset } });
+  }, []);
 
   const returnValue: TextBuffer = {
     lines,
@@ -1223,29 +1363,29 @@ export function useTextBuffer({
     killLineLeft,
     handleInput,
     openInExternalEditor,
-  }
-  return returnValue
+  };
+  return returnValue;
 }
 
 export interface TextBuffer {
   // State
-  lines: string[] // Logical lines
-  text: string
-  cursor: [number, number] // Logical cursor [row, col]
+  lines: string[]; // Logical lines
+  text: string;
+  cursor: [number, number]; // Logical cursor [row, col]
   /**
    * When the user moves the caret vertically we try to keep their original
    * horizontal column even when passing through shorter lines.  We remember
    * that *preferred* column in this field while the user is still travelling
    * vertically.  Any explicit horizontal movement resets the preference.
    */
-  preferredCol: number | null // Preferred visual column
-  selectionAnchor: [number, number] | null // Logical selection anchor
+  preferredCol: number | null; // Preferred visual column
+  selectionAnchor: [number, number] | null; // Logical selection anchor
 
   // Visual state (handles wrapping)
-  allVisualLines: string[] // All visual lines for the current text and viewport width.
-  viewportVisualLines: string[] // The subset of visual lines to be rendered based on visualScrollRow and viewport.height
-  visualCursor: [number, number] // Visual cursor [row, col] relative to the start of all visualLines
-  visualScrollRow: number // Scroll position for visual lines (index of the first visible visual line)
+  allVisualLines: string[]; // All visual lines for the current text and viewport width.
+  viewportVisualLines: string[]; // The subset of visual lines to be rendered based on visualScrollRow and viewport.height
+  visualCursor: [number, number]; // Visual cursor [row, col] relative to the start of all visualLines
+  visualScrollRow: number; // Scroll position for visual lines (index of the first visible visual line)
 
   // Actions
 
@@ -1253,17 +1393,17 @@ export interface TextBuffer {
    * Replaces the entire buffer content with the provided text.
    * The operation is undoable.
    */
-  setText: (text: string) => void
+  setText: (text: string) => void;
   /**
    * Insert a single character or string without newlines.
    */
-  insert: (ch: string) => void
-  newline: () => void
-  backspace: () => void
-  del: () => void
-  move: (dir: Direction) => void
-  undo: () => void
-  redo: () => void
+  insert: (ch: string) => void;
+  newline: () => void;
+  backspace: () => void;
+  del: () => void;
+  move: (dir: Direction) => void;
+  undo: () => void;
+  redo: () => void;
   /**
    * Replaces the text within the specified range with new text.
    * Handles both single-line and multi-line ranges.
@@ -1275,39 +1415,45 @@ export interface TextBuffer {
    * @param text The new text to insert.
    * @returns True if the buffer was modified, false otherwise.
    */
-  replaceRange: (startRow: number, startCol: number, endRow: number, endCol: number, text: string) => void
+  replaceRange: (
+    startRow: number,
+    startCol: number,
+    endRow: number,
+    endCol: number,
+    text: string,
+  ) => void;
   /**
    * Delete the word to the *left* of the caret, mirroring common
    * Ctrl/Alt+Backspace behaviour in editors & terminals. Both the adjacent
    * whitespace *and* the word characters immediately preceding the caret are
    * removed.  If the caret is already at column‑0 this becomes a no-op.
    */
-  deleteWordLeft: () => void
+  deleteWordLeft: () => void;
   /**
    * Delete the word to the *right* of the caret, akin to many editors'
    * Ctrl/Alt+Delete shortcut.  Removes any whitespace/punctuation that
    * follows the caret and the next contiguous run of word characters.
    */
-  deleteWordRight: () => void
+  deleteWordRight: () => void;
   /**
    * Deletes text from the cursor to the end of the current line.
    */
-  killLineRight: () => void
+  killLineRight: () => void;
   /**
    * Deletes text from the start of the current line to the cursor.
    */
-  killLineLeft: () => void
+  killLineLeft: () => void;
   /**
    * High level "handleInput" – receives what Ink gives us.
    */
   handleInput: (key: {
-    name: string
-    ctrl: boolean
-    meta: boolean
-    shift: boolean
-    paste: boolean
-    sequence: string
-  }) => void
+    name: string;
+    ctrl: boolean;
+    meta: boolean;
+    shift: boolean;
+    paste: boolean;
+    sequence: string;
+  }) => void;
   /**
    * Opens the current buffer contents in the user's preferred terminal text
    * editor ($VISUAL or $EDITOR, falling back to "vi").  The method blocks
@@ -1323,8 +1469,12 @@ export interface TextBuffer {
    * continuing.  This mirrors Git's behaviour and simplifies downstream
    * control‑flow (callers can simply `await` the Promise).
    */
-  openInExternalEditor: (opts?: { editor?: string }) => Promise<void>
+  openInExternalEditor: (opts?: { editor?: string }) => Promise<void>;
 
-  replaceRangeByOffset: (startOffset: number, endOffset: number, replacementText: string) => void
-  moveToOffset(offset: number): void
+  replaceRangeByOffset: (
+    startOffset: number,
+    endOffset: number,
+    replacementText: string,
+  ) => void;
+  moveToOffset(offset: number): void;
 }
