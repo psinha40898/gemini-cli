@@ -691,7 +691,6 @@ function calculateVisualLayout(
         if (logIndex === logicalCursor[0]) {
           const cursorLogCol = logicalCursor[1];
           let displayColForCursor;
-          const exactMatchIndex = displayToLogMap.indexOf(cursorLogCol);
           // Find the first display position whose logical mapping is > our cursor's logical position.
           const firstGreaterIndex = displayToLogMap.findIndex(
             (logCol) => logCol > cursorLogCol,
