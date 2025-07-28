@@ -559,12 +559,12 @@ function calculateVisualLayout(
   visualCursor: [number, number];
   logicalToVisualMap: Array<Array<[number, number]>>; // For each logical line, an array of [visualLineIndex, startColInLogical]
   visualToLogicalMap: Array<[number, number]>; // For each visual line, its [logicalLineIndex, startColInLogical]
-  displayToLogicalMaps: Record<number, number[]>;
+  displayToLogicalMaps: number[][]; // For each logical line, an array to represent the transformation on that line
 } {
   const visualLines: string[] = [];
   const logicalToVisualMap: Array<Array<[number, number]>> = [];
   const visualToLogicalMap: Array<[number, number]> = [];
-  const displayToLogicalMaps: Record<number, number[]> = {};
+  const displayToLogicalMaps: number[][] = [];
   let currentVisualCursor: [number, number] = [0, 0];
 
   logicalLines.forEach((logLine, logIndex) => {
@@ -1914,7 +1914,7 @@ export interface TextBuffer {
   visualCursor: [number, number]; // Visual cursor [row, col] relative to the start of all visualLines
   visualScrollRow: number; // Scroll position for visual lines (index of the first visible visual line)
   visualToLogicalMap: Array<[number, number]>;
-  displayToLogicalMaps: Record<number, number[]>;
+  displayToLogicalMaps: number[][];
 
   // Actions
 
