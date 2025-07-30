@@ -30,7 +30,6 @@ import {
   SlashCommandProcessorResult,
   StreamingState,
 } from '../types.js';
-import { Dispatch, SetStateAction } from 'react';
 import { LoadedSettings } from '../../config/settings.js';
 
 // --- MOCKS ---

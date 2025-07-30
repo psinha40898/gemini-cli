@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CommandKind, OpenDialogActionReturn, SlashCommand } from './types.js';
+import { CommandKind, SlashCommand } from './types.js';
 import { MessageType, type HistoryItemHelp } from '../types.js';
 
 export const helpCommand: SlashCommand = {

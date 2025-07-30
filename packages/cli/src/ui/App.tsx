@@ -813,7 +813,6 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
           </Box>
         </OverflowProvider>
 
-
         <Box flexDirection="column" ref={mainControlsRef}>
           {startupWarnings.length > 0 && (
             <Box
