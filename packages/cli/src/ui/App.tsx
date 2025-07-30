@@ -38,7 +38,6 @@ import { AuthInProgress } from './components/AuthInProgress.js';
 import { EditorSettingsDialog } from './components/EditorSettingsDialog.js';
 import { ShellConfirmationDialog } from './components/ShellConfirmationDialog.js';
 import { Colors } from './colors.js';
-import { Help } from './components/Help.js';
 import { loadHierarchicalGeminiMemory } from '../config/config.js';
 import { LoadedSettings } from '../config/settings.js';
 import { Tips } from './components/Tips.js';
@@ -144,7 +143,6 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
 
   const [geminiMdFileCount, setGeminiMdFileCount] = useState<number>(0);
   const [debugMessage, setDebugMessage] = useState<string>('');
-  const [showHelp, setShowHelp] = useState<boolean>(false);
   const [themeError, setThemeError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [editorError, setEditorError] = useState<string | null>(null);
@@ -462,7 +460,6 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     clearItems,
     loadHistory,
     refreshStatic,
-    setShowHelp,
     setDebugMessage,
     openThemeDialog,
     openAuthDialog,
@@ -484,7 +481,6 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     config.getGeminiClient(),
     history,
     addItem,
-    setShowHelp,
     config,
     setDebugMessage,
     handleSlashCommand,
@@ -789,6 +785,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
                 item={h}
                 isPending={false}
                 config={config}
+                commands={slashCommands}
               />
             )),
           ]}
@@ -816,7 +813,6 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
           </Box>
         </OverflowProvider>
 
-        {showHelp && <Help commands={slashCommands} />}
 
         <Box flexDirection="column" ref={mainControlsRef}>
           {startupWarnings.length > 0 && (
