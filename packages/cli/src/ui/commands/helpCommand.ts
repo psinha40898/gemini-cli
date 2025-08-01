@@ -9,6 +9,7 @@ import { MessageType, type HistoryItemHelp } from '../types.js';
 
 export const helpCommand: SlashCommand = {
   name: 'help',
+  altNames: ['?'],
   kind: CommandKind.BUILT_IN,
   description: 'for help on gemini-cli',
   action: async (context) => {
