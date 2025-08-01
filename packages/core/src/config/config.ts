@@ -28,6 +28,8 @@ import {
   GEMINI_CONFIG_DIR as GEMINI_DIR,
 } from '../tools/memoryTool.js';
 import { WebSearchTool } from '../tools/web-search.js';
+import { Planner } from '../core/planner.js';
+import { ReadPlanTool, WritePlanItemTool } from '../tools/plan.js';
 import { GeminiClient } from '../core/client.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { GitService } from '../services/gitService.js';
@@ -56,6 +58,7 @@ export enum ApprovalMode {
   DEFAULT = 'default',
   AUTO_EDIT = 'autoEdit',
   YOLO = 'yolo',
+  PLAN = 'plan,' // in plan mode we should never execute any non planning tool
 }
 
 export interface AccessibilitySettings {
@@ -240,6 +243,7 @@ export class Config {
     name: string;
     extensionName: string;
   }>;
+  private readonly planner: Planner;
   flashFallbackHandler?: FlashFallbackHandler;
   private quotaErrorOccurred: boolean = false;
   private readonly summarizeToolOutput:
@@ -303,6 +307,7 @@ export class Config {
     this.ideModeFeature = params.ideModeFeature ?? false;
     this.ideMode = params.ideMode ?? true;
     this.ideClient = params.ideClient;
+    this.planner = new Planner();
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -604,6 +609,10 @@ export class Config {
     return this.ideMode;
   }
 
+  getPlanner(): Planner {
+    return this.planner;
+  }
+
   setIdeMode(value: boolean): void {
     this.ideMode = value;
   }
@@ -671,6 +680,10 @@ export class Config {
     registerCoreTool(ShellTool, this);
     registerCoreTool(MemoryTool);
     registerCoreTool(WebSearchTool, this);
+
+    // Plan tools
+    registerCoreTool(ReadPlanTool, this);
+    registerCoreTool(WritePlanItemTool, this);
 
     await registry.discoverAllTools();
     return registry;
