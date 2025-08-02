@@ -29,7 +29,8 @@ import {
 } from '../tools/memoryTool.js';
 import { WebSearchTool } from '../tools/web-search.js';
 import { Planner } from '../core/planner.js';
-import { ReadPlanTool, WritePlanItemTool, WritePlanTool } from '../tools/plan.js';
+import { WritePlanTool } from '../tools/plan-write.js';
+import { ReadPlanTool } from '../tools/plan-read.js';
 import { GeminiClient } from '../core/client.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { GitService } from '../services/gitService.js';
@@ -683,7 +684,6 @@ export class Config {
 
     // Plan tools
     registerCoreTool(ReadPlanTool, this);
-    registerCoreTool(WritePlanItemTool, this);
     registerCoreTool(WritePlanTool, this);
 
     await registry.discoverAllTools();
