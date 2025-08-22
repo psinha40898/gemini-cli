@@ -58,12 +58,12 @@ import {
 import { ClearcutLogger } from '../telemetry/clearcut-logger/clearcut-logger.js';
 import { IdeContext, File } from '../ide/ideContext.js';
 
-function isThinkingSupported(model: string) {
+export function isThinkingSupported(model: string) {
   if (model.startsWith('gemini-2.5')) return true;
   return false;
 }
 
-function isThinkingDefault(model: string) {
+export function isThinkingDefault(model: string) {
   if (model.startsWith('gemini-2.5-flash-lite')) return false;
   if (model.startsWith('gemini-2.5')) return true;
   return false;
