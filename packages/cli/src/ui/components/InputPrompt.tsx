@@ -10,7 +10,7 @@ import { theme } from '../semantic-colors.js';
 import { SuggestionsDisplay } from './SuggestionsDisplay.js';
 import { useInputHistory } from '../hooks/useInputHistory.js';
 import { TextBuffer, logicalPosToOffset } from './shared/text-buffer.js';
-import { cpSlice, cpLen, toCodePoints } from '../utils/textUtils.js';
+import { cpSlice, toCodePoints } from '../utils/textUtils.js';
 import chalk from 'chalk';
 import stringWidth from 'string-width';
 import { useShellHistory } from '../hooks/useShellHistory.js';
@@ -716,49 +716,80 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
               .map((lineText, visualIdxInRenderedSet) => {
                 const cursorVisualRow =
                   cursorVisualRowAbsolute - scrollVisualRow;
-                let display = cpSlice(lineText, 0, inputWidth);
+                // Raw slice of the line limited by input width
+                const rawDisplay = cpSlice(lineText, 0, inputWidth);
 
                 const isOnCursorLine =
                   focus && visualIdxInRenderedSet === cursorVisualRow;
                 const currentLineGhost = isOnCursorLine ? inlineGhost : '';
-
                 const ghostWidth = stringWidth(currentLineGhost);
 
-                if (focus && visualIdxInRenderedSet === cursorVisualRow) {
-                  const relativeVisualColForHighlight = cursorVisualColAbsolute;
+                // ------------------------------------------------------------------
+                // 1. Apply transformation coloring character-by-character
+                // ------------------------------------------------------------------
+                const codePoints = toCodePoints(rawDisplay);
+                const outputChars: string[] = [];
 
-                  if (relativeVisualColForHighlight >= 0) {
-                    if (relativeVisualColForHighlight < cpLen(display)) {
-                      const charToHighlight =
-                        cpSlice(
-                          display,
-                          relativeVisualColForHighlight,
-                          relativeVisualColForHighlight + 1,
-                        ) || ' ';
-                      const highlighted = chalk.inverse(charToHighlight);
-                      display =
-                        cpSlice(display, 0, relativeVisualColForHighlight) +
-                        highlighted +
-                        cpSlice(display, relativeVisualColForHighlight + 1);
-                    } else if (
-                      relativeVisualColForHighlight === cpLen(display)
-                    ) {
-                      if (!currentLineGhost) {
-                        display = display + chalk.inverse(' ');
+                for (let i = 0; i < codePoints.length; i++) {
+                  const char = codePoints[i];
+                  const absoluteVisualIdx = visualIdxInRenderedSet + scrollVisualRow;
+                  const [logicalLineIndex, startColInDisplayLine] =
+                    buffer.visualToLogicalMap[absoluteVisualIdx] ?? [];
+
+                  let isTransform = false;
+                  if (logicalLineIndex !== undefined) {
+                    const displayToLogMap =
+                      buffer.displayToLogicalMaps[logicalLineIndex];
+                    if (displayToLogMap) {
+                      const displayMapIdx = (startColInDisplayLine || 0) + i;
+                      const currentLogPos = displayToLogMap[displayMapIdx];
+                      const nextLogPos = displayToLogMap[displayMapIdx + 1];
+                      const prevLogPos = displayToLogMap[displayMapIdx - 1];
+                      // Character belongs to a collapsed transform if adjacent chars map to same logical offset.
+                      if (
+                        (currentLogPos !== undefined && currentLogPos === nextLogPos) ||
+                        (currentLogPos !== undefined && currentLogPos === prevLogPos)
+                      ) {
+                        isTransform = true;
                       }
                     }
                   }
+
+                  outputChars.push(isTransform ? chalk.cyan(char) : char);
                 }
 
+                // ------------------------------------------------------------------
+                // 2. Cursor highlight (invert) – applied on top of any existing styles
+                // ------------------------------------------------------------------
+                if (focus && visualIdxInRenderedSet === cursorVisualRow) {
+                  const relativeVisualColForHighlight = cursorVisualColAbsolute;
+                  if (
+                    relativeVisualColForHighlight >= 0 &&
+                    relativeVisualColForHighlight < outputChars.length
+                  ) {
+                    outputChars[relativeVisualColForHighlight] = chalk.inverse(
+                      outputChars[relativeVisualColForHighlight],
+                    );
+                  } else if (
+                    relativeVisualColForHighlight === outputChars.length &&
+                    !currentLineGhost // avoid duplicate from showCursorBeforeGhost logic
+                  ) {
+                    // Cursor is exactly at end of display; we'll append inversion later if needed.
+                  }
+                }
+
+                const coloredDisplay = outputChars.join('');
+
+                // ------------------------------------------------------------------
+                // 3. Determine if we need to render a separate cursor block before ghost
+                // ------------------------------------------------------------------
                 const showCursorBeforeGhost =
                   focus &&
                   visualIdxInRenderedSet === cursorVisualRow &&
-                  cursorVisualColAbsolute ===
-                    // eslint-disable-next-line no-control-regex
-                    cpLen(display.replace(/\x1b\[[0-9;]*m/g, '')) &&
-                  currentLineGhost;
+                  cursorVisualColAbsolute === outputChars.length &&
+                  currentLineGhost !== '';
 
-                const actualDisplayWidth = stringWidth(display);
+                const actualDisplayWidth = stringWidth(coloredDisplay);
                 const cursorWidth = showCursorBeforeGhost ? 1 : 0;
                 const totalContentWidth =
                   actualDisplayWidth + cursorWidth + ghostWidth;
@@ -769,7 +800,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
                 return (
                   <Text key={`line-${visualIdxInRenderedSet}`}>
-                    {display}
+                    {coloredDisplay}
                     {showCursorBeforeGhost && chalk.inverse(' ')}
                     {currentLineGhost && (
                       <Text color={theme.text.secondary}>
