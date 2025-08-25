@@ -10,6 +10,7 @@ import { InputPrompt, InputPromptProps } from './InputPrompt.js';
 import type { TextBuffer } from './shared/text-buffer.js';
 import { Config } from '@google/gemini-cli-core';
 import * as path from 'path';
+import chalk from 'chalk';
 import {
   CommandContext,
   SlashCommand,
@@ -1519,6 +1520,41 @@ describe('InputPrompt', () => {
 
       expect(props.buffer.move).toHaveBeenCalledWith('end');
       expect(props.buffer.moveToOffset).not.toHaveBeenCalled();
+      unmount();
+    });
+  });
+
+  describe('text transformation rendering', () => {
+    it('should render transformed text with the correct color', async () => {
+      const rawText = 'hello @/path/to/image.png world';
+      const terseText = '[Image image.png]';
+      const transformedText = `hello ${terseText} world`;
+
+      mockBuffer.text = rawText;
+      mockBuffer.lines = [rawText];
+      mockBuffer.allVisualLines = [transformedText];
+      mockBuffer.viewportVisualLines = [transformedText];
+      mockBuffer.visualToLogicalMap = [[0, 0]];
+
+      // Simulate a transformation where the terse text maps to the same logical start position
+      const transformedToLogMap = Array(rawText.length)
+        .fill(0)
+        .map((_, i) => i);
+      const terseStart = rawText.indexOf('@');
+      for (let i = 0; i < terseText.length; i++) {
+        transformedToLogMap[terseStart + i] = terseStart;
+      }
+      mockBuffer.transformedToLogicalMaps = [transformedToLogMap];
+
+      const { stdout, unmount } = renderWithProviders(
+        <InputPrompt {...props} />,
+      );
+      await wait();
+
+      const frame = stdout.lastFrame();
+      // We check for the transformed text and the color code for purple.
+      const expected = `> hello ${chalk.hex('#CBA6F7')(terseText)} world`;
+      expect(frame).toContain(expected);
       unmount();
     });
   });

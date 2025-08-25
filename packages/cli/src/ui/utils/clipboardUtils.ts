@@ -152,7 +152,7 @@ export function getTersePath(filePath: string): string {
   const fileName = path.basename(filePath);
   const extension = path.extname(fileName);
   const baseName = path.basename(fileName, extension);
-  const maxBaseLength = 10; // Max length for base name only
+  const maxBaseLength = 10;
 
   const truncatedBase =
     baseName.length > maxBaseLength
