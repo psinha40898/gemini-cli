@@ -1551,7 +1551,7 @@ describe('InputPrompt', () => {
       await wait();
 
       const frame = stdout.lastFrame();
-      // We check for the transformed text and the color code for purple.
+      // We check for the transformed text and the color code for purple which is the default theme accent color.
       const expected = `> hello ${chalk.hex('#CBA6F7')(terseText)} world`;
       expect(frame).toContain(expected);
       unmount();
