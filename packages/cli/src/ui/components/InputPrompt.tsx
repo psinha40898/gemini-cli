@@ -774,7 +774,8 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                     relativeVisualColForHighlight === outputChars.length &&
                     !currentLineGhost // avoid duplicate from showCursorBeforeGhost logic
                   ) {
-                    // Cursor is exactly at end of display; we'll append inversion later if needed.
+                    // Cursor is exactly at end of the line with no ghost – render an inverted space block
+                    outputChars.push(chalk.inverse(' '));
                   }
                 }
 
