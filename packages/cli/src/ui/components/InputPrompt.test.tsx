@@ -111,6 +111,9 @@ describe('InputPrompt', () => {
         mockBuffer.cursor = [0, newText.length];
         mockBuffer.viewportVisualLines = [newText];
         mockBuffer.allVisualLines = [newText];
+        // Update visualToLogicalMap when text changes
+        mockBuffer.visualToLogicalMap = [[0, 0]];
+        mockBuffer.displayToLogicalMaps = [Array(newText.length || 1).fill(0).map((_, i) => i)];
       }),
       replaceRangeByOffset: vi.fn(),
       viewportVisualLines: [''],
@@ -136,6 +139,8 @@ describe('InputPrompt', () => {
       replaceRange: vi.fn(),
       deleteWordLeft: vi.fn(),
       deleteWordRight: vi.fn(),
+      visualToLogicalMap: [[0, 0]], // Add default empty map
+      displayToLogicalMaps: [[0]],  // Add default empty maps
     } as unknown as TextBuffer;
 
     mockShellHistory = {
