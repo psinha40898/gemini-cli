@@ -726,24 +726,29 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                 // Apply transformation coloring first
                 const codePoints = toCodePoints(display);
                 const outputChars = [];
-                const absoluteVisualIdx = visualIdxInRenderedSet + scrollVisualRow;
-                
+                const absoluteVisualIdx =
+                  visualIdxInRenderedSet + scrollVisualRow;
+
                 // First pass: Apply transformation coloring
                 for (let i = 0; i < codePoints.length; i++) {
                   const char = codePoints[i];
-                  const [logicalLineIndex, startColInDisplayLine] =
+                  const [logicalLineIndex, startColInTransformedLine] =
                     buffer.visualToLogicalMap[absoluteVisualIdx] ?? [];
 
                   let isTransform = false;
                   if (logicalLineIndex !== undefined) {
-                    const displayToLogMap =
-                      buffer.displayToLogicalMaps[logicalLineIndex];
-                    if (displayToLogMap) {
-                      const displayMapIdx = (startColInDisplayLine ?? 0) + i;
-                      const currentLogPos = displayToLogMap[displayMapIdx];
-                      const nextLogPos = displayToLogMap[displayMapIdx + 1];
-                      const prevLogPos = displayToLogMap[displayMapIdx - 1];
-                      
+                    const transformedToLogMap =
+                      buffer.transformedToLogicalMaps[logicalLineIndex];
+                    if (transformedToLogMap) {
+                      const transformedMapIdx =
+                        (startColInTransformedLine ?? 0) + i;
+                      const currentLogPos =
+                        transformedToLogMap[transformedMapIdx];
+                      const nextLogPos =
+                        transformedToLogMap[transformedMapIdx + 1];
+                      const prevLogPos =
+                        transformedToLogMap[transformedMapIdx - 1];
+
                       if (
                         (currentLogPos !== undefined &&
                           currentLogPos === nextLogPos) ||
@@ -754,18 +759,21 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                       }
                     }
                   }
-                  outputChars.push(isTransform ? chalk.cyan(char) : char);
+                  outputChars.push(
+                    isTransform ? chalk.hex(theme.text.accent)(char) : char,
+                  );
                 }
 
                 // Apply cursor highlighting on the array of styled characters
                 if (focus && visualIdxInRenderedSet === cursorVisualRow) {
                   const relativeVisualColForHighlight = cursorVisualColAbsolute;
-                  
+
                   if (relativeVisualColForHighlight >= 0) {
                     if (relativeVisualColForHighlight < outputChars.length) {
-                      outputChars[relativeVisualColForHighlight] = chalk.inverse(
-                        outputChars[relativeVisualColForHighlight]
-                      );
+                      outputChars[relativeVisualColForHighlight] =
+                        chalk.inverse(
+                          outputChars[relativeVisualColForHighlight],
+                        );
                     } else if (
                       relativeVisualColForHighlight === outputChars.length &&
                       outputChars.length < inputWidth
