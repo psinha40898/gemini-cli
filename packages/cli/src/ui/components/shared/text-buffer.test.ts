@@ -1785,7 +1785,6 @@ describe('useTextBuffer transformations', () => {
       }),
     );
 
-    // Move cursor to the start of the transformed text
     act(() => {
       result.current.moveToOffset(6);
     });
@@ -1793,13 +1792,11 @@ describe('useTextBuffer transformations', () => {
     let state = getBufferState(result);
     expect(state.visualCursor).toEqual([0, 6]);
 
-    // Move cursor inside the transformed text
     act(() => {
       result.current.move('right');
     });
 
     state = getBufferState(result);
-    // The logical cursor should jump to the start of the path, expanding it.
     expect(state.cursor).toEqual([0, 7]);
   });
 

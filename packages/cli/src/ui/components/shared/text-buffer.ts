@@ -629,8 +629,6 @@ export function logicalPosToOffset(
   return offset;
 }
 
-// --- Start of visual transformation logic ---
-
 interface Transformation {
   logStart: number;
   logEnd: number;
@@ -711,8 +709,6 @@ function buildTransformedLineAndMap(
 
   return { transformedLine, transformedToLogMap };
 }
-
-// --- End of visual transformation logic ---
 
 // Helper to calculate visual lines and map cursor positions
 function calculateVisualLayout(
