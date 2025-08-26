@@ -52,9 +52,9 @@ export interface InputPromptProps {
 /**
  * Applies visual styling to transformed text segments within a line of code points.
  * Identifies streaks of duplicates in transformedToLogicalMaps and colors those transformed characters.
- * 
+ *
  * @param codePoints - The entire display passed in as codepoints
- * @param visualToLogicalEntry - The visual to logical entry for the current line. 
+ * @param visualToLogicalEntry - The visual to logical entry for the current line.
  *   The visual index maps to a tuple: [absoluteVisualIdx] -> [logicalLineIndex, startColumn]
  * @param transformedToLogicalMaps - Each logical line has a Transformation map representing the Transformations in that line
  *   A Transformation is denoted by a streak of duplicates in the map
@@ -72,16 +72,17 @@ export interface InputPromptProps {
  */
 
 function applyTransformationColoring(
-  codePoints: string[], 
+  codePoints: string[],
   visualToLogicalEntry: [number, number] | undefined,
   transformedToLogicalMaps: number[][],
-  transformStyle: (char: string) => string
+  transformStyle: (char: string) => string,
 ): string[] {
   const outputChars: string[] = [];
-  
+
   for (let i = 0; i < codePoints.length; i++) {
     const char = codePoints[i];
-    const [logicalLineIndex, startColInTransformedLine] = visualToLogicalEntry ?? [];
+    const [logicalLineIndex, startColInTransformedLine] =
+      visualToLogicalEntry ?? [];
     let isTransform = false;
 
     if (logicalLineIndex !== undefined) {
@@ -100,10 +101,10 @@ function applyTransformationColoring(
         }
       }
     }
-    
+
     outputChars.push(isTransform ? transformStyle(char) : char);
   }
-  
+
   return outputChars;
 }
 
@@ -791,12 +792,15 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                   visualIdxInRenderedSet + scrollVisualRow;
 
                 // Apply transformation coloring
-                if (buffer.visualToLogicalMap[absoluteVisualIdx] && buffer.transformedToLogicalMaps) {
+                if (
+                  buffer.visualToLogicalMap[absoluteVisualIdx] &&
+                  buffer.transformedToLogicalMaps
+                ) {
                   const transformHighlighted = applyTransformationColoring(
                     codePoints,
                     buffer.visualToLogicalMap[absoluteVisualIdx],
                     buffer.transformedToLogicalMaps,
-                    (char: string) => chalk.hex(theme.text.accent)(char)
+                    (char: string) => chalk.hex(theme.text.accent)(char),
                   );
                   outputChars.push(...transformHighlighted);
                 } else {
