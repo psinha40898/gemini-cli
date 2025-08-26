@@ -11,7 +11,6 @@ import { InputPrompt } from './InputPrompt.js';
 import type { TextBuffer } from './shared/text-buffer.js';
 import type { Config } from '@google/gemini-cli-core';
 import * as path from 'node:path';
-
 import chalk from 'chalk';
 import type { CommandContext, SlashCommand } from '../commands/types.js';
 import { CommandKind } from '../commands/types.js';
