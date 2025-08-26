@@ -18,7 +18,8 @@ import {
   stripUnsafeCharacters,
 } from '../../utils/textUtils.js';
 import { getTersePath } from '../../utils/clipboardUtils.js';
-import { handleVimAction, VimAction } from './vim-buffer-actions.js';
+import type { VimAction } from './vim-buffer-actions.js';
+import { handleVimAction } from './vim-buffer-actions.js';
 
 export type Direction =
   | 'left'
