@@ -28,7 +28,6 @@ import {
   isThinkingSupported,
   GeminiClient,
 } from './client.js';
-import { findIndexAfterFraction, GeminiClient } from './client.js';
 import {
   AuthType,
   type ContentGenerator,
