@@ -1483,7 +1483,7 @@ export function useTextBuffer({
     [lines, cursorRow, cursorCol, state.viewportWidth],
   );
 
-  const { visualLines, visualCursor } = visualLayout;
+  const { visualLines, visualCursor, visualToLogicalMap } = visualLayout;
 
   const [visualScrollRow, setVisualScrollRow] = useState<number>(0);
 
@@ -1885,6 +1885,7 @@ export function useTextBuffer({
     viewportVisualLines: renderedVisualLines,
     visualCursor,
     visualScrollRow,
+    visualToLogicalMap,
 
     setText,
     insert,
@@ -1960,6 +1961,12 @@ export interface TextBuffer {
   viewportVisualLines: string[]; // The subset of visual lines to be rendered based on visualScrollRow and viewport.height
   visualCursor: [number, number]; // Visual cursor [row, col] relative to the start of all visualLines
   visualScrollRow: number; // Scroll position for visual lines (index of the first visible visual line)
+  /**
+   * For each visual line (index into allVisualLines), gives the corresponding
+   * logical line index and the starting code-point column within that logical line.
+   * This enables features like syntax highlighting across wrapped lines.
+   */
+  visualToLogicalMap: Array<[number, number]>;
 
   // Actions
 

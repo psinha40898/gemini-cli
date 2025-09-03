@@ -723,61 +723,95 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
           ) : (
             linesToRender
               .map((lineText, visualIdxInRenderedSet) => {
-                const tokens = parseInputForHighlighting(lineText);
+                // Map visual line to logical line + start column
+                const absVisualIdx = scrollVisualRow + visualIdxInRenderedSet;
+                const [logicalRow, logicalStartCol] = buffer.visualToLogicalMap[
+                  absVisualIdx
+                ] ?? [0, 0];
+                const logicalLineText = buffer.lines[logicalRow] ?? '';
+                const fullTokens = parseInputForHighlighting(logicalLineText);
+
                 const cursorVisualRow =
                   cursorVisualRowAbsolute - scrollVisualRow;
                 const isOnCursorLine =
                   focus && visualIdxInRenderedSet === cursorVisualRow;
 
+                // Determine slice range within logical line (code-point indices)
+                const sliceStart = logicalStartCol;
+                const sliceEnd = logicalStartCol + cpLen(lineText);
+
+                // Build segments by intersecting logical tokens with the slice
+                const segments: {
+                  text: string;
+                  type: 'default' | 'command' | 'file';
+                }[] = [];
+                let runPos = 0;
+                for (let i = 0; i < fullTokens.length; i++) {
+                  const t = fullTokens[i];
+                  const tLen = cpLen(t.text);
+                  const tStart = runPos;
+                  const tEnd = tStart + tLen;
+                  const start = Math.max(tStart, sliceStart);
+                  const end = Math.min(tEnd, sliceEnd);
+                  if (start < end) {
+                    segments.push({
+                      text: cpSlice(t.text, start - tStart, end - tStart),
+                      type: t.type,
+                    });
+                  }
+                  runPos = tEnd;
+                }
+
                 const renderedLine: React.ReactNode[] = [];
                 let charCount = 0;
 
-                tokens.forEach((token, tokenIdx) => {
-                  let display = token.text;
+                segments.forEach((seg, segIdx) => {
+                  let display = seg.text;
                   if (isOnCursorLine) {
                     const relativeVisualColForHighlight =
                       cursorVisualColAbsolute;
-                    const tokenStart = charCount;
-                    const tokenEnd = tokenStart + cpLen(token.text);
+                    const segStart = charCount;
+                    const segEnd = segStart + cpLen(seg.text);
 
                     if (
-                      relativeVisualColForHighlight >= tokenStart &&
-                      relativeVisualColForHighlight < tokenEnd
+                      relativeVisualColForHighlight >= segStart &&
+                      relativeVisualColForHighlight < segEnd
                     ) {
                       const charToHighlight = cpSlice(
-                        token.text,
-                        relativeVisualColForHighlight - tokenStart,
-                        relativeVisualColForHighlight - tokenStart + 1,
+                        seg.text,
+                        relativeVisualColForHighlight - segStart,
+                        relativeVisualColForHighlight - segStart + 1,
                       );
                       const highlighted = chalk.inverse(charToHighlight);
                       display =
                         cpSlice(
-                          token.text,
+                          seg.text,
                           0,
-                          relativeVisualColForHighlight - tokenStart,
+                          relativeVisualColForHighlight - segStart,
                         ) +
                         highlighted +
                         cpSlice(
-                          token.text,
-                          relativeVisualColForHighlight - tokenStart + 1,
+                          seg.text,
+                          relativeVisualColForHighlight - segStart + 1,
                         );
                     }
-                    charCount = tokenEnd;
+                    charCount = segEnd;
                   }
 
                   const color =
-                    token.type === 'command' || token.type === 'file'
+                    seg.type === 'command' || seg.type === 'file'
                       ? theme.text.accent
                       : undefined;
 
                   renderedLine.push(
-                    <Text key={`token-${tokenIdx}`} color={color}>
+                    <Text key={`token-${segIdx}`} color={color}>
                       {display}
                     </Text>,
                   );
                 });
-                const currentLineGhost = isOnCursorLine ? inlineGhost : '';
 
+                const currentLineGhost = isOnCursorLine ? inlineGhost : '';
+                // If cursor at end of line and no ghost, render inverse space as cursor
                 if (
                   isOnCursorLine &&
                   cursorVisualColAbsolute === cpLen(lineText)
