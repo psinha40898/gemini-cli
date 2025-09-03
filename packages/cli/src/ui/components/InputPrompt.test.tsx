@@ -104,6 +104,7 @@ describe('InputPrompt', () => {
         mockBuffer.cursor = [0, newText.length];
         mockBuffer.viewportVisualLines = [newText];
         mockBuffer.allVisualLines = [newText];
+        mockBuffer.visualToLogicalMap = [[0, 0]];
       }),
       replaceRangeByOffset: vi.fn(),
       viewportVisualLines: [''],
@@ -129,6 +130,7 @@ describe('InputPrompt', () => {
       replaceRange: vi.fn(),
       deleteWordLeft: vi.fn(),
       deleteWordRight: vi.fn(),
+      visualToLogicalMap: [[0, 0]],
     } as unknown as TextBuffer;
 
     mockShellHistory = {
