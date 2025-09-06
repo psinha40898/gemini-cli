@@ -781,8 +781,8 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                         highlightMask[idx] = true;
                       }
                     }
-                    runningOffset += len;
                   }
+                  runningOffset += len; // Advance the running offset for every token, even non-highlighted ones.
                 }
                 const chars = toCodePoints(lineText);
                 for (let i = 0; i < chars.length; i++) {
