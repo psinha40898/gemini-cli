@@ -23,7 +23,7 @@ import { useKeypress } from '../hooks/useKeypress.js';
 import { keyMatchers, Command } from '../keyMatchers.js';
 import type { CommandContext, SlashCommand } from '../commands/types.js';
 import type { Config } from '@google/gemini-cli-core';
-import { parseInputForHighlighting } from '../utils/highlight.js';
+import { parseInputForHighlighting, highlightTokens } from '../utils/highlight.js';
 import {
   clipboardHasImage,
   saveClipboardImage,
@@ -765,25 +765,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                   focus && visualIdxInRenderedSet === cursorVisualRow;
 
                 const renderedLine: React.ReactNode[] = [];
-                const logicalMaskLength = cpLen(logicalLineText);
-                const highlightMask: boolean[] = new Array(
-                  logicalMaskLength,
-                ).fill(false);
-                let runningOffset = 0;
-                for (const token of tokens) {
-                  const len = cpLen(token.text);
-                  const shouldColor =
-                    token.type === 'command' || token.type === 'file';
-                  if (shouldColor) {
-                    for (let j = 0; j < len; j++) {
-                      const idx = runningOffset + j;
-                      if (idx >= 0 && idx < highlightMask.length) {
-                        highlightMask[idx] = true;
-                      }
-                    }
-                  }
-                  runningOffset += len; // Advance the running offset for every token, even non-highlighted ones.
-                }
+                const highlightMask = highlightTokens(tokens);
                 const chars = toCodePoints(lineText);
                 for (let i = 0; i < chars.length; i++) {
                   const ch = chars[i]!;

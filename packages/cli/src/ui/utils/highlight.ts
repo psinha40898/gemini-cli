@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { cpLen } from './textUtils.js';
+
 export type HighlightToken = {
   text: string;
   type: 'default' | 'command' | 'file';
@@ -62,4 +64,27 @@ export function parseInputForHighlighting(
   }
 
   return tokens;
+}
+
+export function highlightTokens(
+  tokens: readonly HighlightToken[],
+): boolean[] {
+  const totalLen = tokens.reduce((sum, t) => sum + cpLen(t.text), 0);
+  const mask: boolean[] = new Array(totalLen).fill(false);
+
+  let offset = 0;
+  for (const token of tokens) {
+    const len = cpLen(token.text);
+    const shouldColor = token.type === 'command' || token.type === 'file';
+    if (shouldColor) {
+      for (let j = 0; j < len; j++) {
+        const idx = offset + j;
+        if (idx >= 0 && idx < mask.length) {
+          mask[idx] = true;
+        }
+      }
+    }
+    offset += len;
+  }
+  return mask;
 }
