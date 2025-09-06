@@ -756,7 +756,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                 const logicalLineText = buffer.lines[logicalLineIdx] || '';
                 const tokens = parseInputForHighlighting(
                   logicalLineText,
-                  logicalLineIdx,
+                  visualIdxInRenderedSet,
                 );
 
                 const cursorVisualRow =
@@ -786,6 +786,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                   runningOffset += len;
                 }
 
+                const charNodes: React.ReactNode[] = [];
                 const chars = toCodePoints(lineText);
                 for (let i = 0; i < chars.length; i++) {
                   const ch = chars[i]!;
@@ -800,12 +801,13 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                     isOnCursorLine && i === cursorVisualColAbsolute;
                   const display = isCursorChar ? chalk.inverse(ch) : ch;
 
-                  renderedLine.push(
+                  charNodes.push(
                     <Text key={`ch-${absVisualIdx}-${i}`} color={color}>
                       {display}
                     </Text>,
                   );
                 }
+                renderedLine.push(...charNodes);
 
                 const currentLineGhost = isOnCursorLine ? inlineGhost : '';
 
