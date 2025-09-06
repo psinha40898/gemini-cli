@@ -5,7 +5,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { parseInputForHighlighting } from './highlight.js';
+import {
+  parseInputForHighlighting,
+  calculateHighlightMask,
+  type HighlightToken,
+} from './highlight.js';
 
 describe('parseInputForHighlighting', () => {
   it('should handle an empty string', () => {
@@ -131,6 +135,142 @@ describe('parseInputForHighlighting', () => {
     expect(parseInputForHighlighting(text, 0)).toEqual([
       { text: 'cat ', type: 'default' },
       { text: '@/my\\ path/file.txt', type: 'file' },
+    ]);
+  });
+});
+
+describe('calculateHighlightMask', () => {
+  it('should return an empty array for no tokens', () => {
+    expect(calculateHighlightMask([])).toEqual([]);
+  });
+
+  it('should return all false for default tokens', () => {
+    const tokens: HighlightToken[] = [
+      { text: 'Hello ', type: 'default' },
+      { text: 'world', type: 'default' },
+    ];
+    expect(calculateHighlightMask(tokens)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+      false, // 'H', 'e', 'l', 'l', 'o', ' '
+      false,
+      false,
+      false,
+      false,
+      false, // 'w', 'o', 'r', 'l', 'd'
+    ]);
+  });
+
+  it('should highlight command tokens', () => {
+    const tokens: HighlightToken[] = [
+      { text: 'Run ', type: 'default' },
+      { text: '/help', type: 'command' },
+      { text: ' me', type: 'default' },
+    ];
+    expect(calculateHighlightMask(tokens)).toEqual([
+      false,
+      false,
+      false,
+      false, // 'R', 'u', 'n', ' '
+      true,
+      true,
+      true,
+      true,
+      true, // '/', 'h', 'e', 'l', 'p'
+      false,
+      false,
+      false, // ' ', 'm', 'e'
+    ]);
+  });
+
+  it('should highlight file tokens', () => {
+    const tokens: HighlightToken[] = [
+      { text: 'Check ', type: 'default' },
+      { text: '@file.txt', type: 'file' },
+    ];
+    expect(calculateHighlightMask(tokens)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+      false, // 'C', 'h', 'e', 'c', 'k', ' '
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true, // '@', 'f', 'i', 'l', 'e', '.', 't', 'x', 't'
+    ]);
+  });
+
+  it('should handle mixed token types', () => {
+    const tokens: HighlightToken[] = [
+      { text: 'Run ', type: 'default' },
+      { text: '/command', type: 'command' },
+      { text: ' with ', type: 'default' },
+      { text: '@file.json', type: 'file' },
+    ];
+    expect(calculateHighlightMask(tokens)).toEqual([
+      // 'R', 'u', 'n', ' '
+      false,
+      false,
+      false,
+      false,
+      // '/', 'c', 'o', 'm', 'm', 'a', 'n', 'd'
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      // ' ', 'w', 'i', 't', 'h', ' '
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      // '@', 'f', 'i', 'l', 'e', '.', 'j', 's', 'o', 'n'
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+    ]);
+  });
+
+  it('should handle empty strings in tokens', () => {
+    const tokens: HighlightToken[] = [
+      { text: '', type: 'default' },
+      { text: 'text', type: 'default' },
+      { text: '', type: 'command' },
+      { text: 'more', type: 'file' },
+    ];
+    expect(calculateHighlightMask(tokens)).toEqual([
+      // 't', 'e', 'x', 't'
+      false,
+      false,
+      false,
+      false,
+      // 'm', 'o', 'r', 'e'
+      true,
+      true,
+      true,
+      true,
     ]);
   });
 });

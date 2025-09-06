@@ -23,7 +23,10 @@ import { useKeypress } from '../hooks/useKeypress.js';
 import { keyMatchers, Command } from '../keyMatchers.js';
 import type { CommandContext, SlashCommand } from '../commands/types.js';
 import type { Config } from '@google/gemini-cli-core';
-import { parseInputForHighlighting, highlightTokens } from '../utils/highlight.js';
+import {
+  parseInputForHighlighting,
+  calculateHighlightMask,
+} from '../utils/highlight.js';
 import {
   clipboardHasImage,
   saveClipboardImage,
@@ -765,7 +768,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                   focus && visualIdxInRenderedSet === cursorVisualRow;
 
                 const renderedLine: React.ReactNode[] = [];
-                const highlightMask = highlightTokens(tokens);
+                const highlightMask = calculateHighlightMask(tokens);
                 const chars = toCodePoints(lineText);
                 for (let i = 0; i < chars.length; i++) {
                   const ch = chars[i]!;

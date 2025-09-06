@@ -66,7 +66,7 @@ export function parseInputForHighlighting(
   return tokens;
 }
 
-export function highlightTokens(
+export function calculateHighlightMask(
   tokens: readonly HighlightToken[],
 ): boolean[] {
   const totalLen = tokens.reduce((sum, t) => sum + cpLen(t.text), 0);
