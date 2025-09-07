@@ -12,7 +12,7 @@ import { SuggestionsDisplay } from './SuggestionsDisplay.js';
 import { useInputHistory } from '../hooks/useInputHistory.js';
 import type { TextBuffer } from './shared/text-buffer.js';
 import { logicalPosToOffset } from './shared/text-buffer.js';
-import { cpSlice, cpLen, toCodePoints } from '../utils/textUtils.js';
+import { cpSlice, toCodePoints } from '../utils/textUtils.js';
 import chalk from 'chalk';
 import stringWidth from 'string-width';
 import { useShellHistory } from '../hooks/useShellHistory.js';
@@ -23,10 +23,7 @@ import { useKeypress } from '../hooks/useKeypress.js';
 import { keyMatchers, Command } from '../keyMatchers.js';
 import type { CommandContext, SlashCommand } from '../commands/types.js';
 import type { Config } from '@google/gemini-cli-core';
-import {
-  parseInputForHighlighting,
-  calculateHighlightMask,
-} from '../utils/highlight.js';
+import { parseInputForHighlightingWithRanges } from '../utils/highlight.js';
 import {
   clipboardHasImage,
   saveClipboardImage,
@@ -757,7 +754,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                   .visualToLogicalMap[absVisualIdx] ?? [0, 0];
 
                 const logicalLineText = buffer.lines[logicalLineIdx] || '';
-                const tokens = parseInputForHighlighting(
+                const { ranges } = parseInputForHighlightingWithRanges(
                   logicalLineText,
                   logicalLineIdx,
                 );
@@ -768,15 +765,18 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                   focus && visualIdxInRenderedSet === cursorVisualRow;
 
                 const renderedLine: React.ReactNode[] = [];
-                const highlightMask = calculateHighlightMask(tokens);
                 const chars = toCodePoints(lineText);
+                let rIdx = 0;
+                let current = ranges[rIdx];
                 for (let i = 0; i < chars.length; i++) {
                   const ch = chars[i]!;
                   const logicalCol = logicalStartCol + i;
+                  while (current && logicalCol >= current.end) {
+                    rIdx++;
+                    current = ranges[rIdx];
+                  }
                   const color =
-                    logicalCol >= 0 &&
-                    logicalCol < highlightMask.length &&
-                    highlightMask[logicalCol]
+                    current && logicalCol >= current.start
                       ? theme.text.accent
                       : undefined;
 
@@ -795,7 +795,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
                 if (
                   isOnCursorLine &&
-                  cursorVisualColAbsolute === cpLen(lineText)
+                  cursorVisualColAbsolute === chars.length
                 ) {
                   if (!currentLineGhost) {
                     renderedLine.push(
@@ -809,7 +809,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                 const showCursorBeforeGhost =
                   focus &&
                   isOnCursorLine &&
-                  cursorVisualColAbsolute === cpLen(lineText) &&
+                  cursorVisualColAbsolute === chars.length &&
                   currentLineGhost;
 
                 return (
