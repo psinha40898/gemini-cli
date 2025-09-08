@@ -785,25 +785,63 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                   runningOffset += len; // Advance the running offset for every token, even non-highlighted ones.
                 }
                 const chars = toCodePoints(lineText);
-                for (let i = 0; i < chars.length; i++) {
-                  const ch = chars[i]!;
-                  const logicalCol = logicalStartCol + i;
-                  const color =
-                    logicalCol >= 0 &&
-                    logicalCol < highlightMask.length &&
-                    highlightMask[logicalCol]
+                // Group adjacent characters by color to avoid creating a <Text> element per character.
+                // Always isolate the cursor character so we can render it with chalk.inverse.
+                let i = 0;
+                while (i < chars.length) {
+                  // If the cursor is on this character, render it as its own segment.
+                  if (isOnCursorLine && i === cursorVisualColAbsolute) {
+                    const ch = chars[i]!;
+                    const logicalCol = logicalStartCol + i;
+                    const color =
+                      logicalCol >= 0 &&
+                      logicalCol < highlightMask.length &&
+                      highlightMask[logicalCol]
+                        ? theme.text.accent
+                        : undefined;
+
+                    renderedLine.push(
+                      <Text key={`cursorch-${absVisualIdx}-${i}`} color={color}>
+                        {chalk.inverse(ch)}
+                      </Text>,
+                    );
+                    i++;
+                    continue;
+                  }
+
+                  // Determine the color for the current run.
+                  const startLogicalCol = logicalStartCol + i;
+                  const startColor =
+                    startLogicalCol >= 0 &&
+                    startLogicalCol < highlightMask.length &&
+                    highlightMask[startLogicalCol]
                       ? theme.text.accent
                       : undefined;
 
-                  const isCursorChar =
-                    isOnCursorLine && i === cursorVisualColAbsolute;
-                  const display = isCursorChar ? chalk.inverse(ch) : ch;
+                  // Find the end of this run: same color and not crossing the cursor position.
+                  let j = i;
+                  while (j < chars.length) {
+                    if (isOnCursorLine && j === cursorVisualColAbsolute) {
+                      break;
+                    }
+                    const lc = logicalStartCol + j;
+                    const c =
+                      lc >= 0 && lc < highlightMask.length && highlightMask[lc]
+                        ? theme.text.accent
+                        : undefined;
+                    if (c !== startColor) break;
+                    j++;
+                  }
 
-                  renderedLine.push(
-                    <Text key={`ch-${absVisualIdx}-${i}`} color={color}>
-                      {display}
-                    </Text>,
-                  );
+                  const segmentText = chars.slice(i, j).join('');
+                  if (segmentText) {
+                    renderedLine.push(
+                      <Text key={`seg-${absVisualIdx}-${i}-${j}`} color={startColor}>
+                        {segmentText}
+                      </Text>,
+                    );
+                  }
+                  i = j;
                 }
 
                 const currentLineGhost = isOnCursorLine ? inlineGhost : '';
