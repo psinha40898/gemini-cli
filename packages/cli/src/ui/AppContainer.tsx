@@ -196,9 +196,18 @@ export const AppContainer = (props: AppContainerProps) => {
   }, [handleNewMessage, config]);
 
   const widthFraction = 0.9;
+  // More precise overhead:
+  // - Input box border: 2 (left+right)
+  // - Input box paddingX={1}: 2 (left+right)
+  // - Prompt prefix max width: 5 ("(r:) ")
+  const inputBoxBorderOverhead = 2;
+  const inputBoxPaddingOverhead = 2;
+  const promptPrefixMaxWidth = 5;
+  const totalOverhead =
+    inputBoxBorderOverhead + inputBoxPaddingOverhead + promptPrefixMaxWidth;
   const inputWidth = Math.max(
-    20,
-    Math.floor(terminalWidth * widthFraction) - 3,
+    1,
+    Math.floor(terminalWidth * widthFraction) - totalOverhead,
   );
   const suggestionsWidth = Math.max(20, Math.floor(terminalWidth * 0.8));
   const mainAreaWidth = Math.floor(terminalWidth * 0.9);
