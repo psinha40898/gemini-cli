@@ -749,62 +749,142 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
           ) : (
             linesToRender
               .map((lineText, visualIdxInRenderedSet) => {
-                const tokens = parseInputForHighlighting(
-                  lineText,
-                  visualIdxInRenderedSet,
-                );
+                const absoluteVisualIdx = scrollVisualRow + visualIdxInRenderedSet;
+                const mapEntry = buffer.visualToLogicalMap?.[absoluteVisualIdx];
                 const cursorVisualRow =
                   cursorVisualRowAbsolute - scrollVisualRow;
                 const isOnCursorLine =
                   focus && visualIdxInRenderedSet === cursorVisualRow;
 
                 const renderedLine: React.ReactNode[] = [];
-                let charCount = 0;
 
-                tokens.forEach((token, tokenIdx) => {
-                  let display = token.text;
-                  if (isOnCursorLine) {
-                    const relativeVisualColForHighlight =
-                      cursorVisualColAbsolute;
-                    const tokenStart = charCount;
-                    const tokenEnd = tokenStart + cpLen(token.text);
+                type Segment = { color: string | undefined; text: string };
+                const segments: Segment[] = [];
+                let emittedCpOnLine = 0; // count of code points emitted on this visual line (for cursor inversion)
 
-                    if (
-                      relativeVisualColForHighlight >= tokenStart &&
-                      relativeVisualColForHighlight < tokenEnd
-                    ) {
-                      const charToHighlight = cpSlice(
+                if (mapEntry) {
+                  const [logicalLineIdx, logicalStartCol] = mapEntry;
+                  const logicalLine = buffer.lines[logicalLineIdx] || '';
+                  // Preserve previous behavior: only highlight slash commands when
+                  // the current rendered visual line is the first in the viewport
+                  // by passing visualIdxInRenderedSet as the index parameter.
+                  const indexForHighlighting = visualIdxInRenderedSet;
+                  const allTokens = parseInputForHighlighting(
+                    logicalLine,
+                    indexForHighlighting,
+                  );
+
+                  const visualStart = logicalStartCol;
+                  const visualEnd = logicalStartCol + cpLen(lineText);
+
+                  let tokenCpStart = 0;
+                  allTokens.forEach((token) => {
+                    const tokenLen = cpLen(token.text);
+                    const tokenStart = tokenCpStart;
+                    const tokenEnd = tokenStart + tokenLen;
+
+                    const overlapStart = Math.max(tokenStart, visualStart);
+                    const overlapEnd = Math.min(tokenEnd, visualEnd);
+                    if (overlapStart < overlapEnd) {
+                      const sliceStartInToken = overlapStart - tokenStart;
+                      const sliceEndInToken = overlapEnd - tokenStart;
+                      const rawSlice = cpSlice(
                         token.text,
-                        relativeVisualColForHighlight - tokenStart,
-                        relativeVisualColForHighlight - tokenStart + 1,
+                        sliceStartInToken,
+                        sliceEndInToken,
                       );
-                      const highlighted = chalk.inverse(charToHighlight);
-                      display =
-                        cpSlice(
-                          token.text,
-                          0,
-                          relativeVisualColForHighlight - tokenStart,
-                        ) +
-                        highlighted +
-                        cpSlice(
-                          token.text,
-                          relativeVisualColForHighlight - tokenStart + 1,
-                        );
+                      const sliceLenCP = overlapEnd - overlapStart;
+                      let displaySlice = rawSlice;
+
+                      if (isOnCursorLine) {
+                        const col = cursorVisualColAbsolute;
+                        const segStartOnLine = emittedCpOnLine;
+                        const segEndOnLine = segStartOnLine + sliceLenCP;
+                        if (col >= segStartOnLine && col < segEndOnLine) {
+                          const highlightIdxInSlice = col - segStartOnLine;
+                          const charToHighlight = cpSlice(
+                            rawSlice,
+                            highlightIdxInSlice,
+                            highlightIdxInSlice + 1,
+                          );
+                          const highlightedChar = chalk.inverse(charToHighlight);
+                          displaySlice =
+                            cpSlice(rawSlice, 0, highlightIdxInSlice) +
+                            highlightedChar +
+                            cpSlice(rawSlice, highlightIdxInSlice + 1);
+                        }
+                      }
+
+                      const color =
+                        token.type === 'command' || token.type === 'file'
+                          ? theme.text.accent
+                          : undefined;
+
+                      const last = segments[segments.length - 1];
+                      if (last && last.color === color) {
+                        last.text += displaySlice;
+                      } else {
+                        segments.push({ color, text: displaySlice });
+                      }
+
+                      emittedCpOnLine += sliceLenCP;
                     }
-                    charCount = tokenEnd;
-                  }
 
-                  const color =
-                    token.type === 'command' || token.type === 'file'
-                      ? theme.text.accent
-                      : undefined;
+                    tokenCpStart += tokenLen;
+                  });
+                } else {
+                  // Fallback: highlight within this visual line only
+                  const tokens = parseInputForHighlighting(
+                    lineText,
+                    visualIdxInRenderedSet,
+                  );
+                  let charCount = 0;
+                  tokens.forEach((token) => {
+                    let display = token.text;
+                    if (isOnCursorLine) {
+                      const tokenStart = charCount;
+                      const tokenEnd = tokenStart + cpLen(token.text);
+                      if (
+                        cursorVisualColAbsolute >= tokenStart &&
+                        cursorVisualColAbsolute < tokenEnd
+                      ) {
+                        const charToHighlight = cpSlice(
+                          token.text,
+                          cursorVisualColAbsolute - tokenStart,
+                          cursorVisualColAbsolute - tokenStart + 1,
+                        );
+                        const highlighted = chalk.inverse(charToHighlight);
+                        display =
+                          cpSlice(token.text, 0, cursorVisualColAbsolute - tokenStart) +
+                          highlighted +
+                          cpSlice(token.text, cursorVisualColAbsolute - tokenStart + 1);
+                      }
+                      charCount = tokenEnd;
+                    }
 
+                    const color =
+                      token.type === 'command' || token.type === 'file'
+                        ? theme.text.accent
+                        : undefined;
+
+                    const last = segments[segments.length - 1];
+                    if (last && last.color === color) {
+                      last.text += display;
+                    } else {
+                      segments.push({ color, text: display });
+                    }
+                  });
+                }
+
+                // Render merged segments
+                segments.forEach((seg, segIdx) => {
                   renderedLine.push(
-                    <Text key={`token-${tokenIdx}`} color={color}>
-                      {display}
+                    <Text key={`seg-${visualIdxInRenderedSet}-${segIdx}`} color={seg.color}>
+                      {seg.text}
                     </Text>,
                   );
                 });
+
                 const currentLineGhost = isOnCursorLine ? inlineGhost : '';
 
                 if (
