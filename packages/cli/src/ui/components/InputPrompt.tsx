@@ -749,7 +749,8 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
           ) : (
             linesToRender
               .map((lineText, visualIdxInRenderedSet) => {
-                const absoluteVisualIdx = scrollVisualRow + visualIdxInRenderedSet;
+                const absoluteVisualIdx =
+                  scrollVisualRow + visualIdxInRenderedSet;
                 const mapEntry = buffer.visualToLogicalMap?.[absoluteVisualIdx];
                 const cursorVisualRow =
                   cursorVisualRowAbsolute - scrollVisualRow;
@@ -765,10 +766,10 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                 if (mapEntry) {
                   const [logicalLineIdx, logicalStartCol] = mapEntry;
                   const logicalLine = buffer.lines[logicalLineIdx] || '';
-                  // Preserve previous behavior: only highlight slash commands when
-                  // the current rendered visual line is the first in the viewport
-                  // by passing visualIdxInRenderedSet as the index parameter.
-                  const indexForHighlighting = visualIdxInRenderedSet;
+                  // Use the logical line index so that if a slash command is at
+                  // the start of a logical line (index 0), it remains highlighted
+                  // across all its wrapped visual lines.
+                  const indexForHighlighting = logicalLineIdx;
                   const allTokens = parseInputForHighlighting(
                     logicalLine,
                     indexForHighlighting,
@@ -807,7 +808,8 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                             highlightIdxInSlice,
                             highlightIdxInSlice + 1,
                           );
-                          const highlightedChar = chalk.inverse(charToHighlight);
+                          const highlightedChar =
+                            chalk.inverse(charToHighlight);
                           displaySlice =
                             cpSlice(rawSlice, 0, highlightIdxInSlice) +
                             highlightedChar +
@@ -855,9 +857,16 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                         );
                         const highlighted = chalk.inverse(charToHighlight);
                         display =
-                          cpSlice(token.text, 0, cursorVisualColAbsolute - tokenStart) +
+                          cpSlice(
+                            token.text,
+                            0,
+                            cursorVisualColAbsolute - tokenStart,
+                          ) +
                           highlighted +
-                          cpSlice(token.text, cursorVisualColAbsolute - tokenStart + 1);
+                          cpSlice(
+                            token.text,
+                            cursorVisualColAbsolute - tokenStart + 1,
+                          );
                       }
                       charCount = tokenEnd;
                     }
@@ -879,7 +888,10 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                 // Render merged segments
                 segments.forEach((seg, segIdx) => {
                   renderedLine.push(
-                    <Text key={`seg-${visualIdxInRenderedSet}-${segIdx}`} color={seg.color}>
+                    <Text
+                      key={`seg-${visualIdxInRenderedSet}-${segIdx}`}
+                      color={seg.color}
+                    >
                       {seg.text}
                     </Text>,
                   );
