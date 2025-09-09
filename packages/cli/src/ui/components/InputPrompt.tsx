@@ -751,7 +751,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
               .map((lineText, visualIdxInRenderedSet) => {
                 const absoluteVisualIdx =
                   scrollVisualRow + visualIdxInRenderedSet;
-                const mapEntry = buffer.visualToLogicalMap?.[absoluteVisualIdx];
+                const mapEntry = buffer.visualToLogicalMap[absoluteVisualIdx];
                 const cursorVisualRow =
                   cursorVisualRowAbsolute - scrollVisualRow;
                 const isOnCursorLine =
@@ -763,112 +763,54 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                 const segments: Segment[] = [];
                 let emittedCpOnLine = 0; // count of code points emitted on this visual line (for cursor inversion)
 
-                if (mapEntry) {
-                  const [logicalLineIdx, logicalStartCol] = mapEntry;
-                  const logicalLine = buffer.lines[logicalLineIdx] || '';
-                  // Use the logical line index so that if a slash command is at
-                  // the start of a logical line (index 0), it remains highlighted
-                  // across all its wrapped visual lines.
-                  const indexForHighlighting = logicalLineIdx;
-                  const allTokens = parseInputForHighlighting(
-                    logicalLine,
-                    indexForHighlighting,
-                  );
+                // Use mapping for segment-based highlighting across visual wraps
+                const [logicalLineIdx, logicalStartCol] = mapEntry;
+                const logicalLine = buffer.lines[logicalLineIdx] || '';
+                const indexForHighlighting = logicalLineIdx;
+                const allTokens = parseInputForHighlighting(
+                  logicalLine,
+                  indexForHighlighting,
+                );
 
-                  const visualStart = logicalStartCol;
-                  const visualEnd = logicalStartCol + cpLen(lineText);
+                const visualStart = logicalStartCol;
+                const visualEnd = logicalStartCol + cpLen(lineText);
 
-                  let tokenCpStart = 0;
-                  allTokens.forEach((token) => {
-                    const tokenLen = cpLen(token.text);
-                    const tokenStart = tokenCpStart;
-                    const tokenEnd = tokenStart + tokenLen;
+                let tokenCpStart = 0;
+                allTokens.forEach((token) => {
+                  const tokenLen = cpLen(token.text);
+                  const tokenStart = tokenCpStart;
+                  const tokenEnd = tokenStart + tokenLen;
 
-                    const overlapStart = Math.max(tokenStart, visualStart);
-                    const overlapEnd = Math.min(tokenEnd, visualEnd);
-                    if (overlapStart < overlapEnd) {
-                      const sliceStartInToken = overlapStart - tokenStart;
-                      const sliceEndInToken = overlapEnd - tokenStart;
-                      const rawSlice = cpSlice(
-                        token.text,
-                        sliceStartInToken,
-                        sliceEndInToken,
-                      );
-                      const sliceLenCP = overlapEnd - overlapStart;
-                      let displaySlice = rawSlice;
+                  const overlapStart = Math.max(tokenStart, visualStart);
+                  const overlapEnd = Math.min(tokenEnd, visualEnd);
+                  if (overlapStart < overlapEnd) {
+                    const sliceStartInToken = overlapStart - tokenStart;
+                    const sliceEndInToken = overlapEnd - tokenStart;
+                    const rawSlice = cpSlice(
+                      token.text,
+                      sliceStartInToken,
+                      sliceEndInToken,
+                    );
+                    const sliceLenCP = overlapEnd - overlapStart;
+                    let displaySlice = rawSlice;
 
-                      if (isOnCursorLine) {
-                        const col = cursorVisualColAbsolute;
-                        const segStartOnLine = emittedCpOnLine;
-                        const segEndOnLine = segStartOnLine + sliceLenCP;
-                        if (col >= segStartOnLine && col < segEndOnLine) {
-                          const highlightIdxInSlice = col - segStartOnLine;
-                          const charToHighlight = cpSlice(
-                            rawSlice,
-                            highlightIdxInSlice,
-                            highlightIdxInSlice + 1,
-                          );
-                          const highlightedChar =
-                            chalk.inverse(charToHighlight);
-                          displaySlice =
-                            cpSlice(rawSlice, 0, highlightIdxInSlice) +
-                            highlightedChar +
-                            cpSlice(rawSlice, highlightIdxInSlice + 1);
-                        }
-                      }
-
-                      const color =
-                        token.type === 'command' || token.type === 'file'
-                          ? theme.text.accent
-                          : undefined;
-
-                      const last = segments[segments.length - 1];
-                      if (last && last.color === color) {
-                        last.text += displaySlice;
-                      } else {
-                        segments.push({ color, text: displaySlice });
-                      }
-
-                      emittedCpOnLine += sliceLenCP;
-                    }
-
-                    tokenCpStart += tokenLen;
-                  });
-                } else {
-                  // Fallback: highlight within this visual line only
-                  const tokens = parseInputForHighlighting(
-                    lineText,
-                    visualIdxInRenderedSet,
-                  );
-                  let charCount = 0;
-                  tokens.forEach((token) => {
-                    let display = token.text;
                     if (isOnCursorLine) {
-                      const tokenStart = charCount;
-                      const tokenEnd = tokenStart + cpLen(token.text);
-                      if (
-                        cursorVisualColAbsolute >= tokenStart &&
-                        cursorVisualColAbsolute < tokenEnd
-                      ) {
+                      const col = cursorVisualColAbsolute;
+                      const segStartOnLine = emittedCpOnLine;
+                      const segEndOnLine = segStartOnLine + sliceLenCP;
+                      if (col >= segStartOnLine && col < segEndOnLine) {
+                        const highlightIdxInSlice = col - segStartOnLine;
                         const charToHighlight = cpSlice(
-                          token.text,
-                          cursorVisualColAbsolute - tokenStart,
-                          cursorVisualColAbsolute - tokenStart + 1,
+                          rawSlice,
+                          highlightIdxInSlice,
+                          highlightIdxInSlice + 1,
                         );
-                        const highlighted = chalk.inverse(charToHighlight);
-                        display =
-                          cpSlice(
-                            token.text,
-                            0,
-                            cursorVisualColAbsolute - tokenStart,
-                          ) +
-                          highlighted +
-                          cpSlice(
-                            token.text,
-                            cursorVisualColAbsolute - tokenStart + 1,
-                          );
+                        const highlightedChar = chalk.inverse(charToHighlight);
+                        displaySlice =
+                          cpSlice(rawSlice, 0, highlightIdxInSlice) +
+                          highlightedChar +
+                          cpSlice(rawSlice, highlightIdxInSlice + 1);
                       }
-                      charCount = tokenEnd;
                     }
 
                     const color =
@@ -878,12 +820,16 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
                     const last = segments[segments.length - 1];
                     if (last && last.color === color) {
-                      last.text += display;
+                      last.text += displaySlice;
                     } else {
-                      segments.push({ color, text: display });
+                      segments.push({ color, text: displaySlice });
                     }
-                  });
-                }
+
+                    emittedCpOnLine += sliceLenCP;
+                  }
+
+                  tokenCpStart += tokenLen;
+                });
 
                 // Render merged segments
                 segments.forEach((seg, segIdx) => {
