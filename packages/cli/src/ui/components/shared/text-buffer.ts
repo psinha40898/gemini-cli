@@ -1125,7 +1125,7 @@ export function textBufferReducer(
           let newCursorRow = cursorRow;
           let newCursorCol = cursorCol;
 
-          if (newCursorCol === 0) {
+          if (cursorCol === 0) {
             newCursorRow--;
             newCursorCol = cpLen(lines[newCursorRow] ?? '');
           } else {
