@@ -1500,17 +1500,35 @@ export function useTextBuffer({
   // Update visual scroll (vertical)
   useEffect(() => {
     const { height } = viewport;
-    let newVisualScrollRow = visualScrollRow;
+    // Total number of visual rows given current wrapping.
+    const totalVisualRows = visualLines.length;
 
-    if (visualCursor[0] < visualScrollRow) {
-      newVisualScrollRow = visualCursor[0];
-    } else if (visualCursor[0] >= visualScrollRow + height) {
-      newVisualScrollRow = visualCursor[0] - height + 1;
+    // The maximum valid scroll start so that we can still display `height` rows.
+    const maxScroll = Math.max(0, totalVisualRows - height);
+
+    let newScroll = visualScrollRow;
+
+    // 1) Clamp existing scroll to valid range whenever content or height changes.
+    if (newScroll > maxScroll) {
+      newScroll = maxScroll;
     }
-    if (newVisualScrollRow !== visualScrollRow) {
-      setVisualScrollRow(newVisualScrollRow);
+
+    // 2) If everything fits within the viewport, anchor to the top.
+    if (totalVisualRows <= height) {
+      newScroll = 0;
     }
-  }, [visualCursor, visualScrollRow, viewport]);
+
+    // 3) Ensure cursor remains visible after any changes.
+    if (visualCursor[0] < newScroll) {
+      newScroll = visualCursor[0];
+    } else if (visualCursor[0] >= newScroll + height) {
+      newScroll = Math.min(visualCursor[0] - height + 1, maxScroll);
+    }
+
+    if (newScroll !== visualScrollRow) {
+      setVisualScrollRow(newScroll);
+    }
+  }, [visualCursor, visualScrollRow, viewport, visualLines.length]);
 
   const insert = useCallback(
     (ch: string, { paste = false }: { paste?: boolean } = {}): void => {

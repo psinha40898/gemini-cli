@@ -208,7 +208,7 @@ export const AppContainer = (props: AppContainerProps) => {
 
   const widthFraction = 0.9;
   const inputWidth = Math.max(
-    20,
+    2,
     Math.floor(terminalWidth * widthFraction) - 3,
   );
   const suggestionsWidth = Math.max(20, Math.floor(terminalWidth * 0.8));

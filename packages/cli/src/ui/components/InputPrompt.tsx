@@ -591,10 +591,11 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
     isActive: true,
   });
 
-  const linesToRender = buffer.viewportVisualLines;
+  // Render all visual lines so we never hide the beginning of the input
+  // when the terminal becomes extremely narrow.
+  const linesToRender = buffer.allVisualLines;
   const [cursorVisualRowAbsolute, cursorVisualColAbsolute] =
     buffer.visualCursor;
-  const scrollVisualRow = buffer.visualScrollRow;
 
   const getGhostTextLines = useCallback(() => {
     if (
@@ -753,10 +754,8 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                   lineText,
                   visualIdxInRenderedSet,
                 );
-                const cursorVisualRow =
-                  cursorVisualRowAbsolute - scrollVisualRow;
                 const isOnCursorLine =
-                  focus && visualIdxInRenderedSet === cursorVisualRow;
+                  focus && visualIdxInRenderedSet === cursorVisualRowAbsolute;
 
                 const renderedLine: React.ReactNode[] = [];
                 let charCount = 0;
