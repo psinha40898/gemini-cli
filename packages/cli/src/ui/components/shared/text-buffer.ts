@@ -2061,12 +2061,12 @@ export interface TextBuffer {
   viewportVisualLines: string[]; // The subset of visual lines to be rendered based on visualScrollRow and viewport.height
   visualCursor: [number, number]; // Visual cursor [row, col] relative to the start of all visualLines
   visualScrollRow: number; // Scroll position for visual lines (index of the first visible visual line)
-    /**
+  /**
    * For each visual line (by absolute index in allVisualLines) provides a tuple
    * [logicalLineIndex, startColInLogical] that maps where that visual line
    * begins within the logical buffer. Indices are code-point based.
    */
-    visualToLogicalMap: Array<[number, number]>;
+  visualToLogicalMap: Array<[number, number]>;
 
   // Actions
 
