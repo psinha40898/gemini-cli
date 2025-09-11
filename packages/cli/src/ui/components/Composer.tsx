@@ -154,8 +154,8 @@ export const Composer = () => {
               maxHeight={
                 uiState.constrainHeight ? debugConsoleMaxHeight : undefined
               }
-              width={uiState.inputWidth}
-            />
+              width={uiState.inputWidth + 6}
+              />
             <ShowMoreLines constrainHeight={uiState.constrainHeight} />
           </Box>
         </OverflowProvider>
