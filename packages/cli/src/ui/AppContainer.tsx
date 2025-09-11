@@ -200,7 +200,7 @@ export const AppContainer = (props: AppContainerProps) => {
 
   const widthFraction = 0.9;
 
-   // ──────────────────────────────────────────────────────────────
+  // ──────────────────────────────────────────────────────────────
   // Width calculation for the input prompt
   // Border (2 chars) + horizontal padding (2 chars) = 4
   const FRAME_PADDING_AND_BORDER = 4;
