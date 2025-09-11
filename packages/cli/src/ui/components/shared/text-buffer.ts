@@ -836,8 +836,6 @@ function calculateVisualLayout(
     const lastVisLineIdx = visualLines.length - 1;
     currentVisualCursor = [lastVisLineIdx, cpLen(visualLines[lastVisLineIdx])];
   }
-  console.log(viewportWidth);
-  console.log(visualLines);
   return {
     visualLines,
     visualCursor: currentVisualCursor,
