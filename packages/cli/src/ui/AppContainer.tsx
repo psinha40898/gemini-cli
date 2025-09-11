@@ -207,10 +207,21 @@ export const AppContainer = (props: AppContainerProps) => {
   }, [handleNewMessage, config]);
 
   const widthFraction = 0.9;
-  const inputWidth = Math.max(
-    20,
-    Math.floor(terminalWidth * widthFraction) - 3,
-  );
+  // ──────────────────────────────────────────────────────────────
+  // Width calculation for the input prompt
+  // Border (2 chars) + horizontal padding (2 chars) = 4
+  const FRAME_PADDING_AND_BORDER = 4;
+  // The prompt prefix is either "> " or "! " (2 chars)
+  const PROMPT_PREFIX_WIDTH = 2;
+  // We need at least this many columns for meaningful content
+  const MIN_CONTENT_WIDTH = 4;
+
+  const innerContentWidth =
+    Math.floor(terminalWidth * widthFraction) -
+    FRAME_PADDING_AND_BORDER -
+    PROMPT_PREFIX_WIDTH;
+
+  const inputWidth = Math.max(MIN_CONTENT_WIDTH, innerContentWidth);
   const suggestionsWidth = Math.max(20, Math.floor(terminalWidth * 1.0));
   const mainAreaWidth = Math.floor(terminalWidth * 0.9);
   const staticAreaMaxItemHeight = Math.max(terminalHeight * 4, 100);
