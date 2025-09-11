@@ -1127,7 +1127,7 @@ export function textBufferReducer(
           let newCursorRow = cursorRow;
           let newCursorCol = cursorCol;
 
-          if (cursorCol === 0) {
+          if (newCursorCol === 0) {
             newCursorRow--;
             newCursorCol = cpLen(lines[newCursorRow] ?? '');
           } else {
@@ -1500,18 +1500,28 @@ export function useTextBuffer({
 
   // Update visual scroll (vertical)
   useEffect(() => {
-    const { height } = viewport;
+    const height = viewport.height;
+    const totalVisualLines = visualLines.length;
+    const maxScrollStart = Math.max(0, totalVisualLines - height);
+
     let newVisualScrollRow = visualScrollRow;
 
-    if (visualCursor[0] < visualScrollRow) {
+    if (visualCursor[0] < newVisualScrollRow) {
+      // Cursor moved above the visible window – top-align cursor but clamp to valid range
       newVisualScrollRow = visualCursor[0];
-    } else if (visualCursor[0] >= visualScrollRow + height) {
+    } else if (visualCursor[0] >= newVisualScrollRow + height) {
+      // Cursor moved below the visible window – bottom-align cursor
       newVisualScrollRow = visualCursor[0] - height + 1;
     }
+
+    // When the number of visual lines shrinks (e.g., after widening the viewport),
+    // ensure scroll never starts beyond the last valid start so we can render a full window.
+    newVisualScrollRow = clamp(newVisualScrollRow, 0, maxScrollStart);
+
     if (newVisualScrollRow !== visualScrollRow) {
       setVisualScrollRow(newVisualScrollRow);
     }
-  }, [visualCursor, visualScrollRow, viewport]);
+  }, [visualCursor, visualScrollRow, viewport.height, visualLines.length]);
 
   const insert = useCallback(
     (ch: string, { paste = false }: { paste?: boolean } = {}): void => {
