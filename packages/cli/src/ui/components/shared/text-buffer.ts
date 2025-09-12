@@ -1592,9 +1592,9 @@ export function useTextBuffer({
     const maxScrollStart = Math.max(0, totalVisualLines - height);
     let newVisualScrollRow = visualScrollRow;
 
-    if (visualCursor[0] < newVisualScrollRow) {
+    if (visualCursor[0] < visualScrollRow) {
       newVisualScrollRow = visualCursor[0];
-    } else if (visualCursor[0] >= newVisualScrollRow + height) {
+    } else if (visualCursor[0] >= visualScrollRow + height) {
       newVisualScrollRow = visualCursor[0] - height + 1;
     }
 
