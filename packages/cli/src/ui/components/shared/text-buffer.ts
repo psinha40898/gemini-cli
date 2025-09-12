@@ -1587,16 +1587,14 @@ export function useTextBuffer({
 
   // Update visual scroll (vertical)
   useEffect(() => {
-    const height = viewport.height;
+    const { height } = viewport;
     const totalVisualLines = visualLines.length;
     const maxScrollStart = Math.max(0, totalVisualLines - height);
     let newVisualScrollRow = visualScrollRow;
 
     if (visualCursor[0] < newVisualScrollRow) {
-      // Cursor moved above the visible window – top-align cursor but clamp to valid range
       newVisualScrollRow = visualCursor[0];
     } else if (visualCursor[0] >= newVisualScrollRow + height) {
-      // Cursor moved below the visible window – bottom-align cursor
       newVisualScrollRow = visualCursor[0] - height + 1;
     }
 
@@ -1607,7 +1605,7 @@ export function useTextBuffer({
     if (newVisualScrollRow !== visualScrollRow) {
       setVisualScrollRow(newVisualScrollRow);
     }
-  }, [visualCursor, visualScrollRow, viewport.height, visualLines.length]);
+  }, [visualCursor, visualScrollRow, viewport, visualLines.length]);
 
   const insert = useCallback(
     (ch: string, { paste = false }: { paste?: boolean } = {}): void => {
