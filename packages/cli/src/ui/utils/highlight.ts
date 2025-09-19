@@ -5,6 +5,7 @@
  */
 
 import { cpLen, cpSlice } from './textUtils.js';
+import * as path from 'node:path';
 
 export type HighlightToken = {
   text: string;
@@ -100,4 +101,18 @@ export function buildSegmentsForVisualSlice(
   }
 
   return segments;
+}
+
+export function getTersePath(filePath: string): string {
+  const fileName = path.basename(filePath);
+  const extension = path.extname(fileName);
+  const baseName = path.basename(fileName, extension);
+  const maxBaseLength = 10;
+
+  const truncatedBase =
+    baseName.length > maxBaseLength
+      ? `...${baseName.slice(-maxBaseLength)}`
+      : baseName;
+
+  return `[Image ${truncatedBase}${extension}]`;
 }

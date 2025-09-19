@@ -910,7 +910,12 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                 let charCount = 0;
                 segments.forEach((seg, segIdx) => {
                   const segLen = cpLen(seg.text);
-                  let display = seg.text;
+                  // Use the actual visual line text for display to honor transformations
+                  let display = cpSlice(
+                    lineText,
+                    charCount,
+                    charCount + segLen,
+                  );
 
                   if (isOnCursorLine) {
                     const relativeVisualColForHighlight =
@@ -922,24 +927,27 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                       relativeVisualColForHighlight < segEnd
                     ) {
                       const charToHighlight = cpSlice(
-                        seg.text,
+                        display,
                         relativeVisualColForHighlight - segStart,
                         relativeVisualColForHighlight - segStart + 1,
                       );
                       const highlighted = chalk.inverse(charToHighlight);
                       display =
                         cpSlice(
-                          seg.text,
+                          display,
                           0,
                           relativeVisualColForHighlight - segStart,
                         ) +
                         highlighted +
                         cpSlice(
-                          seg.text,
+                          display,
                           relativeVisualColForHighlight - segStart + 1,
                         );
                     }
                     charCount = segEnd;
+                  } else {
+                    // Advance the running counter even when not on cursor line
+                    charCount += segLen;
                   }
 
                   const color =
