@@ -26,7 +26,7 @@ import type { Config } from '@google/gemini-cli-core';
 import { ApprovalMode } from '@google/gemini-cli-core';
 import {
   parseInputForHighlighting,
-  buildSegmentsForVisualSlice,
+  buildSegmentsForTransformedVisualSlice,
 } from '../utils/highlight.js';
 import {
   clipboardHasImage,
@@ -892,30 +892,28 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
                 const renderedLine: React.ReactNode[] = [];
 
-                const [logicalLineIdx, logicalStartCol] = mapEntry;
+                const [logicalLineIdx] = mapEntry;
                 const logicalLine = buffer.lines[logicalLineIdx] || '';
                 const tokens = parseInputForHighlighting(
                   logicalLine,
                   logicalLineIdx,
                 );
-
-                const visualStart = logicalStartCol;
-                const visualEnd = logicalStartCol + cpLen(lineText);
-                const segments = buildSegmentsForVisualSlice(
+                const transformedMapForLine =
+                  buffer.transformedToLogicalMaps?.[logicalLineIdx] ?? [];
+                const displayStartInTransformed =
+                  buffer.visualToTransformedIndexStart?.[absoluteVisualIdx] ??
+                  0;
+                const segments = buildSegmentsForTransformedVisualSlice(
                   tokens,
-                  visualStart,
-                  visualEnd,
+                  lineText,
+                  displayStartInTransformed,
+                  transformedMapForLine,
                 );
 
                 let charCount = 0;
                 segments.forEach((seg, segIdx) => {
                   const segLen = cpLen(seg.text);
-                  // Use the actual visual line text for display to honor transformations
-                  let display = cpSlice(
-                    lineText,
-                    charCount,
-                    charCount + segLen,
-                  );
+                  let display = seg.text;
 
                   if (isOnCursorLine) {
                     const relativeVisualColForHighlight =

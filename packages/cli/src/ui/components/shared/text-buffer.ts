@@ -684,14 +684,23 @@ function buildTransformedLineAndMap(
     transformedLine += textToDisplay;
 
     // Map display characters back to logical characters
-    for (let i = 0; i < cpLen(textToDisplay); i++) {
-      if (isExpanded) {
-        // 1-to-1 mapping
+    const displayLen = cpLen(textToDisplay);
+    if (isExpanded) {
+      for (let i = 0; i < displayLen; i++) {
+        // 1-to-1 mapping across the raw span
         transformedToLogMap.push(transform.logStart + i);
-      } else {
-        // When collapsed, moving inside the terse text should jump the logical cursor
-        // to the start of the raw path, which will expand it on the next render.
-        transformedToLogMap.push(transform.logStart);
+      }
+    } else {
+      // Collapsed: distribute display positions monotonically across the raw span.
+      // This preserves ordering across wrapped slices so logicalToVisualMap has
+      // increasing startColInLogical and visual cursor mapping remains consistent.
+      const rawLen = Math.max(0, transform.logEnd - transform.logStart);
+      for (let i = 0; i < displayLen; i++) {
+        // Map the i-th display code point into [logStart, logEnd)
+        const rel = rawLen === 0 ? 0 : Math.floor((i * rawLen) / displayLen);
+        const mapped =
+          transform.logStart + Math.min(rel, Math.max(rawLen - 1, 0));
+        transformedToLogMap.push(mapped);
       }
     }
     lastLogPos = transform.logEnd;
@@ -717,6 +726,9 @@ export interface VisualLayout {
   visualToLogicalMap: Array<[number, number]>;
   // For each logical line, an array to represent the transformation on that line
   transformedToLogicalMaps: number[][];
+  // For each visual line (absolute), the start index (in transformed code points)
+  // within that logical line's transformed content.
+  visualToTransformedIndexStart: number[];
 }
 
 // Calculates the visual wrapping of lines and the mapping between logical and visual coordinates.
@@ -730,6 +742,7 @@ function calculateLayout(
   const logicalToVisualMap: Array<Array<[number, number]>> = [];
   const visualToLogicalMap: Array<[number, number]> = [];
   const transformedToLogicalMaps: number[][] = [];
+  const visualToTransformedIndexStart: number[] = [];
 
   logicalLines.forEach((logLine, logIndex) => {
     logicalToVisualMap[logIndex] = [];
@@ -745,6 +758,7 @@ function calculateLayout(
       // Handle empty logical line
       logicalToVisualMap[logIndex].push([visualLines.length, 0]);
       visualToLogicalMap.push([logIndex, 0]);
+      visualToTransformedIndexStart.push(0);
       visualLines.push('');
     } else {
       // Non-empty logical line
@@ -844,6 +858,7 @@ function calculateLayout(
           logicalStartCol,
         ]);
         visualToLogicalMap.push([logIndex, logicalStartCol]);
+        visualToTransformedIndexStart.push(currentPosInLogLine);
         visualLines.push(currentChunk);
 
         const logicalStartOfThisChunk = currentPosInLogLine;
@@ -874,6 +889,7 @@ function calculateLayout(
       if (!logicalToVisualMap[0]) logicalToVisualMap[0] = [];
       logicalToVisualMap[0].push([0, 0]);
       visualToLogicalMap.push([0, 0]);
+      visualToTransformedIndexStart.push(0);
     }
   }
 
@@ -882,6 +898,7 @@ function calculateLayout(
     logicalToVisualMap,
     visualToLogicalMap,
     transformedToLogicalMaps,
+    visualToTransformedIndexStart,
   };
 }
 
@@ -1696,7 +1713,12 @@ export function useTextBuffer({
     [visualLayout, cursorRow, cursorCol],
   );
 
-  const { visualLines, visualToLogicalMap } = visualLayout;
+  const {
+    visualLines,
+    visualToLogicalMap,
+    transformedToLogicalMaps,
+    visualToTransformedIndexStart,
+  } = visualLayout;
 
   const [visualScrollRow, setVisualScrollRow] = useState<number>(0);
 
@@ -2125,6 +2147,8 @@ export function useTextBuffer({
       visualCursor,
       visualScrollRow,
       visualToLogicalMap,
+      transformedToLogicalMaps,
+      visualToTransformedIndexStart,
 
       setText,
       insert,
@@ -2189,6 +2213,9 @@ export function useTextBuffer({
       renderedVisualLines,
       visualCursor,
       visualScrollRow,
+      visualToLogicalMap,
+      transformedToLogicalMaps,
+      visualToTransformedIndexStart,
       setText,
       insert,
       newline,
@@ -2238,7 +2265,6 @@ export function useTextBuffer({
       vimMoveToLastLine,
       vimMoveToLine,
       vimEscapeInsertMode,
-      visualToLogicalMap,
     ],
   );
   return returnValue;
@@ -2269,6 +2295,16 @@ export interface TextBuffer {
    * begins within the logical buffer. Indices are code-point based.
    */
   visualToLogicalMap: Array<[number, number]>;
+  /**
+   * For each logical line, an array mapping display positions (in the transformed
+   * line) back to logical column indices. Length is transformedLen + 1.
+   */
+  transformedToLogicalMaps: number[][];
+  /**
+   * For each visual line (absolute index across all visual lines), the start index
+   * within that logical line's transformed content.
+   */
+  visualToTransformedIndexStart: number[];
 
   // Actions
 
