@@ -901,8 +901,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                 const transformedMapForLine =
                   buffer.transformedToLogicalMaps?.[logicalLineIdx] ?? [];
                 const displayStartInTransformed =
-                  buffer.visualToTransformedIndexStart?.[absoluteVisualIdx] ??
-                  0;
+                  buffer.visualToTransformedMap?.[absoluteVisualIdx] ?? 0;
                 const segments = buildSegmentsForTransformedVisualSlice(
                   tokens,
                   lineText,

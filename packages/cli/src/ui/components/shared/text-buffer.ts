@@ -724,11 +724,10 @@ export interface VisualLayout {
   logicalToVisualMap: Array<Array<[number, number]>>;
   // For each visual line, its [logicalLineIndex, startColInLogical]
   visualToLogicalMap: Array<[number, number]>;
-  // For each logical line, an array to represent the transformation on that line
+  // For each logical line, an array that maps each transformedCol to a logicalCol
   transformedToLogicalMaps: number[][];
-  // For each visual line (absolute), the start index (in transformed code points)
-  // within that logical line's transformed content.
-  visualToTransformedIndexStart: number[];
+  // index = visual line, value = startColInTransformed
+  visualToTransformedMap: number[];
 }
 
 // Calculates the visual wrapping of lines and the mapping between logical and visual coordinates.
@@ -742,7 +741,7 @@ function calculateLayout(
   const logicalToVisualMap: Array<Array<[number, number]>> = [];
   const visualToLogicalMap: Array<[number, number]> = [];
   const transformedToLogicalMaps: number[][] = [];
-  const visualToTransformedIndexStart: number[] = [];
+  const visualToTransformedMap: number[] = [];
 
   logicalLines.forEach((logLine, logIndex) => {
     logicalToVisualMap[logIndex] = [];
@@ -758,7 +757,7 @@ function calculateLayout(
       // Handle empty logical line
       logicalToVisualMap[logIndex].push([visualLines.length, 0]);
       visualToLogicalMap.push([logIndex, 0]);
-      visualToTransformedIndexStart.push(0);
+      visualToTransformedMap.push(0);
       visualLines.push('');
     } else {
       // Non-empty logical line
@@ -858,7 +857,7 @@ function calculateLayout(
           logicalStartCol,
         ]);
         visualToLogicalMap.push([logIndex, logicalStartCol]);
-        visualToTransformedIndexStart.push(currentPosInLogLine);
+        visualToTransformedMap.push(currentPosInLogLine);
         visualLines.push(currentChunk);
 
         const logicalStartOfThisChunk = currentPosInLogLine;
@@ -889,7 +888,7 @@ function calculateLayout(
       if (!logicalToVisualMap[0]) logicalToVisualMap[0] = [];
       logicalToVisualMap[0].push([0, 0]);
       visualToLogicalMap.push([0, 0]);
-      visualToTransformedIndexStart.push(0);
+      visualToTransformedMap.push(0);
     }
   }
 
@@ -898,7 +897,7 @@ function calculateLayout(
     logicalToVisualMap,
     visualToLogicalMap,
     transformedToLogicalMaps,
-    visualToTransformedIndexStart,
+    visualToTransformedMap,
   };
 }
 
@@ -1717,7 +1716,7 @@ export function useTextBuffer({
     visualLines,
     visualToLogicalMap,
     transformedToLogicalMaps,
-    visualToTransformedIndexStart,
+    visualToTransformedMap,
   } = visualLayout;
 
   const [visualScrollRow, setVisualScrollRow] = useState<number>(0);
@@ -2148,7 +2147,7 @@ export function useTextBuffer({
       visualScrollRow,
       visualToLogicalMap,
       transformedToLogicalMaps,
-      visualToTransformedIndexStart,
+      visualToTransformedMap,
 
       setText,
       insert,
@@ -2215,7 +2214,7 @@ export function useTextBuffer({
       visualScrollRow,
       visualToLogicalMap,
       transformedToLogicalMaps,
-      visualToTransformedIndexStart,
+      visualToTransformedMap,
       setText,
       insert,
       newline,
@@ -2304,7 +2303,7 @@ export interface TextBuffer {
    * For each visual line (absolute index across all visual lines), the start index
    * within that logical line's transformed content.
    */
-  visualToTransformedIndexStart: number[];
+  visualToTransformedMap: number[];
 
   // Actions
 
