@@ -655,6 +655,27 @@ function getTransformationsForLine(line: string): Transformation[] {
   return transformations.sort((a, b) => a.logStart - b.logStart);
 }
 
+/** Compute transformations for all lines */
+function computeTransformationsForLines(lines: string[]): Transformation[][] {
+  return lines.map((ln) => getTransformationsForLine(ln));
+}
+
+/** Quick check: is cursor at (row,col) inside any transformation span? */
+function isCursorInsideTransform(
+  row: number,
+  col: number,
+  spansByLine: Transformation[][],
+): boolean {
+  const spans = spansByLine[row];
+  if (!spans || spans.length === 0) return false;
+  // spans sorted by logStart
+  for (const s of spans) {
+    if (col >= s.logStart && col <= s.logEnd) return true;
+    if (col < s.logStart) break; // early exit
+  }
+  return false;
+}
+
 function buildTransformedLineAndMap(
   logLine: string,
   logIndex: number,
@@ -978,6 +999,8 @@ export interface TextBufferState {
   lines: string[];
   cursorRow: number;
   cursorCol: number;
+  /** Cached transformations (collapsed-path spans) per logical line */
+  transformationsByLine: Transformation[][];
   preferredCol: number | null; // This is visual preferred col
   undoStack: UndoHistoryEntry[];
   redoStack: UndoHistoryEntry[];
@@ -1637,13 +1660,31 @@ export function textBufferReducer(
   state: TextBufferState,
   action: TextBufferAction,
 ): TextBufferState {
-  const newState = textBufferReducerLogic(state, action);
+  let newState = textBufferReducerLogic(state, action);
+
+  // If lines changed, recompute cached transformation spans
+  if (newState.lines !== state.lines) {
+    newState = {
+      ...newState,
+      transformationsByLine: computeTransformationsForLines(newState.lines),
+    } as TextBufferState;
+  }
+
+  const oldInside = isCursorInsideTransform(
+    state.cursorRow,
+    state.cursorCol,
+    state.transformationsByLine,
+  );
+  const newInside = isCursorInsideTransform(
+    newState.cursorRow,
+    newState.cursorCol,
+    newState.transformationsByLine,
+  );
 
   if (
     newState.lines !== state.lines ||
     newState.viewportWidth !== state.viewportWidth ||
-    newState.cursorRow !== state.cursorRow ||
-    newState.cursorCol !== state.cursorCol
+    oldInside !== newInside
   ) {
     return {
       ...newState,
@@ -1675,6 +1716,9 @@ export function useTextBuffer({
       lines.length === 0 ? [''] : lines,
       initialCursorOffset,
     );
+    const transformationsByLine = computeTransformationsForLines(
+      lines.length === 0 ? [''] : lines,
+    );
     const visualLayout = calculateLayout(
       lines.length === 0 ? [''] : lines,
       viewport.width,
@@ -1684,6 +1728,7 @@ export function useTextBuffer({
       lines: lines.length === 0 ? [''] : lines,
       cursorRow: initialCursorRow,
       cursorCol: initialCursorCol,
+      transformationsByLine,
       preferredCol: null,
       undoStack: [],
       redoStack: [],
@@ -1703,6 +1748,7 @@ export function useTextBuffer({
     preferredCol,
     selectionAnchor,
     visualLayout,
+    transformationsByLine,
   } = state;
 
   const text = useMemo(() => lines.join('\n'), [lines]);
@@ -2148,7 +2194,7 @@ export function useTextBuffer({
       visualToLogicalMap,
       transformedToLogicalMaps,
       visualToTransformedMap,
-
+      transformationsByLine,
       setText,
       insert,
       newline,
@@ -2215,6 +2261,7 @@ export function useTextBuffer({
       visualToLogicalMap,
       transformedToLogicalMaps,
       visualToTransformedMap,
+      transformationsByLine,
       setText,
       insert,
       newline,
@@ -2304,6 +2351,8 @@ export interface TextBuffer {
    * within that logical line's transformed content.
    */
   visualToTransformedMap: number[];
+  /** Cached transformations per logical line */
+  transformationsByLine: Transformation[][];
 
   // Actions
 
