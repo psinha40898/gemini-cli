@@ -17,7 +17,7 @@ import {
   stripUnsafeCharacters,
   getCachedStringWidth,
 } from '../../utils/textUtils.js';
-import { transformImagePath } from '../../utils/highlight.js';
+import { getTransformedImagePath } from '../../utils/highlight.js';
 import type { VimAction } from './vim-buffer-actions.js';
 import { handleVimAction } from './vim-buffer-actions.js';
 
@@ -629,11 +629,17 @@ export function logicalPosToOffset(
 
   return offset;
 }
+/**
+ * Transformations allow for the CLI to render terse representations of things like file paths
+ * (e.g., "@some/path/to/an/image.png" to "[Image image.png]") 
+ * When the cursor enters a transformed representation, it expands to reveal the logical representation.
+ * (e.g., "[Image image.png]" to "@some/path/to/an/image.png")
+ */
 interface Transformation {
   logStart: number;
   logEnd: number;
-  rawText: string;
-  terseText: string;
+  logicalText: string;
+  transformedText: string;
 }
 
 function getTransformationsForLine(line: string): Transformation[] {
@@ -642,14 +648,14 @@ function getTransformationsForLine(line: string): Transformation[] {
   const transformations: Transformation[] = [];
   let match;
   while ((match = imagePathRegex.exec(line)) !== null) {
-    const rawText = match[0];
-    const terseText = transformImagePath(rawText);
+    const logicalText = match[0];
+    const transformedText = getTransformedImagePath(logicalText);
     const logStart = cpLen(line.substring(0, match.index));
     transformations.push({
       logStart,
-      logEnd: logStart + cpLen(rawText),
-      rawText,
-      terseText,
+      logEnd: logStart + cpLen(logicalText),
+      logicalText,
+      transformedText,
     });
   }
   return transformations.sort((a, b) => a.logStart - b.logStart);
@@ -701,7 +707,7 @@ function buildTransformedLineAndMap(
       cursorIsOnThisLine &&
       cursorCol >= transform.logStart &&
       cursorCol <= transform.logEnd;
-    const textToDisplay = isExpanded ? transform.rawText : transform.terseText;
+    const textToDisplay = isExpanded ? transform.logicalText : transform.transformedText;
     transformedLine += textToDisplay;
 
     // Map display characters back to logical characters
@@ -745,9 +751,10 @@ export interface VisualLayout {
   logicalToVisualMap: Array<Array<[number, number]>>;
   // For each visual line, its [logicalLineIndex, startColInLogical]
   visualToLogicalMap: Array<[number, number]>;
+  // Image paths are transformed (e.g., "@some/path/to/an/image.png" to "[Image image.png]") 
   // For each logical line, an array that maps each transformedCol to a logicalCol
   transformedToLogicalMaps: number[][];
-  // index = visual line, value = startColInTransformed
+  // For each visual line, its [startColInTransformed]
   visualToTransformedMap: number[];
 }
 

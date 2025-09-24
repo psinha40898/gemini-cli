@@ -67,12 +67,7 @@ export function parseInputForHighlighting(
   return tokens;
 }
 
-/**
- * Builds highlight segments for a visual slice that has already undergone
- * transformations (e.g., collapsed image paths). The returned segments' text
- * comes from the transformed display slice, while segment types are derived
- * from the original logical tokens via the transformed-to-logical map.
- */
+
 export function parseSegmentsFromTokens(
   tokens: readonly HighlightToken[],
   displayText: string,
@@ -154,7 +149,7 @@ export function parseSegmentsFromTokens(
 }
 
 
-export function transformImagePath(filePath: string): string {
+export function getTransformedImagePath(filePath: string): string {
   const fileName = path.basename(filePath);
   const extension = path.extname(fileName);
   const baseName = path.basename(fileName, extension);
