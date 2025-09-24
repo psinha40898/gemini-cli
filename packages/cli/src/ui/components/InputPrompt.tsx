@@ -26,7 +26,7 @@ import type { Config } from '@google/gemini-cli-core';
 import { ApprovalMode } from '@google/gemini-cli-core';
 import {
   parseInputForHighlighting,
-  buildSegmentsForTransformedVisualSlice,
+  parseSegmentsFromTokens,
 } from '../utils/highlight.js';
 import {
   clipboardHasImage,
@@ -902,7 +902,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                   buffer.transformedToLogicalMaps?.[logicalLineIdx] ?? [];
                 const displayStartInTransformed =
                   buffer.visualToTransformedMap?.[absoluteVisualIdx] ?? 0;
-                const segments = buildSegmentsForTransformedVisualSlice(
+                const segments = parseSegmentsFromTokens(
                   tokens,
                   lineText,
                   displayStartInTransformed,

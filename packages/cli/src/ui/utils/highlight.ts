@@ -67,49 +67,13 @@ export function parseInputForHighlighting(
   return tokens;
 }
 
-export function buildSegmentsForVisualSlice(
-  tokens: readonly HighlightToken[],
-  sliceStart: number,
-  sliceEnd: number,
-): readonly HighlightToken[] {
-  if (sliceStart >= sliceEnd) return [];
-
-  const segments: HighlightToken[] = [];
-  let tokenCpStart = 0;
-
-  for (const token of tokens) {
-    const tokenLen = cpLen(token.text);
-    const tokenStart = tokenCpStart;
-    const tokenEnd = tokenStart + tokenLen;
-
-    const overlapStart = Math.max(tokenStart, sliceStart);
-    const overlapEnd = Math.min(tokenEnd, sliceEnd);
-    if (overlapStart < overlapEnd) {
-      const sliceStartInToken = overlapStart - tokenStart;
-      const sliceEndInToken = overlapEnd - tokenStart;
-      const rawSlice = cpSlice(token.text, sliceStartInToken, sliceEndInToken);
-
-      const last = segments[segments.length - 1];
-      if (last && last.type === token.type) {
-        last.text += rawSlice;
-      } else {
-        segments.push({ type: token.type, text: rawSlice });
-      }
-    }
-
-    tokenCpStart += tokenLen;
-  }
-
-  return segments;
-}
-
 /**
  * Builds highlight segments for a visual slice that has already undergone
  * transformations (e.g., collapsed image paths). The returned segments' text
  * comes from the transformed display slice, while segment types are derived
  * from the original logical tokens via the transformed-to-logical map.
  */
-export function buildSegmentsForTransformedVisualSlice(
+export function parseSegmentsFromTokens(
   tokens: readonly HighlightToken[],
   displayText: string,
   displayStartInTransformed: number,
@@ -188,6 +152,7 @@ export function buildSegmentsForTransformedVisualSlice(
 
   return segments;
 }
+
 
 export function getTersePath(filePath: string): string {
   const fileName = path.basename(filePath);
