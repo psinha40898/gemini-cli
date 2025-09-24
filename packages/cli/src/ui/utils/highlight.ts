@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { cpLen, cpSlice, toCodePoints } from './textUtils.js';
+import { cpLen, toCodePoints } from './textUtils.js';
 import * as path from 'node:path';
 
 export type HighlightToken = {
@@ -154,7 +154,7 @@ export function parseSegmentsFromTokens(
 }
 
 
-export function getTersePath(filePath: string): string {
+export function transformImagePath(filePath: string): string {
   const fileName = path.basename(filePath);
   const extension = path.extname(fileName);
   const baseName = path.basename(fileName, extension);

@@ -17,7 +17,7 @@ import {
   stripUnsafeCharacters,
   getCachedStringWidth,
 } from '../../utils/textUtils.js';
-import { getTersePath } from '../../utils/highlight.js';
+import { transformImagePath } from '../../utils/highlight.js';
 import type { VimAction } from './vim-buffer-actions.js';
 import { handleVimAction } from './vim-buffer-actions.js';
 
@@ -643,7 +643,7 @@ function getTransformationsForLine(line: string): Transformation[] {
   let match;
   while ((match = imagePathRegex.exec(line)) !== null) {
     const rawText = match[0];
-    const terseText = getTersePath(rawText);
+    const terseText = transformImagePath(rawText);
     const logStart = cpLen(line.substring(0, match.index));
     transformations.push({
       logStart,
