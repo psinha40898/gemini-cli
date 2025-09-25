@@ -15,19 +15,12 @@ export type HighlightToken = {
 
 const HIGHLIGHT_REGEX = /(^\/[a-zA-Z0-9_-]+|@(?:\\ |[a-zA-Z0-9_./-])+)/g;
 
-
 export function parseInputForHighlighting(
   text: string,
   index: number,
   transformations: Transformation[] = [],
-  /**
-   * Optional: logical cursor column within this *same* line. If provided,
-   * transformations that cover this column will be expanded (show the raw
-   * logicalText). When undefined, all transformations remain collapsed.
-   */
-  cursorCol?: number,
+  cursorCol: number | undefined,
 ): readonly HighlightToken[] {
-  // Ensure regex states are reset for each call – they are global /g patterns.
   HIGHLIGHT_REGEX.lastIndex = 0;
 
 
@@ -35,54 +28,50 @@ export function parseInputForHighlighting(
     return [{ text: '', type: 'default' }];
   }
 
-  // Highlight a plain segment (without any transformations inside)
-  const highlightPlain = (segment: string): HighlightToken[] => {
-    const out: HighlightToken[] = [];
-    if (!segment) return out;
+  const parseUntransformedInput = (text: string): HighlightToken[] => {
+    const tokens: HighlightToken[] = [];
+    if (!text) return tokens;
 
     HIGHLIGHT_REGEX.lastIndex = 0;
     let last = 0;
     let match: RegExpExecArray | null;
 
-    while ((match = HIGHLIGHT_REGEX.exec(segment)) !== null) {
+    while ((match = HIGHLIGHT_REGEX.exec(text)) !== null) {
       const [fullMatch] = match;
       const matchIndex = match.index;
 
       if (matchIndex > last) {
-        out.push({ text: segment.slice(last, matchIndex), type: 'default' });
+        tokens.push({ text: text.slice(last, matchIndex), type: 'default' });
       }
 
       const type = fullMatch.startsWith('/') ? 'command' : 'file';
       if (type === 'command' && index !== 0) {
-        out.push({ text: fullMatch, type: 'default' });
+        tokens.push({ text: fullMatch, type: 'default' });
       } else {
-        out.push({ text: fullMatch, type });
+        tokens.push({ text: fullMatch, type });
       }
 
       last = matchIndex + fullMatch.length;
     }
 
-    if (last < segment.length) {
-      out.push({ text: segment.slice(last), type: 'default' });
+    if (last < text.length) {
+      tokens.push({ text: text.slice(last), type: 'default' });
     }
 
-    return out;
+    return tokens;
   };
 
   const tokens: HighlightToken[] = [];
 
-  // Walk across the logical string by transformation spans
   let column = 0;
   const sortedTransformations = (transformations ?? [])
     .slice()
     .sort((a, b) => a.logStart - b.logStart);
 
   for (const transformation of sortedTransformations) {
-    // Plain text before this transformation
-    const before = cpSlice(text, column, transformation.logStart);
-    tokens.push(...highlightPlain(before));
-
-    // Transformation itself (expanded on cursor)
+    const textBeforeTransformation = cpSlice(text, column, transformation.logStart);
+    tokens.push(...parseUntransformedInput(textBeforeTransformation));
+    
     const isCursorInside =
       typeof cursorCol === 'number' &&
       cursorCol >= transformation.logStart &&
@@ -93,10 +82,8 @@ export function parseInputForHighlighting(
     column = transformation.logEnd;
   }
 
-  // Plain text after the last transformation
-  const trailing = cpSlice(text, column);
-  tokens.push(...highlightPlain(trailing));
-console.log(tokens);
+  const textAfterFinalTransformation = cpSlice(text, column);
+  tokens.push(...parseUntransformedInput(textAfterFinalTransformation));
   return tokens;
 }
 
