@@ -24,10 +24,8 @@ import { keyMatchers, Command } from '../keyMatchers.js';
 import type { CommandContext, SlashCommand } from '../commands/types.js';
 import type { Config } from '@google/gemini-cli-core';
 import { ApprovalMode } from '@google/gemini-cli-core';
-import {
-  parseInputForHighlighting,
-  parseSegmentsFromTokens,
-} from '../utils/highlight.js';
+import { buildSegmentsForVisualSlice } from '../utils/highlight.js';
+import type { HighlightToken } from '../utils/highlight.js';
 import {
   clipboardHasImage,
   saveClipboardImage,
@@ -893,24 +891,20 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                 const renderedLine: React.ReactNode[] = [];
 
                 const [logicalLineIdx] = mapEntry;
-                const logicalLine = buffer.lines[logicalLineIdx] || '';
-                const tokens = parseInputForHighlighting(
-                  logicalLine,
-                  logicalLineIdx,
-                );
-                const transformedMapForLine =
-                  buffer.transformedToLogicalMaps?.[logicalLineIdx] ?? [];
                 const displayStartInTransformed =
                   buffer.visualToTransformedMap?.[absoluteVisualIdx] ?? 0;
-                const segments = parseSegmentsFromTokens(
+                const sliceStart = displayStartInTransformed;
+                const sliceEnd = sliceStart + cpLen(lineText);
+                const tokens: readonly HighlightToken[] =
+                  buffer.transformedTokensByLine?.[logicalLineIdx] ?? [];
+                const segments = buildSegmentsForVisualSlice(
                   tokens,
-                  lineText,
-                  displayStartInTransformed,
-                  transformedMapForLine,
+                  sliceStart,
+                  sliceEnd,
                 );
 
                 let charCount = 0;
-                segments.forEach((seg, segIdx) => {
+                segments.forEach((seg: HighlightToken, segIdx: number) => {
                   const segLen = cpLen(seg.text);
                   let display = seg.text;
 

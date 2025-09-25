@@ -17,7 +17,11 @@ import {
   stripUnsafeCharacters,
   getCachedStringWidth,
 } from '../../utils/textUtils.js';
-import { getTransformedImagePath } from '../../utils/highlight.js';
+import {
+  getTransformedImagePath,
+  parseInputForHighlighting,
+} from '../../utils/highlight.js';
+import type { HighlightToken } from '../../utils/highlight.js';
 import type { VimAction } from './vim-buffer-actions.js';
 import { handleVimAction } from './vim-buffer-actions.js';
 
@@ -756,6 +760,74 @@ export interface VisualLayout {
   transformedToLogicalMaps: number[][];
   // For each visual line, its [startColInTransformed]
   visualToTransformedMap: number[];
+  // For each logical line, the full transformed line string (cursor-sensitive)
+  transformedLines: string[];
+  // For each logical line, tokens aligned to the transformed line
+  transformedTokensByLine: HighlightToken[][];
+}
+
+// Build transformed-space tokens for a line by projecting logical tokens through
+// transformation spans. Collapsed spans become a single 'file' token; expanded
+// spans carry through the original logical tokens.
+function buildTransformedTokensForLine(
+  logLine: string,
+  logIndex: number,
+  logicalCursor: [number, number],
+  transformations: Transformation[],
+): HighlightToken[] {
+  const logicalTokens = parseInputForHighlighting(logLine, logIndex);
+  const transformedTokens: HighlightToken[] = [];
+
+  const appendToken = (text: string, type: HighlightToken['type']) => {
+    if (!text) return;
+    const last = transformedTokens[transformedTokens.length - 1];
+    if (last && last.type === type) {
+      last.text += text;
+    } else {
+      transformedTokens.push({ text, type });
+    }
+  };
+
+  const appendFromLogicalSlice = (start: number, end: number) => {
+    if (end <= start) return;
+    let tokenStartCp = 0;
+    for (const tok of logicalTokens) {
+      const len = cpLen(tok.text);
+      const tokStart = tokenStartCp;
+      const tokEnd = tokStart + len;
+      const overlapStart = Math.max(tokStart, start);
+      const overlapEnd = Math.min(tokEnd, end);
+      if (overlapStart < overlapEnd) {
+        const s = overlapStart - tokStart;
+        const e = overlapEnd - tokStart;
+        appendToken(cpSlice(tok.text, s, e), tok.type);
+      }
+      tokenStartCp += len;
+    }
+  };
+
+  let lastLogPos = 0;
+  const cursorIsOnThisLine = logIndex === logicalCursor[0];
+  const cursorCol = logicalCursor[1];
+  for (const tr of transformations) {
+    // Prefix outside the transform span
+    appendFromLogicalSlice(lastLogPos, tr.logStart);
+
+    const isExpanded =
+      cursorIsOnThisLine && cursorCol >= tr.logStart && cursorCol <= tr.logEnd;
+    if (isExpanded) {
+      // Expanded: carry through logical tokens within the span
+      appendFromLogicalSlice(tr.logStart, tr.logEnd);
+    } else {
+      // Collapsed: emit a single 'file' token for the collapsed marker
+      appendToken(tr.transformedText, 'file');
+    }
+    lastLogPos = tr.logEnd;
+  }
+  // Suffix after the last transform
+  appendFromLogicalSlice(lastLogPos, cpLen(logLine));
+
+  return transformedTokens;
 }
 
 // Calculates the visual wrapping of lines and the mapping between logical and visual coordinates.
@@ -770,6 +842,8 @@ function calculateLayout(
   const visualToLogicalMap: Array<[number, number]> = [];
   const transformedToLogicalMaps: number[][] = [];
   const visualToTransformedMap: number[] = [];
+  const transformedLines: string[] = [];
+  const transformedTokensByLine: HighlightToken[][] = [];
 
   logicalLines.forEach((logLine, logIndex) => {
     logicalToVisualMap[logIndex] = [];
@@ -781,6 +855,14 @@ function calculateLayout(
       transformations,
     );
     transformedToLogicalMaps[logIndex] = transformedToLogMap;
+    transformedLines[logIndex] = transformedLine;
+
+    transformedTokensByLine[logIndex] = buildTransformedTokensForLine(
+      logLine,
+      logIndex,
+      logicalCursor,
+      transformations,
+    );
     if (transformedLine.length === 0) {
       // Handle empty logical line
       logicalToVisualMap[logIndex].push([visualLines.length, 0]);
@@ -926,6 +1008,8 @@ function calculateLayout(
     visualToLogicalMap,
     transformedToLogicalMaps,
     visualToTransformedMap,
+    transformedLines,
+    transformedTokensByLine,
   };
 }
 
@@ -1770,6 +1854,8 @@ export function useTextBuffer({
     visualToLogicalMap,
     transformedToLogicalMaps,
     visualToTransformedMap,
+    transformedLines,
+    transformedTokensByLine,
   } = visualLayout;
 
   const [visualScrollRow, setVisualScrollRow] = useState<number>(0);
@@ -2202,6 +2288,8 @@ export function useTextBuffer({
       transformedToLogicalMaps,
       visualToTransformedMap,
       transformationsByLine,
+      transformedLines,
+      transformedTokensByLine,
       setText,
       insert,
       newline,
@@ -2269,6 +2357,8 @@ export function useTextBuffer({
       transformedToLogicalMaps,
       visualToTransformedMap,
       transformationsByLine,
+      transformedLines,
+      transformedTokensByLine,
       setText,
       insert,
       newline,
@@ -2360,6 +2450,10 @@ export interface TextBuffer {
   visualToTransformedMap: number[];
   /** Cached transformations per logical line */
   transformationsByLine: Transformation[][];
+  /** Transformed full lines (cursor-sensitive), 1:1 with logical lines */
+  transformedLines: string[];
+  /** Transformed-space tokens, 1:1 with logical lines */
+  transformedTokensByLine: HighlightToken[][];
 
   // Actions
 

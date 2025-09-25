@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { cpLen, toCodePoints } from './textUtils.js';
+import { cpLen, cpSlice } from './textUtils.js';
 import * as path from 'node:path';
 
 export type HighlightToken = {
@@ -68,81 +68,41 @@ export function parseInputForHighlighting(
 }
 
 
-export function parseSegmentsFromTokens(
+// Simple segmenter: given tokens for a transformed line and a visual slice
+// [sliceStart, sliceEnd) in transformed code-point coordinates, return the
+// token segments that overlap that slice. Adjacent segments of the same type
+// are merged.
+export function buildSegmentsForVisualSlice(
   tokens: readonly HighlightToken[],
-  displayText: string,
-  displayStartInTransformed: number,
-  transformedToLogicalMapForLine: number[],
+  sliceStart: number,
+  sliceEnd: number,
 ): readonly HighlightToken[] {
-  if (!displayText) return [];
+  if (sliceStart >= sliceEnd) return [];
 
-  // Precompute logical token ranges [start, end) in code-point coordinates
-  const tokenRanges: Array<{
-    start: number;
-    end: number;
-    type: HighlightToken['type'];
-  }> = [];
-  {
-    let tokenCpStart = 0;
-    for (const t of tokens) {
-      const len = cpLen(t.text);
-      tokenRanges.push({
-        start: tokenCpStart,
-        end: tokenCpStart + len,
-        type: t.type,
-      });
-      tokenCpStart += len;
-    }
-  }
-
-  const cps = toCodePoints(displayText);
   const segments: HighlightToken[] = [];
+  let tokenCpStart = 0;
 
-  let currentType: HighlightToken['type'] | null = null;
-  let currentText = '';
-  let rangeIdx = 0;
+  for (const token of tokens) {
+    const tokenLen = cpLen(token.text);
+    const tokenStart = tokenCpStart;
+    const tokenEnd = tokenStart + tokenLen;
 
-  for (let i = 0; i < cps.length; i++) {
-    const mapIdx = displayStartInTransformed + i;
-    // Map index must be within the mapping for real characters; the mapping
-    // is typically length (transformedLen + 1), where the last entry maps past
-    // the end-of-line. Clamp to valid range.
-    const safeMapIdx = Math.max(
-      0,
-      Math.min(mapIdx, transformedToLogicalMapForLine.length - 1),
-    );
-    const logicalCol = transformedToLogicalMapForLine[safeMapIdx] ?? 0;
+    const overlapStart = Math.max(tokenStart, sliceStart);
+    const overlapEnd = Math.min(tokenEnd, sliceEnd);
+    if (overlapStart < overlapEnd) {
+      const sliceStartInToken = overlapStart - tokenStart;
+      const sliceEndInToken = overlapEnd - tokenStart;
+      const rawSlice = cpSlice(token.text, sliceStartInToken, sliceEndInToken);
 
-    // Advance rangeIdx until the token range could contain logicalCol
-    while (
-      rangeIdx < tokenRanges.length &&
-      logicalCol >= tokenRanges[rangeIdx].end
-    ) {
-      rangeIdx++;
-    }
-
-    let type: HighlightToken['type'] = 'default';
-    if (rangeIdx < tokenRanges.length) {
-      const r = tokenRanges[rangeIdx];
-      if (logicalCol >= r.start && logicalCol < r.end) {
-        type = r.type;
+      const last = segments[segments.length - 1];
+      if (last && last.type === token.type) {
+        last.text += rawSlice;
+      } else {
+        segments.push({ type: token.type, text: rawSlice });
       }
     }
 
-    const ch = cps[i];
-    if (currentType === type) {
-      currentText += ch;
-    } else {
-      if (currentText.length > 0 && currentType !== null) {
-        segments.push({ text: currentText, type: currentType });
-      }
-      currentType = type;
-      currentText = ch;
-    }
-  }
-
-  if (currentText.length > 0 && currentType !== null) {
-    segments.push({ text: currentText, type: currentType });
+    tokenCpStart += tokenLen;
   }
 
   return segments;
