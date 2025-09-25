@@ -907,9 +907,9 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                 );
                 const startColInTransformed =
                   buffer.visualToTransformedMap[absoluteVisualIdx] ?? 0;
-                const sliceStart = startColInTransformed;
-                const sliceEnd = sliceStart + cpLen(lineText);
-                const segments = parseSegmentsFromTokens(tokens, sliceStart, sliceEnd);
+                const visualStartCol = startColInTransformed;
+                const visualEndCol = visualStartCol + cpLen(lineText);
+                const segments = parseSegmentsFromTokens(tokens, visualStartCol, visualEndCol);
                 let charCount = 0;
                 segments.forEach((seg, segIdx) => {
                   const segLen = cpLen(seg.text);
