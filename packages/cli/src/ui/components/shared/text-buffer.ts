@@ -635,16 +635,17 @@ export function logicalPosToOffset(
  * When the cursor enters a transformed representation, it expands to reveal the logical representation.
  * (e.g., "[Image image.png]" to "@some/path/to/an/image.png")
  */
-interface Transformation {
+export interface Transformation {
   logStart: number;
   logEnd: number;
   logicalText: string;
   transformedText: string;
 }
+export const imagePathRegex =
+/@((?:(?:\\ )|[^@[\]\s])+\.(?:png|jpg|jpeg|gif|webp|svg|bmp))/gi;
 
 function getTransformationsForLine(line: string): Transformation[] {
-  const imagePathRegex =
-    /@((?:(?:\\ )|[^@[\]\s])+\.(?:png|jpg|jpeg|gif|webp|svg|bmp))/gi;
+
   const transformations: Transformation[] = [];
   let match;
   while ((match = imagePathRegex.exec(line)) !== null) {

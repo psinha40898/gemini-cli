@@ -894,9 +894,11 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
                 const [logicalLineIdx] = mapEntry;
                 const logicalLine = buffer.lines[logicalLineIdx] || '';
+                const transformations = buffer.transformationsByLine[logicalLineIdx] ?? [];
                 const tokens = parseInputForHighlighting(
                   logicalLine,
                   logicalLineIdx,
+                  transformations
                 );
                 const transformedMapForLine =
                   buffer.transformedToLogicalMaps?.[logicalLineIdx] ?? [];

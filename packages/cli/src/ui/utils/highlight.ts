@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type { Transformation } from '../components/shared/text-buffer.js';
+import { imagePathRegex as TRANSFORMATION_REGEX } from '../components/shared/text-buffer.js';
 import { cpLen, toCodePoints } from './textUtils.js';
 import * as path from 'node:path';
 
@@ -14,9 +16,12 @@ export type HighlightToken = {
 
 const HIGHLIGHT_REGEX = /(^\/[a-zA-Z0-9_-]+|@(?:\\ |[a-zA-Z0-9_./-])+)/g;
 
+
+
 export function parseInputForHighlighting(
   text: string,
   index: number,
+  transformations: Transformation[]
 ): readonly HighlightToken[] {
   if (!text) {
     return [{ text: '', type: 'default' }];
@@ -24,12 +29,60 @@ export function parseInputForHighlighting(
 
   const tokens: HighlightToken[] = [];
   let lastIndex = 0;
+  
+  // Check if we should process transformations
+  const hasTransformations = transformations && transformations.length > 0;
+  
+  if (hasTransformations) {
+    // Process transformation patterns first
+    let transformationMatch;
+    let transformationIndex = 0;
+    
+    while ((transformationMatch = TRANSFORMATION_REGEX.exec(text)) !== null) {
+      const [fullMatch] = transformationMatch;
+      const matchStart = transformationMatch.index;
+      
+      // Check if this match corresponds to a transformation at the current index
+      if (transformationIndex < transformations.length) {
+        const transformation = transformations[transformationIndex];
+        
+        // Verify that the matchStart aligns with logStart
+        if (matchStart === transformation.logStart) {
+          // Add text before the transformation as default token
+          if (matchStart > lastIndex) {
+            tokens.push({
+              text: text.slice(lastIndex, matchStart),
+              type: 'default',
+            });
+          }
+          
+          // Add the transformation token
+          tokens.push({
+            text: fullMatch,
+            type: 'file',
+          });
+          
+          lastIndex = matchStart + fullMatch.length;
+          transformationIndex++;
+        }
+      }
+    }
+    
+    // Reset regex for next phase
+    TRANSFORMATION_REGEX.lastIndex = 0;
+  }
+  
+  // Process regular highlighting patterns
   let match;
-
   while ((match = HIGHLIGHT_REGEX.exec(text)) !== null) {
     const [fullMatch] = match;
     const matchIndex = match.index;
-
+    
+    // Skip if this area was already processed by transformations
+    if (matchIndex < lastIndex) {
+      continue;
+    }
+    
     // Add the text before the match as a default token
     if (matchIndex > lastIndex) {
       tokens.push({
@@ -37,7 +90,7 @@ export function parseInputForHighlighting(
         type: 'default',
       });
     }
-
+    
     // Add the matched token
     const type = fullMatch.startsWith('/') ? 'command' : 'file';
     // Only highlight slash commands if the index is 0.
@@ -52,10 +105,10 @@ export function parseInputForHighlighting(
         type,
       });
     }
-
+    
     lastIndex = matchIndex + fullMatch.length;
   }
-
+  
   // Add any remaining text after the last match
   if (lastIndex < text.length) {
     tokens.push({
@@ -63,10 +116,9 @@ export function parseInputForHighlighting(
       type: 'default',
     });
   }
-
+  
   return tokens;
 }
-
 
 export function parseSegmentsFromTokens(
   tokens: readonly HighlightToken[],
