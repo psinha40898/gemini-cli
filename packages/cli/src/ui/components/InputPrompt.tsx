@@ -895,21 +895,20 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                 const [logicalLineIdx] = mapEntry;
                 const logicalLine = buffer.lines[logicalLineIdx] || '';
                 const transformations = buffer.transformationsByLine[logicalLineIdx] ?? [];
+                const cursorColForLine = isOnCursorLine ? buffer.cursor[1] : undefined;
                 const tokens = parseInputForHighlighting(
                   logicalLine,
                   logicalLineIdx,
-                  transformations
+                  transformations,
+                  cursorColForLine,
                 );
-                const transformedMapForLine =
-                  buffer.transformedToLogicalMaps?.[logicalLineIdx] ?? [];
-                const displayStartInTransformed =
-                  buffer.visualToTransformedMap?.[absoluteVisualIdx] ?? 0;
-                const segments = parseSegmentsFromTokens(
-                  tokens,
-                  lineText,
-                  displayStartInTransformed,
-                  transformedMapForLine,
-                );
+                // Use transformed coordinates for slicing so indices line up with
+                // the token stream that includes collapsed/expanded spans.
+                const startColInTransformed =
+                  buffer.visualToTransformedMap[absoluteVisualIdx] ?? 0;
+                const sliceStart = startColInTransformed;
+                const sliceEnd = sliceStart + cpLen(lineText);
+                const segments = parseSegmentsFromTokens(tokens, sliceStart, sliceEnd);
 
                 let charCount = 0;
                 segments.forEach((seg, segIdx) => {
