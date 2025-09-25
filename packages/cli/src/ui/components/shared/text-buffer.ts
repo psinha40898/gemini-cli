@@ -921,7 +921,6 @@ function calculateLayout(
     }
   }
 
-  //console.log("visualLines", visualLines);
   return {
     visualLines,
     logicalToVisualMap,

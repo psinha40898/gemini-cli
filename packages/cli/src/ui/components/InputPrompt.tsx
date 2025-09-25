@@ -905,14 +905,11 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                   transformations,
                   cursorColForLine,
                 );
-                // Use transformed coordinates for slicing so indices line up with
-                // the token stream that includes collapsed/expanded spans.
                 const startColInTransformed =
                   buffer.visualToTransformedMap[absoluteVisualIdx] ?? 0;
                 const sliceStart = startColInTransformed;
                 const sliceEnd = sliceStart + cpLen(lineText);
                 const segments = parseSegmentsFromTokens(tokens, sliceStart, sliceEnd);
-                // This is computed once per visaul line
                 let charCount = 0;
                 segments.forEach((seg, segIdx) => {
                   const segLen = cpLen(seg.text);
