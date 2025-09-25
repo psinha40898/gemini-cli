@@ -71,7 +71,7 @@ export function parseInputForHighlighting(
   for (const transformation of sortedTransformations) {
     const textBeforeTransformation = cpSlice(text, column, transformation.logStart);
     tokens.push(...parseUntransformedInput(textBeforeTransformation));
-    
+
     const isCursorInside =
       typeof cursorCol === 'number' &&
       cursorCol >= transformation.logStart &&
@@ -119,7 +119,6 @@ export function parseSegmentsFromTokens(
 
     tokenCpStart += tokenLen;
   }
-  console.log("start",segments);
   return segments;
 }
 
