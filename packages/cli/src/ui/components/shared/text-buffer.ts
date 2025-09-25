@@ -662,12 +662,11 @@ function getTransformationsForLine(line: string): Transformation[] {
   return transformations.sort((a, b) => a.logStart - b.logStart);
 }
 
-/** Compute transformations for all lines */
+
 function computeTransformationsForLines(lines: string[]): Transformation[][] {
   return lines.map((ln) => getTransformationsForLine(ln));
 }
 
-/** Quick check: is cursor at (row,col) inside any transformation span? */
 function isCursorInsideTransform(
   row: number,
   col: number,
@@ -1007,7 +1006,6 @@ export interface TextBufferState {
   lines: string[];
   cursorRow: number;
   cursorCol: number;
-  /** Cached transformations (collapsed-path spans) per logical line */
   transformationsByLine: Transformation[][];
   preferredCol: number | null; // This is visual preferred col
   undoStack: UndoHistoryEntry[];
