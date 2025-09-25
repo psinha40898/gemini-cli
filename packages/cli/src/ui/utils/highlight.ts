@@ -132,7 +132,7 @@ export function parseSegmentsFromTokens(
 
     tokenCpStart += tokenLen;
   }
-
+  console.log("start",segments);
   return segments;
 }
 

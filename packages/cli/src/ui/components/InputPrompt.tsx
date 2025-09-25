@@ -895,7 +895,10 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                 const [logicalLineIdx] = mapEntry;
                 const logicalLine = buffer.lines[logicalLineIdx] || '';
                 const transformations = buffer.transformationsByLine[logicalLineIdx] ?? [];
-                const cursorColForLine = isOnCursorLine ? buffer.cursor[1] : undefined;
+                const cursorColForLine =
+                  focus && buffer.cursor[0] === logicalLineIdx
+                    ? buffer.cursor[1]
+                    : undefined;
                 const tokens = parseInputForHighlighting(
                   logicalLine,
                   logicalLineIdx,
@@ -909,7 +912,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                 const sliceStart = startColInTransformed;
                 const sliceEnd = sliceStart + cpLen(lineText);
                 const segments = parseSegmentsFromTokens(tokens, sliceStart, sliceEnd);
-
+                // This is computed once per visaul line
                 let charCount = 0;
                 segments.forEach((seg, segIdx) => {
                   const segLen = cpLen(seg.text);
