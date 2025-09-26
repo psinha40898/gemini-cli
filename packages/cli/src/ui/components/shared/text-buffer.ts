@@ -782,7 +782,6 @@ function calculateLayout(
   viewportWidth: number,
   logicalCursor: [number, number],
 ): VisualLayout {
-  console.log('layout: recompute', { viewportWidth, logicalCursor, lines: logicalLines.length });
   const visualLines: string[] = [];
   const logicalToVisualMap: Array<Array<[number, number]>> = [];
   const visualToLogicalMap: Array<[number, number]> = [];
@@ -961,7 +960,6 @@ function calculateVisualCursorFromLayout(
   } = layout;
   const [logicalRow, logicalCol] = logicalCursor;
 
-  console.log('visCursor: input', { logicalRow, logicalCol });
 
   const segmentsForLogicalLine = logicalToVisualMap[logicalRow];
 
@@ -1035,14 +1033,6 @@ function calculateVisualCursorFromLayout(
     Math.max(visualCol, 0),
     cpLen(visualLines[visualRow] ?? ''),
   );
-  console.log('visCursor: output', {
-    visualRow,
-    clampedVisualCol,
-    displayColForCursor,
-    displayStart: startTransformed,
-    mapLen: map.length,
-    visualLineLen: cpLen(visualLines[visualRow] ?? ''),
-  });
   return [visualRow, clampedVisualCol];
 }
 
@@ -1354,16 +1344,6 @@ function textBufferReducerLogic(
           }
         }
 
-        if (dir === 'down') {
-          console.log('move: visual target', {
-            dir,
-            newVisualRow,
-            newVisualCol,
-            newPreferredCol,
-            currentVisLineLen,
-          });
-        }
-
         if (visualToLogicalMap[newVisualRow]) {
           const [logRow] = visualToLogicalMap[newVisualRow];
           const map = visualLayout.transformedToLogicalMaps?.[logRow] ?? [];
@@ -1374,19 +1354,6 @@ function textBufferReducerLogic(
             Math.max(0, map.length - 1),
           );
           const newLogicalCol = map[displayIndex] ?? cpLen(lines[logRow] ?? '');
-
-          if (dir === 'down') {
-            console.log('move->map: visual->logical', {
-              dir,
-              newVisualRow,
-              newVisualCol,
-              logRow,
-              logicalStartCol: map[displayIndex] ?? null,
-              displayStart: startTransformed,
-              displayIndex,
-              newLogicalCol,
-            });
-          }
 
           return {
             ...state,
