@@ -21,6 +21,7 @@ import { getTransformedImagePath } from '../../utils/highlight.js';
 import type { VimAction } from './vim-buffer-actions.js';
 import { handleVimAction } from './vim-buffer-actions.js';
 
+
 export type Direction =
   | 'left'
   | 'right'
@@ -781,7 +782,7 @@ function calculateLayout(
   viewportWidth: number,
   logicalCursor: [number, number],
 ): VisualLayout {
-  console.log("layout");
+  console.log('layout: recompute', { viewportWidth, logicalCursor, lines: logicalLines.length });
   const visualLines: string[] = [];
   const logicalToVisualMap: Array<Array<[number, number]>> = [];
   const visualToLogicalMap: Array<[number, number]> = [];
@@ -952,8 +953,15 @@ function calculateVisualCursorFromLayout(
   layout: VisualLayout,
   logicalCursor: [number, number],
 ): [number, number] {
-  const { logicalToVisualMap, visualLines, transformedToLogicalMaps } = layout;
+  const {
+    logicalToVisualMap,
+    visualLines,
+    transformedToLogicalMaps,
+    visualToTransformedMap,
+  } = layout;
   const [logicalRow, logicalCol] = logicalCursor;
+
+  console.log('visCursor: input', { logicalRow, logicalCol });
 
   const segmentsForLogicalLine = logicalToVisualMap[logicalRow];
 
@@ -985,8 +993,10 @@ function calculateVisualCursorFromLayout(
     }
   }
 
-  const [visualRow] = segmentsForLogicalLine[targetSegmentIndex];
-
+  // Compute the transformed display index corresponding to the logical cursor.
+  // This is used to resolve ambiguous cases where multiple transformed
+  // positions map to the same logical column (collapsed spans).
+  const [fallbackVisualRow] = segmentsForLogicalLine[targetSegmentIndex];
   const map = transformedToLogicalMaps[logicalRow] ?? [];
   let displayColForCursor = 0;
   for (let i = 0; i < map.length; i++) {
@@ -998,22 +1008,41 @@ function calculateVisualCursorFromLayout(
       displayColForCursor = map.length - 1;
     }
   }
-
-  const [, startColInLogical] = segmentsForLogicalLine[targetSegmentIndex];
-  let displayStart = 0;
-  while (displayStart < map.length && map[displayStart] < startColInLogical) {
-    displayStart++;
+  // Choose the visual segment by transformed boundaries instead of logical
+  // starts. This avoids ambiguity when several transformed indices share the
+  // same logical column value.
+  let visualRow = fallbackVisualRow;
+  for (let i = 0; i < segmentsForLogicalLine.length; i++) {
+    const [segVisualRow] = segmentsForLogicalLine[i];
+    const startT = visualToTransformedMap[segVisualRow] ?? 0;
+    const nextStartT =
+      i + 1 < segmentsForLogicalLine.length
+        ? visualToTransformedMap[segmentsForLogicalLine[i + 1][0]] ?? Infinity
+        : Infinity;
+    if (displayColForCursor >= startT && displayColForCursor < nextStartT) {
+      visualRow = segVisualRow;
+      break;
+    }
   }
+  const startTransformed = visualToTransformedMap[visualRow] ?? 0;
   // Clamp displayColForCursor to map length
   const safeDisplayCol = Math.min(
     displayColForCursor,
     Math.max(0, map.length - 1),
   );
-  const visualCol = safeDisplayCol - displayStart;
+  const visualCol = safeDisplayCol - startTransformed;
   const clampedVisualCol = Math.min(
     Math.max(visualCol, 0),
     cpLen(visualLines[visualRow] ?? ''),
   );
+  console.log('visCursor: output', {
+    visualRow,
+    clampedVisualCol,
+    displayColForCursor,
+    displayStart: startTransformed,
+    mapLen: map.length,
+    visualLineLen: cpLen(visualLines[visualRow] ?? ''),
+  });
   return [visualRow, clampedVisualCol];
 }
 
@@ -1325,21 +1354,40 @@ function textBufferReducerLogic(
           }
         }
 
+        if (dir === 'down') {
+          console.log('move: visual target', {
+            dir,
+            newVisualRow,
+            newVisualCol,
+            newPreferredCol,
+            currentVisLineLen,
+          });
+        }
+
         if (visualToLogicalMap[newVisualRow]) {
-          const [logRow, logicalStartCol] = visualToLogicalMap[newVisualRow];
+          const [logRow] = visualToLogicalMap[newVisualRow];
           const map = visualLayout.transformedToLogicalMaps?.[logRow] ?? [];
-          let displayStart = 0;
-          while (
-            displayStart < map.length &&
-            map[displayStart] < logicalStartCol
-          ) {
-            displayStart++;
-          }
+          const startTransformed =
+            visualLayout.visualToTransformedMap?.[newVisualRow] ?? 0;
           const displayIndex = Math.min(
-            displayStart + newVisualCol,
+            startTransformed + newVisualCol,
             Math.max(0, map.length - 1),
           );
           const newLogicalCol = map[displayIndex] ?? cpLen(lines[logRow] ?? '');
+
+          if (dir === 'down') {
+            console.log('move->map: visual->logical', {
+              dir,
+              newVisualRow,
+              newVisualCol,
+              logRow,
+              logicalStartCol: map[displayIndex] ?? null,
+              displayStart: startTransformed,
+              displayIndex,
+              newLogicalCol,
+            });
+          }
+
           return {
             ...state,
             cursorRow: logRow,
@@ -1723,8 +1771,10 @@ export function textBufferReducer(
     oldInside !== newInside ||
     movedBetweenTransforms
   ) {
+    const shouldResetPreferred = oldInside !== newInside || movedBetweenTransforms;
     return {
       ...newState,
+      preferredCol: shouldResetPreferred ? null : newState.preferredCol,
       visualLayout: calculateLayout(newState.lines, newState.viewportWidth, [
         newState.cursorRow,
         newState.cursorCol,
