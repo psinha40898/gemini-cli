@@ -19,7 +19,7 @@ export function parseInputForHighlighting(
   text: string,
   index: number,
   transformations: Transformation[] = [],
-  cursorCol: number | undefined,
+  cursorCol?: number,
 ): readonly HighlightToken[] {
   HIGHLIGHT_REGEX.lastIndex = 0;
 

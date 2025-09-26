@@ -765,6 +765,7 @@ function calculateLayout(
   viewportWidth: number,
   logicalCursor: [number, number],
 ): VisualLayout {
+  console.log("layout");
   const visualLines: string[] = [];
   const logicalToVisualMap: Array<Array<[number, number]>> = [];
   const visualToLogicalMap: Array<[number, number]> = [];

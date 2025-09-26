@@ -895,15 +895,11 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                 const [logicalLineIdx] = mapEntry;
                 const logicalLine = buffer.lines[logicalLineIdx] || '';
                 const transformations = buffer.transformationsByLine[logicalLineIdx] ?? [];
-                const cursorColForLine =
-                  focus && buffer.cursor[0] === logicalLineIdx
-                    ? buffer.cursor[1]
-                    : undefined;
                 const tokens = parseInputForHighlighting(
                   logicalLine,
                   logicalLineIdx,
                   transformations,
-                  cursorColForLine,
+                  ...(focus && buffer.cursor[0] === logicalLineIdx ? [buffer.cursor[1]] : []),
                 );
                 const startColInTransformed =
                   buffer.visualToTransformedMap[absoluteVisualIdx] ?? 0;
