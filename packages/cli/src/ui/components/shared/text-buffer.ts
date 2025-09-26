@@ -682,6 +682,22 @@ function isCursorInsideTransform(
   return false;
 }
 
+function getTransformUnderCursor(
+  row: number,
+  col: number,
+  spansByLine: Transformation[][],
+): Transformation | null {
+  const spans = spansByLine[row];
+  if (!spans || spans.length === 0) return null;
+  for (const span of spans) {
+    if (col >= span.logStart && col <= span.logEnd) {
+      return span;
+    }
+    if (col < span.logStart) break;
+  }
+  return null;
+}
+
 function buildTransformedLineAndMap(
   logLine: string,
   logIndex: number,
@@ -1688,10 +1704,24 @@ export function textBufferReducer(
     newState.transformationsByLine,
   );
 
+  const oldTransform = getTransformUnderCursor(
+    state.cursorRow,
+    state.cursorCol,
+    state.transformationsByLine,
+  );
+  const newTransform = getTransformUnderCursor(
+    newState.cursorRow,
+    newState.cursorCol,
+    newState.transformationsByLine,
+  );
+  const movedBetweenTransforms =
+    oldTransform !== newTransform && (oldTransform !== null || newTransform !== null);
+
   if (
     newState.lines !== state.lines ||
     newState.viewportWidth !== state.viewportWidth ||
-    oldInside !== newInside
+    oldInside !== newInside ||
+    movedBetweenTransforms
   ) {
     return {
       ...newState,
