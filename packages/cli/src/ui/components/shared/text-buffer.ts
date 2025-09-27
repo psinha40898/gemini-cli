@@ -1723,8 +1723,10 @@ export function textBufferReducer(
     oldInside !== newInside ||
     movedBetweenTransforms
   ) {
+    const shouldResetPreferred = oldInside !== newInside || movedBetweenTransforms;
     return {
       ...newState,
+      preferredCol: shouldResetPreferred ? null : newState.preferredCol,
       visualLayout: calculateLayout(newState.lines, newState.viewportWidth, [
         newState.cursorRow,
         newState.cursorCol,
