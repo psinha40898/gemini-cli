@@ -642,7 +642,7 @@ export interface Transformation {
   collaspedText: string;
 }
 export const imagePathRegex =
-  /@((?:(?:\\ )|[^@[\]\s])+\.(?:png|jpg|jpeg|gif|webp|svg|bmp))/gi;
+  /@([^[\]\r\n]+?\.(?:png|jpg|jpeg|gif|webp|svg|bmp))\b/gi;
 
 function getTransformedImagePath(filePath: string): string {
   const fileName = path.basename(filePath);
