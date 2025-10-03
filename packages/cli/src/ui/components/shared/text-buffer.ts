@@ -644,7 +644,7 @@ export interface Transformation {
 export const imagePathRegex =
   /@([^[\]\r\n]+?\.(?:png|jpg|jpeg|gif|webp|svg|bmp))\b/gi;
 
-function getTransformedImagePath(filePath: string): string {
+export function getTransformedImagePath(filePath: string): string {
   const fileName = path.basename(filePath);
   const extension = path.extname(fileName);
   const baseName = path.basename(fileName, extension);
@@ -658,7 +658,7 @@ function getTransformedImagePath(filePath: string): string {
   return `[Image ${truncatedBase}${extension}]`;
 }
 
-function getTransformationsForLine(line: string): Transformation[] {
+export function getTransformationsForLine(line: string): Transformation[] {
   const transformations: Transformation[] = [];
   let match;
   while ((match = imagePathRegex.exec(line)) !== null) {
@@ -675,11 +675,13 @@ function getTransformationsForLine(line: string): Transformation[] {
   return transformations.sort((a, b) => a.logStart - b.logStart);
 }
 
-function computeTransformationsForLines(lines: string[]): Transformation[][] {
+export function computeTransformationsForLines(
+  lines: string[],
+): Transformation[][] {
   return lines.map((ln) => getTransformationsForLine(ln));
 }
 
-function getTransformUnderCursor(
+export function getTransformUnderCursor(
   row: number,
   col: number,
   spansByLine: Transformation[][],
@@ -695,7 +697,7 @@ function getTransformUnderCursor(
   return null;
 }
 
-function calculateTransformedLine(
+export function calculateTransformedLine(
   logLine: string,
   logIndex: number,
   logicalCursor: [number, number],
