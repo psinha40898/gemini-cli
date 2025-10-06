@@ -6,7 +6,7 @@
 
 import type React from 'react';
 import { Text, Box } from 'ink';
-import { Colors } from '../../colors.js';
+import { theme } from '../../semantic-colors.js';
 import { RenderInline } from '../../utils/InlineMarkdownRenderer.js';
 
 interface InfoMessageProps {
@@ -18,8 +18,8 @@ export const InfoMessage: React.FC<InfoMessageProps> = ({ text }) => {
 
   return (
     <Box flexDirection="row" marginTop={1} gap={1}>
-      <Text color={Colors.AccentYellow}>{prefix}</Text>
-      <Text wrap="wrap" color={Colors.AccentYellow}>
+      <Text color={theme.status.warning}>{prefix}</Text>
+      <Text wrap="wrap" color={theme.status.warning}>
         <RenderInline text={text} />
       </Text>
     </Box>
