@@ -660,19 +660,30 @@ export function getTransformedImagePath(filePath: string): string {
 
 export function getTransformationsForLine(line: string): Transformation[] {
   const transformations: Transformation[] = [];
-  let match;
+  let match: RegExpExecArray | null;
+
   while ((match = imagePathRegex.exec(line)) !== null) {
     const logicalText = match[0];
-    const collaspedText = getTransformedImagePath(logicalText);
     const logStart = cpLen(line.substring(0, match.index));
-    transformations.push({
-      logStart,
-      logEnd: logStart + cpLen(logicalText),
-      logicalText,
-      collaspedText,
-    });
+    const logEnd = logStart + cpLen(logicalText);
+
+    const last = transformations[transformations.length - 1];
+    if (last && last.logEnd === logStart) {
+      // ── NEW: merge directly-adjacent matches ────────────
+      last.logicalText += logicalText;
+      last.logEnd = logEnd;
+      // collapsed label = right-most image path
+      last.collaspedText = getTransformedImagePath(logicalText);
+    } else {
+      transformations.push({
+        logStart,
+        logEnd,
+        logicalText,
+        collaspedText: getTransformedImagePath(logicalText),
+      });
+    }
   }
-  return transformations.sort((a, b) => a.logStart - b.logStart);
+  return transformations;
 }
 
 export function computeTransformationsForLines(

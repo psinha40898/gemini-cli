@@ -2077,8 +2077,14 @@ describe('Transformation Utilities', () => {
       expect(result).toEqual([]);
     });
 
-    it('should handle multiple transformations in a row', () => {
+    it('should merge multiple transformations in a row', () => {
       const line = '@a.png@b.png@c.png';
+      const result = getTransformationsForLine(line);
+      expect(result).toHaveLength(1);
+    });
+
+    it('should handle multiple transformations in a row', () => {
+      const line = '@a.png @b.png @c.png';
       const result = getTransformationsForLine(line);
       expect(result).toHaveLength(3);
     });
