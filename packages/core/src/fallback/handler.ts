@@ -22,6 +22,18 @@ export async function handleFallback(
 
   if (failedModel === fallbackModel) return null;
 
+  // Check if we should fall back to API key
+  const currentAuthType = config.getContentGeneratorConfig()?.authType;
+  if (
+    currentAuthType === AuthType.LOGIN_WITH_GOOGLE &&
+    config.getSettings().merged.security?.auth?.alwaysFallbackToApiKey &&
+    process.env['GEMINI_API_KEY']
+  ) {
+    // Session-only switch to API key auth
+    await config.refreshAuth(AuthType.USE_GEMINI);
+    return true; // Signal retry with new auth
+  }
+
   // Consult UI Handler for Intent
   const fallbackModelHandler = config.fallbackModelHandler;
   if (typeof fallbackModelHandler !== 'function') return null;

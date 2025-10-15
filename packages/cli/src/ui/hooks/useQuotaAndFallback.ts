@@ -17,6 +17,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { type UseHistoryManagerReturn } from './useHistoryManager.js';
 import { AuthState, MessageType } from '../types.js';
 import { type ProQuotaDialogRequest } from '../contexts/UIStateContext.js';
+import { SettingScope } from '../../config/settings.js';
 
 interface UseQuotaAndFallbackArgs {
   config: Config;
@@ -24,6 +25,9 @@ interface UseQuotaAndFallbackArgs {
   userTier: UserTierId | undefined;
   setAuthState: (state: AuthState) => void;
   setModelSwitchedFromQuotaError: (value: boolean) => void;
+  settings: {
+    setValue: (scope: SettingScope, key: string, value: unknown) => void;
+  };
 }
 
 export function useQuotaAndFallback({
@@ -32,6 +36,7 @@ export function useQuotaAndFallback({
   userTier,
   setAuthState,
   setModelSwitchedFromQuotaError,
+  settings,
 }: UseQuotaAndFallbackArgs) {
   const [proQuotaRequest, setProQuotaRequest] =
     useState<ProQuotaDialogRequest | null>(null);
@@ -145,27 +150,46 @@ export function useQuotaAndFallback({
   }, [config, historyManager, userTier, setModelSwitchedFromQuotaError]);
 
   const handleProQuotaChoice = useCallback(
-    (choice: 'auth' | 'continue') => {
+    async (choice: 'auth' | 'continue' | 'api-key') => {
       if (!proQuotaRequest) return;
 
-      const intent: FallbackIntent = choice === 'auth' ? 'auth' : 'retry';
-      proQuotaRequest.resolve(intent);
-      setProQuotaRequest(null);
-      isDialogPending.current = false; // Reset the flag here
-
-      if (choice === 'auth') {
-        setAuthState(AuthState.Updating);
-      } else {
+      if (choice === 'api-key') {
+        // Set the flag to always fallback to API key
+        await settings.setValue(
+          SettingScope.User,
+          'security.auth.alwaysFallbackToApiKey',
+          true,
+        );
+        // After setting the flag, proceed with retry
+        proQuotaRequest.resolve('retry');
         historyManager.addItem(
           {
             type: MessageType.INFO,
-            text: 'Switched to fallback model. Tip: Press Ctrl+P (or Up Arrow) to recall your previous prompt and submit it again if you wish.',
+            text: 'Enabled API key fallback. The CLI will now use your API key when quota is exceeded.',
           },
           Date.now(),
         );
+      } else {
+        const intent: FallbackIntent = choice === 'auth' ? 'auth' : 'retry';
+        proQuotaRequest.resolve(intent);
+
+        if (choice === 'auth') {
+          setAuthState(AuthState.Updating);
+        } else {
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: 'Switched to fallback model. Tip: Press Ctrl+P (or Up Arrow) to recall your previous prompt and submit it again if you wish.',
+            },
+            Date.now(),
+          );
+        }
       }
+
+      setProQuotaRequest(null);
+      isDialogPending.current = false; // Reset the flag here
     },
-    [proQuotaRequest, setAuthState, historyManager],
+    [proQuotaRequest, setAuthState, historyManager, settings],
   );
 
   return {
