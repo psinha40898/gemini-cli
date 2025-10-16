@@ -105,4 +105,31 @@ describe('ThemeDialog Snapshots', () => {
 
     expect(lastFrame()).toMatchSnapshot();
   });
+
+  it('should call onSelect with undefined when ESC is pressed', async () => {
+    const mockOnSelect = vi.fn();
+    const settings = createMockSettings();
+    const { stdin } = render(
+      <SettingsContext.Provider value={settings}>
+        <KeypressProvider kittyProtocolEnabled={false}>
+          <ThemeDialog
+            {...baseProps}
+            onSelect={mockOnSelect}
+            settings={settings}
+          />
+        </KeypressProvider>
+      </SettingsContext.Provider>,
+    );
+
+    // Press ESC key
+    act(() => {
+      stdin.write('\x1b');
+    });
+
+    // Wait for the keypress to be processed
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Verify onSelect was called with undefined
+    expect(mockOnSelect).toHaveBeenCalledWith(undefined, expect.anything());
+  });
 });

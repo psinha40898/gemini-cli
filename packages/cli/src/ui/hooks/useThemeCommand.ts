@@ -66,6 +66,11 @@ export const useThemeCommand = (
   const handleThemeSelect = useCallback(
     (themeName: string | undefined, scope: SettingScope) => {
       try {
+        // If themeName is undefined, user pressed ESC - just close dialog without changes
+        if (themeName === undefined) {
+          return;
+        }
+
         // Merge user and workspace custom themes (workspace takes precedence)
         const mergedCustomThemes = {
           ...(loadedSettings.user.settings.ui?.customThemes || {}),
