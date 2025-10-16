@@ -358,26 +358,53 @@ export const AppContainer = (props: AppContainerProps) => {
     setModelSwitchedFromQuotaError,
   });
 
-  // TESTING ONLY: Force trigger ProQuotaDialog on startup
+  // TESTING ONLY: One-time ProQuotaDialog trigger
   const [testProQuotaRequest, setTestProQuotaRequest] =
     useState<typeof proQuotaRequest>(null);
+  const [hasShownTestDialog, setHasShownTestDialog] = useState(false);
+
   useEffect(() => {
-    // Trigger the dialog immediately on mount
-    setTestProQuotaRequest({
-      failedModel: 'gemini-2.5-pro',
-      fallbackModel: 'gemini-2.5-flash',
-      resolve: (intent) => {
-        console.log('Test dialog resolved with:', intent);
-        // Call the actual handler
-        handleProQuotaChoice(intent === 'auth' ? 'auth' : 'continue');
-        // Clear the test request
-        setTestProQuotaRequest(null);
-      },
-    });
-  }, [handleProQuotaChoice]);
+    if (!hasShownTestDialog) {
+      setTestProQuotaRequest({
+        failedModel: 'gemini-2.5-pro',
+        fallbackModel: 'gemini-2.5-flash',
+        resolve: (intent) => {
+          // Clear dialog first
+          setTestProQuotaRequest(null);
+          setHasShownTestDialog(true);
+
+          // Handle the intent
+          if (intent === 'auth') {
+            setAuthState(AuthState.Updating);
+          } else {
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: 'Switched to fallback model. Testing dialog completed.',
+              },
+              Date.now(),
+            );
+          }
+        },
+      });
+    }
+  }, [hasShownTestDialog, historyManager, setAuthState]);
 
   // Override proQuotaRequest with test version if set
   const effectiveProQuotaRequest = testProQuotaRequest || proQuotaRequest;
+
+  // Wrapper to handle both test and real quota choice
+  const wrappedHandleProQuotaChoice = useCallback(
+    (choice: 'auth' | 'continue') => {
+      if (effectiveProQuotaRequest) {
+        const intent = choice === 'auth' ? 'auth' : 'retry';
+        effectiveProQuotaRequest.resolve(intent);
+      } else {
+        handleProQuotaChoice(choice);
+      }
+    },
+    [effectiveProQuotaRequest, handleProQuotaChoice],
+  );
 
   // Derive auth state variables for backward compatibility with UIStateContext
   const isAuthDialogOpen = authState === AuthState.Updating;
@@ -1314,7 +1341,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
       handleClearScreen,
       onWorkspaceMigrationDialogOpen,
       onWorkspaceMigrationDialogClose,
-      handleProQuotaChoice,
+      handleProQuotaChoice: wrappedHandleProQuotaChoice,
       setQueueErrorMessage,
     }),
     [
@@ -1340,7 +1367,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
       handleClearScreen,
       onWorkspaceMigrationDialogOpen,
       onWorkspaceMigrationDialogClose,
-      handleProQuotaChoice,
+      wrappedHandleProQuotaChoice,
       setQueueErrorMessage,
     ],
   );
