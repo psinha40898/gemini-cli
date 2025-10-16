@@ -358,6 +358,27 @@ export const AppContainer = (props: AppContainerProps) => {
     setModelSwitchedFromQuotaError,
   });
 
+  // TESTING ONLY: Force trigger ProQuotaDialog on startup
+  const [testProQuotaRequest, setTestProQuotaRequest] =
+    useState<typeof proQuotaRequest>(null);
+  useEffect(() => {
+    // Trigger the dialog immediately on mount
+    setTestProQuotaRequest({
+      failedModel: 'gemini-2.0-flash-exp',
+      fallbackModel: 'gemini-1.5-flash',
+      resolve: (intent) => {
+        console.log('Test dialog resolved with:', intent);
+        // Call the actual handler
+        handleProQuotaChoice(intent === 'auth' ? 'auth' : 'continue');
+        // Clear the test request
+        setTestProQuotaRequest(null);
+      },
+    });
+  }, [handleProQuotaChoice]);
+
+  // Override proQuotaRequest with test version if set
+  const effectiveProQuotaRequest = testProQuotaRequest || proQuotaRequest;
+
   // Derive auth state variables for backward compatibility with UIStateContext
   const isAuthDialogOpen = authState === AuthState.Updating;
   const isAuthenticating = authState === AuthState.Unauthenticated;
@@ -689,7 +710,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
     !!slashCommands &&
     (streamingState === StreamingState.Idle ||
       streamingState === StreamingState.Responding) &&
-    !proQuotaRequest;
+    !effectiveProQuotaRequest;
 
   const [controlsHeight, setControlsHeight] = useState(0);
 
@@ -1087,7 +1108,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
     isEditorDialogOpen ||
     showPrivacyNotice ||
     showIdeRestartPrompt ||
-    !!proQuotaRequest;
+    !!effectiveProQuotaRequest;
 
   const pendingHistoryItems = useMemo(
     () => [...pendingSlashCommandHistoryItems, ...pendingGeminiHistoryItems],
@@ -1153,7 +1174,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
       workspaceExtensions,
       currentModel,
       userTier,
-      proQuotaRequest,
+      proQuotaRequest: effectiveProQuotaRequest,
       contextFileNames,
       errorCount,
       availableTerminalHeight,
@@ -1234,7 +1255,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
       showWorkspaceMigrationDialog,
       workspaceExtensions,
       userTier,
-      proQuotaRequest,
+      effectiveProQuotaRequest,
       contextFileNames,
       errorCount,
       availableTerminalHeight,
