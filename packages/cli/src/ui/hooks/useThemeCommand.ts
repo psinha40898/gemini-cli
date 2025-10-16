@@ -13,10 +13,8 @@ import process from 'node:process';
 interface UseThemeCommandReturn {
   isThemeDialogOpen: boolean;
   openThemeDialog: () => void;
-  handleThemeSelect: (
-    themeName: string | undefined,
-    scope: SettingScope,
-  ) => void; // Added scope
+  closeThemeDialog: () => void;
+  handleThemeSelect: (themeName: string, scope: SettingScope) => void;
   handleThemeHighlight: (themeName: string | undefined) => void;
 }
 
@@ -63,14 +61,13 @@ export const useThemeCommand = (
     [applyTheme],
   );
 
-  const handleThemeSelect = useCallback(
-    (themeName: string | undefined, scope: SettingScope) => {
-      try {
-        // If themeName is undefined, user pressed ESC - just close dialog without changes
-        if (themeName === undefined) {
-          return;
-        }
+  const closeThemeDialog = useCallback(() => {
+    setIsThemeDialogOpen(false);
+  }, []);
 
+  const handleThemeSelect = useCallback(
+    (themeName: string, scope: SettingScope) => {
+      try {
         // Merge user and workspace custom themes (workspace takes precedence)
         const mergedCustomThemes = {
           ...(loadedSettings.user.settings.ui?.customThemes || {}),
@@ -100,6 +97,7 @@ export const useThemeCommand = (
   return {
     isThemeDialogOpen,
     openThemeDialog,
+    closeThemeDialog,
     handleThemeSelect,
     handleThemeHighlight,
   };

@@ -58,6 +58,7 @@ const createMockSettings = (
 describe('ThemeDialog Snapshots', () => {
   const baseProps = {
     onSelect: vi.fn(),
+    onCancel: vi.fn(),
     onHighlight: vi.fn(),
     availableTerminalHeight: 40,
     terminalWidth: 120,
@@ -106,15 +107,15 @@ describe('ThemeDialog Snapshots', () => {
     expect(lastFrame()).toMatchSnapshot();
   });
 
-  it('should call onSelect with undefined when ESC is pressed', async () => {
-    const mockOnSelect = vi.fn();
+  it('should call onCancel when ESC is pressed', async () => {
+    const mockOnCancel = vi.fn();
     const settings = createMockSettings();
     const { stdin } = render(
       <SettingsContext.Provider value={settings}>
         <KeypressProvider kittyProtocolEnabled={false}>
           <ThemeDialog
             {...baseProps}
-            onSelect={mockOnSelect}
+            onCancel={mockOnCancel}
             settings={settings}
           />
         </KeypressProvider>
@@ -129,7 +130,7 @@ describe('ThemeDialog Snapshots', () => {
     // Wait for the keypress to be processed
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // Verify onSelect was called with undefined
-    expect(mockOnSelect).toHaveBeenCalledWith(undefined, expect.anything());
+    // Verify onCancel was called
+    expect(mockOnCancel).toHaveBeenCalled();
   });
 });
