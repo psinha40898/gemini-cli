@@ -364,8 +364,8 @@ export const AppContainer = (props: AppContainerProps) => {
   useEffect(() => {
     // Trigger the dialog immediately on mount
     setTestProQuotaRequest({
-      failedModel: 'gemini-2.0-flash-exp',
-      fallbackModel: 'gemini-1.5-flash',
+      failedModel: 'gemini-2.5-pro',
+      fallbackModel: 'gemini-2.5-flash',
       resolve: (intent) => {
         console.log('Test dialog resolved with:', intent);
         // Call the actual handler
