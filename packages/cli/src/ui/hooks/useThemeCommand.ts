@@ -66,7 +66,7 @@ export const useThemeCommand = (
   const handleThemeSelect = useCallback(
     (themeName: string | undefined, scope: SettingScope) => {
       try {
-        // If themeName is undefined, user pressed ESC - just close dialog without changes
+        // If themeName is undefined, user pressed ESC
         if (themeName === undefined) {
           return;
         }
