@@ -122,15 +122,12 @@ describe('ThemeDialog Snapshots', () => {
       </SettingsContext.Provider>,
     );
 
-    // Press ESC key
     act(() => {
       stdin.write('\x1b');
     });
 
-    // Wait for the keypress to be processed
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // Verify onCancel was called
     expect(mockOnCancel).toHaveBeenCalled();
   });
 });
