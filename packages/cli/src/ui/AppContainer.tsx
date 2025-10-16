@@ -359,106 +359,6 @@ export const AppContainer = (props: AppContainerProps) => {
     settings,
   });
 
-  // TESTING ONLY: One-time ProQuotaDialog trigger
-  const [testProQuotaRequest, setTestProQuotaRequest] =
-    useState<typeof proQuotaRequest>(null);
-  const [hasShownTestDialog, setHasShownTestDialog] = useState(false);
-
-  useEffect(() => {
-    if (!hasShownTestDialog) {
-      setTestProQuotaRequest({
-        failedModel: 'gemini-2.5-pro',
-        fallbackModel: 'gemini-2.5-flash',
-        resolve: (intent) => {
-          // Clear dialog first
-          setTestProQuotaRequest(null);
-          setHasShownTestDialog(true);
-
-          // Handle the intent
-          if (intent === 'auth') {
-            setAuthState(AuthState.Updating);
-          } else {
-            historyManager.addItem(
-              {
-                type: MessageType.INFO,
-                text: 'Switched to fallback model. Testing dialog completed.',
-              },
-              Date.now(),
-            );
-          }
-        },
-      });
-    }
-  }, [hasShownTestDialog, historyManager, setAuthState]);
-
-  // Override proQuotaRequest with test version if set
-  const effectiveProQuotaRequest = testProQuotaRequest || proQuotaRequest;
-
-  // Wrapper to handle both test and real quota choice
-  const wrappedHandleProQuotaChoice = useCallback(
-    async (choice: 'auth' | 'continue' | 'api-key') => {
-      if (effectiveProQuotaRequest) {
-        // Handle api-key specially - set the setting then resolve with retry
-        if (choice === 'api-key') {
-          await settings.setValue(
-            SettingScope.User,
-            'security.auth.alwaysFallbackToApiKey',
-            true,
-          );
-
-          // Immediately switch to API key auth for this session
-          if (process.env['GEMINI_API_KEY']) {
-            try {
-              await config.refreshAuth(AuthType.USE_GEMINI);
-              historyManager.addItem(
-                {
-                  type: MessageType.INFO,
-                  text: '✓ Switched to API key authentication. This session will now use your API key, and future sessions will automatically fallback when quota is exceeded.',
-                },
-                Date.now(),
-              );
-            } catch (error) {
-              historyManager.addItem(
-                {
-                  type: MessageType.INFO,
-                  text: `Failed to switch to API key: ${error instanceof Error ? error.message : String(error)}. Setting saved for future sessions.`,
-                },
-                Date.now(),
-              );
-            }
-          } else {
-            historyManager.addItem(
-              {
-                type: MessageType.INFO,
-                text: 'Enabled API key fallback for future sessions. Set GEMINI_API_KEY environment variable to use API key authentication.',
-              },
-              Date.now(),
-            );
-          }
-
-          effectiveProQuotaRequest.resolve('retry');
-          setTestProQuotaRequest(null);
-          setHasShownTestDialog(true);
-        } else {
-          // Convert choice to intent for the resolve function
-          const intent = choice === 'auth' ? 'auth' : 'retry';
-          effectiveProQuotaRequest.resolve(intent);
-        }
-      } else {
-        handleProQuotaChoice(choice);
-      }
-    },
-    [
-      effectiveProQuotaRequest,
-      handleProQuotaChoice,
-      settings,
-      historyManager,
-      setTestProQuotaRequest,
-      setHasShownTestDialog,
-      config,
-    ],
-  );
-
   // Derive auth state variables for backward compatibility with UIStateContext
   const isAuthDialogOpen = authState === AuthState.Updating;
   const isAuthenticating = authState === AuthState.Unauthenticated;
@@ -790,7 +690,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
     !!slashCommands &&
     (streamingState === StreamingState.Idle ||
       streamingState === StreamingState.Responding) &&
-    !effectiveProQuotaRequest;
+    !proQuotaRequest;
 
   const [controlsHeight, setControlsHeight] = useState(0);
 
@@ -1188,7 +1088,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
     isEditorDialogOpen ||
     showPrivacyNotice ||
     showIdeRestartPrompt ||
-    !!effectiveProQuotaRequest;
+    !!proQuotaRequest;
 
   const pendingHistoryItems = useMemo(
     () => [...pendingSlashCommandHistoryItems, ...pendingGeminiHistoryItems],
@@ -1254,7 +1154,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
       workspaceExtensions,
       currentModel,
       userTier,
-      proQuotaRequest: effectiveProQuotaRequest,
+      proQuotaRequest,
       contextFileNames,
       errorCount,
       availableTerminalHeight,
@@ -1335,7 +1235,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
       showWorkspaceMigrationDialog,
       workspaceExtensions,
       userTier,
-      effectiveProQuotaRequest,
+      proQuotaRequest,
       contextFileNames,
       errorCount,
       availableTerminalHeight,
@@ -1394,7 +1294,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
       handleClearScreen,
       onWorkspaceMigrationDialogOpen,
       onWorkspaceMigrationDialogClose,
-      handleProQuotaChoice: wrappedHandleProQuotaChoice,
+      handleProQuotaChoice,
       setQueueErrorMessage,
     }),
     [
@@ -1420,7 +1320,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
       handleClearScreen,
       onWorkspaceMigrationDialogOpen,
       onWorkspaceMigrationDialogClose,
-      wrappedHandleProQuotaChoice,
+      handleProQuotaChoice,
       setQueueErrorMessage,
     ],
   );
