@@ -356,6 +356,7 @@ export const AppContainer = (props: AppContainerProps) => {
     userTier,
     setAuthState,
     setModelSwitchedFromQuotaError,
+    settings,
   });
 
   // TESTING ONLY: One-time ProQuotaDialog trigger
@@ -395,15 +396,67 @@ export const AppContainer = (props: AppContainerProps) => {
 
   // Wrapper to handle both test and real quota choice
   const wrappedHandleProQuotaChoice = useCallback(
-    (choice: 'auth' | 'continue') => {
+    async (choice: 'auth' | 'continue' | 'api-key') => {
       if (effectiveProQuotaRequest) {
-        const intent = choice === 'auth' ? 'auth' : 'retry';
-        effectiveProQuotaRequest.resolve(intent);
+        // Handle api-key specially - set the setting then resolve with retry
+        if (choice === 'api-key') {
+          await settings.setValue(
+            SettingScope.User,
+            'security.auth.alwaysFallbackToApiKey',
+            true,
+          );
+
+          // Immediately switch to API key auth for this session
+          if (process.env['GEMINI_API_KEY']) {
+            try {
+              await config.refreshAuth(AuthType.USE_GEMINI);
+              historyManager.addItem(
+                {
+                  type: MessageType.INFO,
+                  text: '✓ Switched to API key authentication. This session will now use your API key, and future sessions will automatically fallback when quota is exceeded.',
+                },
+                Date.now(),
+              );
+            } catch (error) {
+              historyManager.addItem(
+                {
+                  type: MessageType.INFO,
+                  text: `Failed to switch to API key: ${error instanceof Error ? error.message : String(error)}. Setting saved for future sessions.`,
+                },
+                Date.now(),
+              );
+            }
+          } else {
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: 'Enabled API key fallback for future sessions. Set GEMINI_API_KEY environment variable to use API key authentication.',
+              },
+              Date.now(),
+            );
+          }
+
+          effectiveProQuotaRequest.resolve('retry');
+          setTestProQuotaRequest(null);
+          setHasShownTestDialog(true);
+        } else {
+          // Convert choice to intent for the resolve function
+          const intent = choice === 'auth' ? 'auth' : 'retry';
+          effectiveProQuotaRequest.resolve(intent);
+        }
       } else {
         handleProQuotaChoice(choice);
       }
     },
-    [effectiveProQuotaRequest, handleProQuotaChoice],
+    [
+      effectiveProQuotaRequest,
+      handleProQuotaChoice,
+      settings,
+      historyManager,
+      setTestProQuotaRequest,
+      setHasShownTestDialog,
+      config,
+    ],
   );
 
   // Derive auth state variables for backward compatibility with UIStateContext

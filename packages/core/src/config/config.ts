@@ -258,6 +258,7 @@ export interface ConfigParameters {
   ideMode?: boolean;
   loadMemoryFromIncludeDirectories?: boolean;
   chatCompression?: ChatCompressionSettings;
+  alwaysFallbackToApiKey?: boolean;
   interactive?: boolean;
   trustedFolder?: boolean;
   useRipgrep?: boolean;
@@ -375,6 +376,7 @@ export class Config {
   private readonly continueOnFailedApiCall: boolean;
   private readonly retryFetchErrors: boolean;
   private readonly enableShellOutputEfficiency: boolean;
+  private readonly alwaysFallbackToApiKey: boolean;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -482,6 +484,7 @@ export class Config {
       format: params.output?.format ?? OutputFormat.TEXT,
     };
     this.retryFetchErrors = params.retryFetchErrors ?? false;
+    this.alwaysFallbackToApiKey = params.alwaysFallbackToApiKey ?? false;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -749,6 +752,10 @@ export class Config {
       );
     }
     this.approvalMode = mode;
+  }
+
+  getAlwaysFallbackToApiKey(): boolean {
+    return this.alwaysFallbackToApiKey;
   }
 
   getShowMemoryUsage(): boolean {
