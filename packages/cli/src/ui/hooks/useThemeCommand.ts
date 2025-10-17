@@ -62,8 +62,10 @@ export const useThemeCommand = (
   );
 
   const closeThemeDialog = useCallback(() => {
+    // Re-apply the saved theme to revert any preview changes from highlighting
+    applyTheme(loadedSettings.merged.ui?.theme);
     setIsThemeDialogOpen(false);
-  }, []);
+  }, [applyTheme, loadedSettings]);
 
   const handleThemeSelect = useCallback(
     (themeName: string, scope: SettingScope) => {
