@@ -66,8 +66,9 @@ export const useThemeCommand = (
   const handleThemeSelect = useCallback(
     (themeName: string | undefined, scope: SettingScope) => {
       try {
-        // If themeName is undefined, user pressed ESC
+        // If themeName is undefined, user pressed ESC - revert to saved theme
         if (themeName === undefined) {
+          applyTheme(loadedSettings.merged.ui?.theme);
           return;
         }
 
