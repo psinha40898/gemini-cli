@@ -12,6 +12,7 @@ import type {
   TextBuffer,
   TextBufferState,
   TextBufferAction,
+  VisualLayout,
 } from './text-buffer.js';
 import {
   useTextBuffer,
@@ -28,6 +29,14 @@ import {
 } from './text-buffer.js';
 import { cpLen } from '../../utils/textUtils.js';
 
+const defaultVisualLayout: VisualLayout = {
+  visualLines: [''],
+  logicalToVisualMap: [[[0, 0]]],
+  visualToLogicalMap: [[0, 0]],
+  transformedToLogicalMaps: [[]],
+  visualToTransformedMap: [],
+};
+
 const initialState: TextBufferState = {
   lines: [''],
   cursorRow: 0,
@@ -40,13 +49,7 @@ const initialState: TextBufferState = {
   viewportWidth: 80,
   viewportHeight: 24,
   transformationsByLine: [[]],
-  visualLayout: {
-    visualLines: [''],
-    logicalToVisualMap: [[[0, 0]]],
-    visualToLogicalMap: [[0, 0]],
-    transformedToLogicalMaps: [[]],
-    visualToTransformedMap: [],
-  },
+  visualLayout: defaultVisualLayout,
 };
 
 describe('textBufferReducer', () => {
@@ -957,6 +960,40 @@ describe('useTextBuffer', () => {
       expect(getBufferState(result).lines).toEqual(['', '']);
     });
 
+    it('should do nothing for a tab key press', () => {
+      const { result } = renderHook(() =>
+        useTextBuffer({ viewport, isValidPath: () => false }),
+      );
+      act(() =>
+        result.current.handleInput({
+          name: 'tab',
+          ctrl: false,
+          meta: false,
+          shift: false,
+          paste: false,
+          sequence: '\t',
+        }),
+      );
+      expect(getBufferState(result).text).toBe('');
+    });
+
+    it('should do nothing for a shift tab key press', () => {
+      const { result } = renderHook(() =>
+        useTextBuffer({ viewport, isValidPath: () => false }),
+      );
+      act(() =>
+        result.current.handleInput({
+          name: 'tab',
+          ctrl: false,
+          meta: false,
+          shift: true,
+          paste: false,
+          sequence: '\u001b[9;2u',
+        }),
+      );
+      expect(getBufferState(result).text).toBe('');
+    });
+
     it('should handle "Backspace" key', () => {
       const { result } = renderHook(() =>
         useTextBuffer({
@@ -1715,40 +1752,40 @@ describe('logicalPosToOffset', () => {
   });
 });
 
+// Helper to create state for reducer tests
+const createTestState = (
+  lines: string[],
+  cursorRow: number,
+  cursorCol: number,
+  viewportWidth = 80,
+): TextBufferState => {
+  const text = lines.join('\n');
+  let state = textBufferReducer(initialState, {
+    type: 'set_text',
+    payload: text,
+  });
+  state = textBufferReducer(state, {
+    type: 'set_cursor',
+    payload: { cursorRow, cursorCol, preferredCol: null },
+  });
+  state = textBufferReducer(state, {
+    type: 'set_viewport',
+    payload: { width: viewportWidth, height: 24 },
+  });
+  return state;
+};
+
 describe('textBufferReducer vim operations', () => {
   describe('vim_delete_line', () => {
     it('should delete a single line including newline in multi-line text', () => {
-      const initialState: TextBufferState = {
-        lines: ['line1', 'line2', 'line3'],
-        cursorRow: 1,
-        cursorCol: 2,
-        preferredCol: null,
-        undoStack: [],
-        redoStack: [],
-        clipboard: null,
-        selectionAnchor: null,
-        viewportWidth: 10,
-        viewportHeight: 5,
-        transformationsByLine: [[], [], []],
-        visualLayout: {
-          visualLines: ['line1', 'line2', 'line3'],
-          logicalToVisualMap: [[[0, 0]], [[1, 0]], [[2, 0]]],
-          visualToLogicalMap: [
-            [0, 0],
-            [1, 0],
-            [2, 0],
-          ],
-          transformedToLogicalMaps: [[], [], []],
-          visualToTransformedMap: [],
-        },
-      };
+      const state = createTestState(['line1', 'line2', 'line3'], 1, 2);
 
       const action: TextBufferAction = {
         type: 'vim_delete_line',
         payload: { count: 1 },
       };
 
-      const result = textBufferReducer(initialState, action);
+      const result = textBufferReducer(state, action);
       expect(result).toHaveOnlyValidCharacters();
 
       // After deleting line2, we should have line1 and line3, with cursor on line3 (now at index 1)
@@ -1758,38 +1795,14 @@ describe('textBufferReducer vim operations', () => {
     });
 
     it('should delete multiple lines when count > 1', () => {
-      const initialState: TextBufferState = {
-        lines: ['line1', 'line2', 'line3', 'line4'],
-        cursorRow: 1,
-        cursorCol: 0,
-        preferredCol: null,
-        undoStack: [],
-        redoStack: [],
-        clipboard: null,
-        selectionAnchor: null,
-        viewportWidth: 10,
-        viewportHeight: 5,
-        transformationsByLine: [[], [], [], []],
-        visualLayout: {
-          visualLines: ['line1', 'line2', 'line3', 'line4'],
-          logicalToVisualMap: [[[0, 0]], [[1, 0]], [[2, 0]], [[3, 0]]],
-          visualToLogicalMap: [
-            [0, 0],
-            [1, 0],
-            [2, 0],
-            [3, 0],
-          ],
-          transformedToLogicalMaps: [[], [], [], []],
-          visualToTransformedMap: [],
-        },
-      };
+      const state = createTestState(['line1', 'line2', 'line3', 'line4'], 1, 0);
 
       const action: TextBufferAction = {
         type: 'vim_delete_line',
         payload: { count: 2 },
       };
 
-      const result = textBufferReducer(initialState, action);
+      const result = textBufferReducer(state, action);
       expect(result).toHaveOnlyValidCharacters();
 
       // Should delete line2 and line3, leaving line1 and line4
@@ -1799,33 +1812,14 @@ describe('textBufferReducer vim operations', () => {
     });
 
     it('should clear single line content when only one line exists', () => {
-      const initialState: TextBufferState = {
-        lines: ['only line'],
-        cursorRow: 0,
-        cursorCol: 5,
-        preferredCol: null,
-        undoStack: [],
-        redoStack: [],
-        clipboard: null,
-        selectionAnchor: null,
-        viewportWidth: 10,
-        viewportHeight: 5,
-        transformationsByLine: [[]],
-        visualLayout: {
-          visualLines: ['only line'],
-          logicalToVisualMap: [[[0, 0]]],
-          visualToLogicalMap: [[0, 0]],
-          transformedToLogicalMaps: [[]],
-          visualToTransformedMap: [],
-        },
-      };
+      const state = createTestState(['only line'], 0, 5);
 
       const action: TextBufferAction = {
         type: 'vim_delete_line',
         payload: { count: 1 },
       };
 
-      const result = textBufferReducer(initialState, action);
+      const result = textBufferReducer(state, action);
       expect(result).toHaveOnlyValidCharacters();
 
       // Should clear the line content but keep the line
@@ -1835,36 +1829,14 @@ describe('textBufferReducer vim operations', () => {
     });
 
     it('should handle deleting the last line properly', () => {
-      const initialState: TextBufferState = {
-        lines: ['line1', 'line2'],
-        cursorRow: 1,
-        cursorCol: 0,
-        preferredCol: null,
-        undoStack: [],
-        redoStack: [],
-        clipboard: null,
-        selectionAnchor: null,
-        viewportWidth: 10,
-        viewportHeight: 5,
-        transformationsByLine: [[], []],
-        visualLayout: {
-          visualLines: ['line1', 'line2'],
-          logicalToVisualMap: [[[0, 0]], [[1, 0]]],
-          visualToLogicalMap: [
-            [0, 0],
-            [1, 0],
-          ],
-          transformedToLogicalMaps: [[], []],
-          visualToTransformedMap: [],
-        },
-      };
+      const state = createTestState(['line1', 'line2'], 1, 0);
 
       const action: TextBufferAction = {
         type: 'vim_delete_line',
         payload: { count: 1 },
       };
 
-      const result = textBufferReducer(initialState, action);
+      const result = textBufferReducer(state, action);
       expect(result).toHaveOnlyValidCharacters();
 
       // Should delete the last line completely, not leave empty line
@@ -1874,31 +1846,7 @@ describe('textBufferReducer vim operations', () => {
     });
 
     it('should handle deleting all lines and maintain valid state for subsequent paste', () => {
-      const initialState: TextBufferState = {
-        lines: ['line1', 'line2', 'line3', 'line4'],
-        cursorRow: 0,
-        cursorCol: 0,
-        preferredCol: null,
-        undoStack: [],
-        redoStack: [],
-        clipboard: null,
-        selectionAnchor: null,
-        viewportWidth: 10,
-        viewportHeight: 5,
-        transformationsByLine: [[], [], [], []],
-        visualLayout: {
-          visualLines: ['line1', 'line2', 'line3', 'line4'],
-          logicalToVisualMap: [[[0, 0]], [[1, 0]], [[2, 0]], [[3, 0]]],
-          visualToLogicalMap: [
-            [0, 0],
-            [1, 0],
-            [2, 0],
-            [3, 0],
-          ],
-          transformedToLogicalMaps: [[], [], [], []],
-          visualToTransformedMap: [],
-        },
-      };
+      const state = createTestState(['line1', 'line2', 'line3', 'line4'], 0, 0);
 
       // Delete all 4 lines with 4dd
       const deleteAction: TextBufferAction = {
@@ -1906,7 +1854,7 @@ describe('textBufferReducer vim operations', () => {
         payload: { count: 4 },
       };
 
-      const afterDelete = textBufferReducer(initialState, deleteAction);
+      const afterDelete = textBufferReducer(state, deleteAction);
       expect(afterDelete).toHaveOnlyValidCharacters();
 
       // After deleting all lines, should have one empty line
