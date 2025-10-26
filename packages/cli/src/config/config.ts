@@ -666,6 +666,8 @@ export async function loadCliConfig(
       settings.experimental?.codebaseInvestigatorSettings,
     fakeResponses: argv.fakeResponses,
     retryFetchErrors: settings.general?.retryFetchErrors ?? false,
+    alwaysFallbackToApiKey:
+      settings.security?.auth?.alwaysFallbackToApiKey ?? false,
     ptyInfo: ptyInfo?.name,
   });
 }

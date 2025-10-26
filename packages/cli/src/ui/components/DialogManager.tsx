@@ -55,6 +55,7 @@ export const DialogManager = ({
         failedModel={uiState.proQuotaRequest.failedModel}
         fallbackModel={uiState.proQuotaRequest.fallbackModel}
         onChoice={uiActions.handleProQuotaChoice}
+        hasApiKey={Boolean(process.env['GEMINI_API_KEY'])}
       />
     );
   }
