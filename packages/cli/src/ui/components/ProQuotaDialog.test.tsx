@@ -24,6 +24,7 @@ describe('ProQuotaDialog', () => {
       <ProQuotaDialog
         failedModel="gemini-2.5-pro"
         fallbackModel="gemini-2.5-flash"
+        hasApiKey={false}
         onChoice={() => {}}
       />,
     );
@@ -57,6 +58,7 @@ describe('ProQuotaDialog', () => {
       <ProQuotaDialog
         failedModel="gemini-2.5-pro"
         fallbackModel="gemini-2.5-flash"
+        hasApiKey={false}
         onChoice={mockOnChoice}
       />,
     );
@@ -76,6 +78,7 @@ describe('ProQuotaDialog', () => {
       <ProQuotaDialog
         failedModel="gemini-2.5-pro"
         fallbackModel="gemini-2.5-flash"
+        hasApiKey={false}
         onChoice={mockOnChoice}
       />,
     );
@@ -87,5 +90,60 @@ describe('ProQuotaDialog', () => {
     onSelect('continue');
 
     expect(mockOnChoice).toHaveBeenCalledWith('continue');
+  });
+
+  it('should show API key fallback option when hasApiKey is true', () => {
+    render(
+      <ProQuotaDialog
+        failedModel="gemini-2.5-pro"
+        fallbackModel="gemini-2.5-flash"
+        hasApiKey={true}
+        onChoice={() => {}}
+      />,
+    );
+
+    // Check that RadioButtonSelect was called with the API key option included
+    expect(RadioButtonSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: expect.arrayContaining([
+          {
+            label: 'Change auth (executes the /auth command)',
+            value: 'auth',
+            key: 'auth',
+          },
+          {
+            label: `Continue with gemini-2.5-flash`,
+            value: 'continue',
+            key: 'continue',
+          },
+          {
+            label: 'Always fallback to API key',
+            value: 'api-key',
+            key: 'api-key',
+          },
+        ]),
+      }),
+      undefined,
+    );
+  });
+
+  it('should call onChoice with "api-key" when API key option is selected', () => {
+    const mockOnChoice = vi.fn();
+    render(
+      <ProQuotaDialog
+        failedModel="gemini-2.5-pro"
+        fallbackModel="gemini-2.5-flash"
+        hasApiKey={true}
+        onChoice={mockOnChoice}
+      />,
+    );
+
+    // Get the onSelect function passed to RadioButtonSelect
+    const onSelect = (RadioButtonSelect as Mock).mock.calls[0][0].onSelect;
+
+    // Simulate the selection
+    onSelect('api-key');
+
+    expect(mockOnChoice).toHaveBeenCalledWith('api-key');
   });
 });
