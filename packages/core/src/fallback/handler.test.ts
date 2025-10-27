@@ -41,7 +41,7 @@ const createMockConfig = (overrides: Partial<Config> = {}): Config =>
     setFallbackMode: vi.fn(),
     fallbackHandler: undefined,
     getContentGeneratorConfig: vi.fn(() => undefined),
-    getAlwaysFallbackToApiKey: vi.fn(() => false),
+    getAutoFallback: vi.fn(() => ({ enabled: false, type: 'gemini-api-key' })),
     refreshAuth: vi.fn(),
     ...overrides,
   }) as unknown as Config;
@@ -219,17 +219,20 @@ describe('handleFallback', () => {
     expect(mockConfig.setFallbackMode).not.toHaveBeenCalled();
   });
 
-  describe('automatic API key fallback', () => {
-    it('should automatically switch to API key when alwaysFallbackToApiKey is true', async () => {
+  describe('automatic fallback', () => {
+    it('should automatically switch to Gemini API key when autoFallback is enabled with gemini-api-key type', async () => {
       const mockRefreshAuth = vi.fn().mockResolvedValue(undefined);
-      const mockGetAlwaysFallbackToApiKey = vi.fn(() => true);
+      const mockGetAutoFallback = vi.fn(() => ({
+        enabled: true,
+        type: 'gemini-api-key' as const,
+      }));
       const mockGetContentGeneratorConfig = vi.fn(() => ({
         authType: AUTH_OAUTH,
       }));
 
       const configWithAutoFallback = createMockConfig({
         fallbackModelHandler: mockHandler,
-        getAlwaysFallbackToApiKey: mockGetAlwaysFallbackToApiKey,
+        getAutoFallback: mockGetAutoFallback,
         getContentGeneratorConfig: mockGetContentGeneratorConfig,
         refreshAuth: mockRefreshAuth,
       });
@@ -250,16 +253,19 @@ describe('handleFallback', () => {
       process.env['GEMINI_API_KEY'] = originalEnv;
     });
 
-    it('should not auto-switch when alwaysFallbackToApiKey is true but no API key present', async () => {
+    it('should not auto-switch when autoFallback is enabled but no API key present', async () => {
       const mockRefreshAuth = vi.fn();
-      const mockGetAlwaysFallbackToApiKey = vi.fn(() => true);
+      const mockGetAutoFallback = vi.fn(() => ({
+        enabled: true,
+        type: 'gemini-api-key' as const,
+      }));
       const mockGetContentGeneratorConfig = vi.fn(() => ({
         authType: AUTH_OAUTH,
       }));
 
       const configWithAutoFallback = createMockConfig({
         fallbackModelHandler: mockHandler,
-        getAlwaysFallbackToApiKey: mockGetAlwaysFallbackToApiKey,
+        getAutoFallback: mockGetAutoFallback,
         getContentGeneratorConfig: mockGetContentGeneratorConfig,
         refreshAuth: mockRefreshAuth,
       });

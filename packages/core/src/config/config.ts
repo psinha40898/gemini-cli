@@ -261,7 +261,10 @@ export interface ConfigParameters {
   ideMode?: boolean;
   loadMemoryFromIncludeDirectories?: boolean;
   chatCompression?: ChatCompressionSettings;
-  alwaysFallbackToApiKey?: boolean;
+  autoFallback?: {
+    enabled: boolean;
+    type: 'gemini-api-key' | 'vertex-ai';
+  };
   interactive?: boolean;
   trustedFolder?: boolean;
   useRipgrep?: boolean;
@@ -383,7 +386,10 @@ export class Config {
   private readonly continueOnFailedApiCall: boolean;
   private readonly retryFetchErrors: boolean;
   private readonly enableShellOutputEfficiency: boolean;
-  private readonly alwaysFallbackToApiKey: boolean;
+  private readonly autoFallback: {
+    enabled: boolean;
+    type: 'gemini-api-key' | 'vertex-ai';
+  };
   readonly fakeResponses?: string;
   private readonly disableYoloMode: boolean;
 
@@ -503,7 +509,10 @@ export class Config {
       format: params.output?.format ?? OutputFormat.TEXT,
     };
     this.retryFetchErrors = params.retryFetchErrors ?? false;
-    this.alwaysFallbackToApiKey = params.alwaysFallbackToApiKey ?? false;
+    this.autoFallback = params.autoFallback ?? {
+      enabled: false,
+      type: 'gemini-api-key',
+    };
     this.disableYoloMode = params.disableYoloMode ?? false;
 
     if (params.contextFileName) {
@@ -770,8 +779,23 @@ export class Config {
     this.approvalMode = mode;
   }
 
-  getAlwaysFallbackToApiKey(): boolean {
-    return this.alwaysFallbackToApiKey;
+  getAutoFallback(): {
+    enabled: boolean;
+    type: 'gemini-api-key' | 'vertex-ai';
+  } {
+    return this.autoFallback;
+  }
+
+  // Deprecated: Use getAutoFallback() instead
+  getAlwaysFallbackToGeminiApiKey(): boolean {
+    return (
+      this.autoFallback.enabled && this.autoFallback.type === 'gemini-api-key'
+    );
+  }
+
+  // Deprecated: Use getAutoFallback() instead
+  getAlwaysFallbackToVertexAI(): boolean {
+    return this.autoFallback.enabled && this.autoFallback.type === 'vertex-ai';
   }
   isYoloModeDisabled(): boolean {
     return this.disableYoloMode || !this.isTrustedFolder();

@@ -149,25 +149,25 @@ export function useQuotaAndFallback({
   }, [config, historyManager, userTier, setModelSwitchedFromQuotaError]);
 
   const handleProQuotaChoice = useCallback(
-    async (choice: 'auth' | 'continue' | 'api-key') => {
+    async (choice: 'auth' | 'continue' | 'gemini-api-key' | 'vertex-ai') => {
       if (!proQuotaRequest) return;
 
-      if (choice === 'api-key') {
-        // Set the flag to always fallback to API key
+      if (choice === 'gemini-api-key') {
+        // Set auto fallback to Gemini API key
         await settings.setValue(
           SettingScope.User,
-          'security.auth.alwaysFallbackToApiKey',
-          true,
+          'security.auth.autoFallback',
+          { enabled: true, type: 'gemini-api-key' },
         );
 
-        // Immediately switch to API key auth for this session
+        // Immediately switch to Gemini API key auth for this session
         if (process.env['GEMINI_API_KEY']) {
           try {
             await config.refreshAuth(AuthType.USE_GEMINI);
             historyManager.addItem(
               {
                 type: MessageType.INFO,
-                text: '✓ Switched to API key authentication. This session will now use your API key, and future sessions will automatically fallback when quota is exceeded.',
+                text: '✓ Switched to Gemini API key authentication. This session will now use your API key, and future sessions will automatically fallback when quota is exceeded.',
               },
               Date.now(),
             );
@@ -175,7 +175,7 @@ export function useQuotaAndFallback({
             historyManager.addItem(
               {
                 type: MessageType.INFO,
-                text: `Failed to switch to API key: ${error instanceof Error ? error.message : String(error)}. Setting saved for future sessions.`,
+                text: `Failed to switch to Gemini API key: ${error instanceof Error ? error.message : String(error)}. Setting saved for future sessions.`,
               },
               Date.now(),
             );
@@ -184,7 +184,51 @@ export function useQuotaAndFallback({
           historyManager.addItem(
             {
               type: MessageType.INFO,
-              text: 'Enabled API key fallback for future sessions. Set GEMINI_API_KEY environment variable to use API key authentication.',
+              text: 'Enabled Gemini API key fallback for future sessions. Set GEMINI_API_KEY environment variable to use API key authentication.',
+            },
+            Date.now(),
+          );
+        }
+
+        // After setting the flag and switching auth, proceed with retry
+        proQuotaRequest.resolve('retry');
+      } else if (choice === 'vertex-ai') {
+        // Set auto fallback to Vertex AI
+        await settings.setValue(
+          SettingScope.User,
+          'security.auth.autoFallback',
+          { enabled: true, type: 'vertex-ai' },
+        );
+
+        // Immediately switch to Vertex AI auth for this session
+        const hasVertexEnv =
+          process.env['GOOGLE_API_KEY'] ||
+          (process.env['GOOGLE_CLOUD_PROJECT'] &&
+            process.env['GOOGLE_CLOUD_LOCATION']);
+        if (hasVertexEnv) {
+          try {
+            await config.refreshAuth(AuthType.USE_VERTEX_AI);
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: '✓ Switched to Vertex AI authentication. This session will now use Vertex AI, and future sessions will automatically fallback when quota is exceeded.',
+              },
+              Date.now(),
+            );
+          } catch (error) {
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: `Failed to switch to Vertex AI: ${error instanceof Error ? error.message : String(error)}. Setting saved for future sessions.`,
+              },
+              Date.now(),
+            );
+          }
+        } else {
+          historyManager.addItem(
+            {
+              type: MessageType.INFO,
+              text: 'Enabled Vertex AI fallback for future sessions. Set GOOGLE_API_KEY or (GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION) environment variables to use Vertex AI authentication.',
             },
             Date.now(),
           );

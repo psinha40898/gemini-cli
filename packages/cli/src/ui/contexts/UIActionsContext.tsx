@@ -40,7 +40,9 @@ export interface UIActions {
   refreshStatic: () => void;
   handleFinalSubmit: (value: string) => void;
   handleClearScreen: () => void;
-  handleProQuotaChoice: (choice: 'auth' | 'continue' | 'api-key') => void;
+  handleProQuotaChoice: (
+    choice: 'auth' | 'continue' | 'gemini-api-key' | 'vertex-ai',
+  ) => void;
   setQueueErrorMessage: (message: string | null) => void;
   popAllMessages: (onPop: (messages: string | undefined) => void) => void;
 }

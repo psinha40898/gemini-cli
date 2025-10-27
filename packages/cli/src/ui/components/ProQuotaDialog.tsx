@@ -13,13 +13,17 @@ interface ProQuotaDialogProps {
   failedModel: string;
   fallbackModel: string;
   hasApiKey: boolean;
-  onChoice: (choice: 'auth' | 'continue' | 'api-key') => void;
+  hasVertexAI: boolean;
+  onChoice: (
+    choice: 'auth' | 'continue' | 'gemini-api-key' | 'vertex-ai',
+  ) => void;
 }
 
 export function ProQuotaDialog({
   failedModel,
   fallbackModel,
   hasApiKey,
+  hasVertexAI,
   onChoice,
 }: ProQuotaDialogProps): React.JSX.Element {
   const items = [
@@ -36,15 +40,26 @@ export function ProQuotaDialog({
     ...(hasApiKey
       ? [
           {
-            label: 'Always fallback to API key',
-            value: 'api-key' as const,
-            key: 'api-key',
+            label: 'Always fallback to Gemini API key',
+            value: 'gemini-api-key' as const,
+            key: 'gemini-api-key',
+          },
+        ]
+      : []),
+    ...(hasVertexAI
+      ? [
+          {
+            label: 'Always fallback to Vertex AI',
+            value: 'vertex-ai' as const,
+            key: 'vertex-ai',
           },
         ]
       : []),
   ];
 
-  const handleSelect = (choice: 'auth' | 'continue' | 'api-key') => {
+  const handleSelect = (
+    choice: 'auth' | 'continue' | 'gemini-api-key' | 'vertex-ai',
+  ) => {
     onChoice(choice);
   };
 

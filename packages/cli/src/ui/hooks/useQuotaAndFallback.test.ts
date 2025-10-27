@@ -420,14 +420,14 @@ describe('useQuotaAndFallback', () => {
       await act(async () => {});
 
       await act(async () => {
-        await result.current.handleProQuotaChoice('api-key');
+        await result.current.handleProQuotaChoice('gemini-api-key');
       });
 
-      // Should save the setting
+      // Should save the autoFallback setting
       expect(mockSettings.setValue).toHaveBeenCalledWith(
         'User',
-        'security.auth.alwaysFallbackToApiKey',
-        true,
+        'security.auth.autoFallback',
+        { enabled: true, type: 'gemini-api-key' },
       );
 
       // Should refresh auth to API key
@@ -437,7 +437,9 @@ describe('useQuotaAndFallback', () => {
       expect(mockHistoryManager.addItem).toHaveBeenCalledWith(
         expect.objectContaining({
           type: MessageType.INFO,
-          text: expect.stringContaining('Switched to API key authentication'),
+          text: expect.stringContaining(
+            'Switched to Gemini API key authentication',
+          ),
         }),
         expect.any(Number),
       );
@@ -449,7 +451,7 @@ describe('useQuotaAndFallback', () => {
       process.env['GEMINI_API_KEY'] = originalEnv;
     });
 
-    it('should save setting but show message when api-key is chosen and GEMINI_API_KEY is not set', async () => {
+    it('should save setting but show message when gemini-api-key is chosen and GEMINI_API_KEY is not set', async () => {
       const originalEnv = process.env['GEMINI_API_KEY'];
       delete process.env['GEMINI_API_KEY'];
 
@@ -474,14 +476,14 @@ describe('useQuotaAndFallback', () => {
       await act(async () => {});
 
       await act(async () => {
-        await result.current.handleProQuotaChoice('api-key');
+        await result.current.handleProQuotaChoice('gemini-api-key');
       });
 
-      // Should still save the setting
+      // Should still save the autoFallback setting
       expect(mockSettings.setValue).toHaveBeenCalledWith(
         'User',
-        'security.auth.alwaysFallbackToApiKey',
-        true,
+        'security.auth.autoFallback',
+        { enabled: true, type: 'gemini-api-key' },
       );
 
       // Should add message about setting environment variable

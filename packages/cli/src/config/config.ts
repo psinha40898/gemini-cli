@@ -666,8 +666,10 @@ export async function loadCliConfig(
       settings.experimental?.codebaseInvestigatorSettings,
     fakeResponses: argv.fakeResponses,
     retryFetchErrors: settings.general?.retryFetchErrors ?? false,
-    alwaysFallbackToApiKey:
-      settings.security?.auth?.alwaysFallbackToApiKey ?? false,
+    autoFallback: {
+      enabled: settings.security?.auth?.autoFallback?.enabled ?? false,
+      type: settings.security?.auth?.autoFallback?.type ?? 'gemini-api-key',
+    },
     ptyInfo: ptyInfo?.name,
   });
 }

@@ -18,14 +18,29 @@ export async function handleFallback(
   // Applicability Checks
   if (authType !== AuthType.LOGIN_WITH_GOOGLE) return null;
   const currentAuthType = config.getContentGeneratorConfig()?.authType;
-  if (
-    currentAuthType === AuthType.LOGIN_WITH_GOOGLE &&
-    config.getAlwaysFallbackToApiKey() &&
-    process.env['GEMINI_API_KEY']
-  ) {
-    // Session-only switch to API key auth
-    await config.refreshAuth(AuthType.USE_GEMINI);
-    return true; // Signal retry with new auth
+  const autoFallback = config.getAutoFallback();
+
+  // Check auto-fallback settings
+  if (currentAuthType === AuthType.LOGIN_WITH_GOOGLE && autoFallback.enabled) {
+    if (
+      autoFallback.type === 'gemini-api-key' &&
+      process.env['GEMINI_API_KEY']
+    ) {
+      // Session-only switch to Gemini API key auth
+      await config.refreshAuth(AuthType.USE_GEMINI);
+      return true; // Signal retry with new auth
+    }
+
+    if (
+      autoFallback.type === 'vertex-ai' &&
+      (process.env['GOOGLE_API_KEY'] ||
+        (process.env['GOOGLE_CLOUD_PROJECT'] &&
+          process.env['GOOGLE_CLOUD_LOCATION']))
+    ) {
+      // Session-only switch to Vertex AI auth
+      await config.refreshAuth(AuthType.USE_VERTEX_AI);
+      return true; // Signal retry with new auth
+    }
   }
 
   const fallbackModel = DEFAULT_GEMINI_FLASH_MODEL;
