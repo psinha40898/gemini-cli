@@ -380,6 +380,64 @@ export const AppContainer = (props: AppContainerProps) => {
     settings,
   });
 
+  // TESTING ONLY: One-time ProQuotaDialog trigger
+  const [testProQuotaRequest, setTestProQuotaRequest] =
+    useState<typeof proQuotaRequest>(null);
+  const [hasShownTestDialog, setHasShownTestDialog] = useState(false);
+
+  useEffect(() => {
+    if (!hasShownTestDialog) {
+      setTestProQuotaRequest({
+        failedModel: currentModel ?? 'gemini-2.0-pro-exp',
+        fallbackModel: DEFAULT_GEMINI_FLASH_MODEL,
+        resolve: (intent: 'auth' | 'retry' | 'stop') => {
+          // Clear dialog first
+          setTestProQuotaRequest(null);
+          setHasShownTestDialog(true);
+
+          // Handle the intent
+          if (intent === 'auth') {
+            setAuthState(AuthState.Updating);
+          } else {
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: '✓ Testing dialog completed. Choice was processed.',
+              },
+              Date.now(),
+            );
+          }
+        },
+      });
+    }
+  }, [hasShownTestDialog, historyManager, setAuthState, currentModel]);
+
+  // Override proQuotaRequest with test version if set
+  const effectiveProQuotaRequest = testProQuotaRequest || proQuotaRequest;
+
+  // Wrapper to handle both test and real quota choice
+  const wrappedHandleProQuotaChoice = useCallback(
+    async (choice: 'auth' | 'continue' | 'gemini-api-key' | 'vertex-ai') => {
+      if (effectiveProQuotaRequest) {
+        // For test dialog, execute the real logic but resolve manually
+        if (testProQuotaRequest) {
+          // Call the real handler to execute all the logic (settings, auth switch, messages)
+          await handleProQuotaChoice(choice);
+
+          // Then resolve the test request and clean up
+          const intent = choice === 'auth' ? 'auth' : 'retry';
+          effectiveProQuotaRequest.resolve(intent);
+          setTestProQuotaRequest(null);
+          setHasShownTestDialog(true);
+        } else {
+          // Real quota request - use the actual handler which handles its own resolve
+          await handleProQuotaChoice(choice);
+        }
+      }
+    },
+    [effectiveProQuotaRequest, testProQuotaRequest, handleProQuotaChoice],
+  );
+
   // Derive auth state variables for backward compatibility with UIStateContext
   const isAuthDialogOpen = authState === AuthState.Updating;
   const isAuthenticating = authState === AuthState.Unauthenticated;
@@ -718,7 +776,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
     !!slashCommands &&
     (streamingState === StreamingState.Idle ||
       streamingState === StreamingState.Responding) &&
-    !proQuotaRequest;
+    !effectiveProQuotaRequest;
 
   const [controlsHeight, setControlsHeight] = useState(0);
 
@@ -1162,7 +1220,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
     isEditorDialogOpen ||
     showPrivacyNotice ||
     showIdeRestartPrompt ||
-    !!proQuotaRequest;
+    !!effectiveProQuotaRequest;
 
   const pendingHistoryItems = useMemo(
     () => [...pendingSlashCommandHistoryItems, ...pendingGeminiHistoryItems],
@@ -1227,7 +1285,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
       showAutoAcceptIndicator,
       currentModel,
       userTier,
-      proQuotaRequest,
+      proQuotaRequest: effectiveProQuotaRequest,
       contextFileNames,
       errorCount,
       availableTerminalHeight,
@@ -1307,7 +1365,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
       queueErrorMessage,
       showAutoAcceptIndicator,
       userTier,
-      proQuotaRequest,
+      effectiveProQuotaRequest,
       contextFileNames,
       errorCount,
       availableTerminalHeight,
@@ -1365,7 +1423,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
       refreshStatic,
       handleFinalSubmit,
       handleClearScreen,
-      handleProQuotaChoice,
+      handleProQuotaChoice: wrappedHandleProQuotaChoice,
       setQueueErrorMessage,
       popAllMessages,
     }),
@@ -1391,7 +1449,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
       refreshStatic,
       handleFinalSubmit,
       handleClearScreen,
-      handleProQuotaChoice,
+      wrappedHandleProQuotaChoice,
       setQueueErrorMessage,
       popAllMessages,
     ],
