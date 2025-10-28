@@ -166,6 +166,12 @@ export function useQuotaAndFallback({
         if (process.env['GEMINI_API_KEY']) {
           try {
             await config.refreshAuth(AuthType.USE_GEMINI);
+            // Update the selected auth type so /about shows the correct method
+            await settings.setValue(
+              SettingScope.User,
+              'security.auth.selectedType',
+              AuthType.USE_GEMINI,
+            );
             historyManager.addItem(
               {
                 type: MessageType.INFO,
@@ -210,6 +216,12 @@ export function useQuotaAndFallback({
         if (hasVertexEnv) {
           try {
             await config.refreshAuth(AuthType.USE_VERTEX_AI);
+            // Update the selected auth type so /about shows the correct method
+            await settings.setValue(
+              SettingScope.User,
+              'security.auth.selectedType',
+              AuthType.USE_VERTEX_AI,
+            );
             historyManager.addItem(
               {
                 type: MessageType.INFO,
