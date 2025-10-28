@@ -68,7 +68,11 @@ function formatAuthDisplay(context: CommandContext): string {
     parts.push(formatAuthLabel(settingsAuthType));
   }
 
-  if (autoFallback?.enabled) {
+  // Only show fallback info if persisted auth is OAuth (fallback system only applies to OAuth)
+  if (
+    autoFallback?.enabled &&
+    settingsAuthType === AuthType.LOGIN_WITH_GOOGLE
+  ) {
     const fallbackAuthType =
       autoFallback.type === 'gemini-api-key'
         ? AuthType.USE_GEMINI

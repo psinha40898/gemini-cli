@@ -113,6 +113,37 @@ describe('aboutCommand', () => {
     );
   });
 
+  it('should NOT display fallback info when persisted auth is not OAuth', async () => {
+    process.env['SANDBOX'] = '';
+    mockContext.services.config = {
+      getModel: vi.fn().mockReturnValue('test-model'),
+      getIdeMode: vi.fn().mockReturnValue(false),
+      getAutoFallback: vi.fn().mockReturnValue({
+        enabled: true,
+        type: 'vertex-ai',
+      }),
+      getContentGeneratorConfig: vi.fn().mockReturnValue({
+        authType: AuthType.USE_GEMINI,
+      }),
+    } as unknown as CommandContext['services']['config'];
+
+    mockContext.services.settings.merged.security = {
+      auth: {
+        selectedType: AuthType.USE_GEMINI,
+      },
+    } as typeof mockContext.services.settings.merged.security;
+
+    if (!aboutCommand.action) {
+      throw new Error('The about command must have an action.');
+    }
+
+    await aboutCommand.action(mockContext, '');
+
+    const callArgs = (mockContext.ui.addItem as Mock).mock.calls[0][0];
+    // Should only show the persisted auth type, not fallback info
+    expect(callArgs.selectedAuthType).toBe('Gemini API Key');
+  });
+
   it('should display session-only auth change when different from selected type', async () => {
     process.env['SANDBOX'] = '';
     mockContext.services.config = {

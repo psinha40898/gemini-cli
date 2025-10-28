@@ -124,6 +124,61 @@ export function useQuotaAndFallback({
 
       // Interactive Fallback for Pro quota
       if (error instanceof TerminalQuotaError) {
+        // Check if auto fallback is already enabled
+        const autoFallback = config.getAutoFallback();
+
+        if (autoFallback?.enabled) {
+          // Auto-switch without showing dialog
+          const fallbackAuthType =
+            autoFallback.type === 'gemini-api-key'
+              ? AuthType.USE_GEMINI
+              : AuthType.USE_VERTEX_AI;
+
+          const hasEnvVars =
+            autoFallback.type === 'gemini-api-key'
+              ? process.env['GEMINI_API_KEY']
+              : process.env['GOOGLE_API_KEY'] ||
+                (process.env['GOOGLE_CLOUD_PROJECT'] &&
+                  process.env['GOOGLE_CLOUD_LOCATION']);
+
+          if (hasEnvVars) {
+            try {
+              await config.refreshAuth(fallbackAuthType);
+              const authTypeName =
+                autoFallback.type === 'gemini-api-key'
+                  ? 'Gemini API key'
+                  : 'Vertex AI';
+              historyManager.addItem(
+                {
+                  type: MessageType.INFO,
+                  text: `✓ Automatically switched to ${authTypeName} authentication due to quota limits. Retrying your request...`,
+                },
+                Date.now(),
+              );
+              return 'retry';
+            } catch (error) {
+              historyManager.addItem(
+                {
+                  type: MessageType.INFO,
+                  text: `Failed to switch to fallback auth: ${error instanceof Error ? error.message : String(error)}. Stopping request.`,
+                },
+                Date.now(),
+              );
+              return 'stop';
+            }
+          } else {
+            historyManager.addItem(
+              {
+                type: MessageType.INFO,
+                text: `Auto fallback is enabled but required environment variables are not set. Set ${autoFallback.type === 'gemini-api-key' ? 'GEMINI_API_KEY' : 'GOOGLE_API_KEY or (GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION)'} to use automatic fallback.`,
+              },
+              Date.now(),
+            );
+            return 'stop';
+          }
+        }
+
+        // Auto fallback not enabled - show interactive dialog
         if (isDialogPending.current) {
           return 'stop'; // A dialog is already active, so just stop this request.
         }
