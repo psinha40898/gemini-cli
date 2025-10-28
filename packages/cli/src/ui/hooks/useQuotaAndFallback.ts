@@ -12,6 +12,8 @@ import {
   TerminalQuotaError,
   UserTierId,
   RetryableQuotaError,
+  DEFAULT_GEMINI_MODEL,
+  DEFAULT_GEMINI_FLASH_MODEL,
 } from '@google/gemini-cli-core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type UseHistoryManagerReturn } from './useHistoryManager.js';
@@ -259,8 +261,28 @@ export function useQuotaAndFallback({
     [proQuotaRequest, setAuthState, historyManager, settings, config],
   );
 
+  const openProQuotaDialogForTesting = useCallback(
+    (overrides?: { failedModel?: string; fallbackModel?: string }) => {
+      if (isDialogPending.current) {
+        return Promise.resolve<'stop'>('stop');
+      }
+
+      isDialogPending.current = true;
+
+      return new Promise<FallbackIntent>((resolve) => {
+        setProQuotaRequest({
+          failedModel: overrides?.failedModel ?? DEFAULT_GEMINI_MODEL,
+          fallbackModel: overrides?.fallbackModel ?? DEFAULT_GEMINI_FLASH_MODEL,
+          resolve,
+        });
+      });
+    },
+    [],
+  );
+
   return {
     proQuotaRequest,
     handleProQuotaChoice,
+    openProQuotaDialogForTesting,
   };
 }
