@@ -786,17 +786,6 @@ export class Config {
     return this.autoFallback;
   }
 
-  // Deprecated: Use getAutoFallback() instead
-  getAlwaysFallbackToGeminiApiKey(): boolean {
-    return (
-      this.autoFallback.enabled && this.autoFallback.type === 'gemini-api-key'
-    );
-  }
-
-  // Deprecated: Use getAutoFallback() instead
-  getAlwaysFallbackToVertexAI(): boolean {
-    return this.autoFallback.enabled && this.autoFallback.type === 'vertex-ai';
-  }
   isYoloModeDisabled(): boolean {
     return this.disableYoloMode || !this.isTrustedFolder();
   }
