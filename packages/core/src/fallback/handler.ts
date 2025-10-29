@@ -8,6 +8,7 @@ import type { Config } from '../config/config.js';
 import { AuthType } from '../core/contentGenerator.js';
 import { DEFAULT_GEMINI_FLASH_MODEL } from '../config/models.js';
 import { logFlashFallback, FlashFallbackEvent } from '../telemetry/index.js';
+import type { AutoFallbackStatus } from './types.js';
 
 export async function handleFallback(
   config: Config,
@@ -20,6 +21,8 @@ export async function handleFallback(
   const currentAuthType = config.getContentGeneratorConfig()?.authType;
   const autoFallback = config.getAutoFallback();
 
+  let autoFallbackStatus: AutoFallbackStatus = { status: 'not-attempted' };
+
   // Check auto-fallback settings
   if (currentAuthType === AuthType.LOGIN_WITH_GOOGLE && autoFallback.enabled) {
     if (
@@ -28,10 +31,8 @@ export async function handleFallback(
     ) {
       // Session-only switch to Gemini API key auth
       await config.refreshAuth(AuthType.USE_GEMINI);
-      return true; // Signal retry with new auth
-    }
-
-    if (
+      autoFallbackStatus = { status: 'success', authType: 'gemini-api-key' };
+    } else if (
       autoFallback.type === 'vertex-ai' &&
       (process.env['GOOGLE_API_KEY'] ||
         (process.env['GOOGLE_CLOUD_PROJECT'] &&
@@ -39,7 +40,13 @@ export async function handleFallback(
     ) {
       // Session-only switch to Vertex AI auth
       await config.refreshAuth(AuthType.USE_VERTEX_AI);
-      return true; // Signal retry with new auth
+      autoFallbackStatus = { status: 'success', authType: 'vertex-ai' };
+    } else if (autoFallback.enabled) {
+      // Auto-fallback is enabled but env vars are missing
+      autoFallbackStatus = {
+        status: 'missing-env-vars',
+        authType: autoFallback.type,
+      };
     }
   }
 
@@ -52,11 +59,12 @@ export async function handleFallback(
   if (typeof fallbackModelHandler !== 'function') return null;
 
   try {
-    // Pass the specific failed model to the UI handler.
+    // Pass the specific failed model and auto-fallback status to the UI handler.
     const intent = await fallbackModelHandler(
       failedModel,
       fallbackModel,
       error,
+      autoFallbackStatus,
     );
 
     // Process Intent and Update State

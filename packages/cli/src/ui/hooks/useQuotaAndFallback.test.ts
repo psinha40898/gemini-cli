@@ -216,17 +216,7 @@ describe('useQuotaAndFallback', () => {
     });
 
     describe('Interactive Fallback (Pro Quota Error)', () => {
-      it('should auto-switch without showing dialog when autoFallback is already enabled', async () => {
-        const originalEnv = process.env['GEMINI_API_KEY'];
-        process.env['GEMINI_API_KEY'] = 'test-api-key';
-
-        const mockRefreshAuth = vi.fn().mockResolvedValue(undefined);
-        vi.spyOn(mockConfig, 'refreshAuth').mockImplementation(mockRefreshAuth);
-        vi.spyOn(mockConfig, 'getAutoFallback').mockReturnValue({
-          enabled: true,
-          type: 'gemini-api-key',
-        });
-
+      it('should show success message when core handler reports successful auto-switch', async () => {
         const { result } = renderHook(() =>
           useQuotaAndFallback({
             config: mockConfig,
@@ -241,22 +231,21 @@ describe('useQuotaAndFallback', () => {
         const handler = setFallbackHandlerSpy.mock
           .calls[0][0] as FallbackModelHandler;
 
+        // Simulate core handler passing success status
         const intent = await handler(
           'gemini-pro',
           'gemini-flash',
           new TerminalQuotaError('pro quota', mockGoogleApiError),
+          { status: 'success', authType: 'gemini-api-key' },
         );
 
         // Should NOT show dialog (no proQuotaRequest set)
         expect(result.current.proQuotaRequest).toBeNull();
 
-        // Should auto-switch to API key
-        expect(mockRefreshAuth).toHaveBeenCalledWith(AuthType.USE_GEMINI);
-
         // Should return 'retry' to retry the request
         expect(intent).toBe('retry');
 
-        // Should show auto-switch message
+        // Should show auto-switch success message
         expect(mockHistoryManager.addItem).toHaveBeenCalledWith(
           expect.objectContaining({
             type: MessageType.INFO,
@@ -266,8 +255,6 @@ describe('useQuotaAndFallback', () => {
           }),
           expect.any(Number),
         );
-
-        process.env['GEMINI_API_KEY'] = originalEnv;
       });
 
       it('should set an interactive request and wait for user choice', async () => {

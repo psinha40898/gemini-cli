@@ -30,6 +30,52 @@ interface UseQuotaAndFallbackArgs {
   };
 }
 
+type AutoFallbackType = 'gemini-api-key' | 'vertex-ai';
+
+const AUTO_FALLBACK_CONFIG: Record<
+  AutoFallbackType,
+  {
+    settingValue: { enabled: true; type: AutoFallbackType };
+    refreshAuthType: AuthType;
+    hasEnvVars: () => boolean;
+    successMessage: string;
+    getFailureMessage: (error: unknown) => string;
+    missingEnvMessage: string;
+  }
+> = {
+  'gemini-api-key': {
+    settingValue: { enabled: true, type: 'gemini-api-key' },
+    refreshAuthType: AuthType.USE_GEMINI,
+    hasEnvVars: () => Boolean(process.env['GEMINI_API_KEY']),
+    successMessage:
+      '✓ Switched to Gemini API key authentication. This session will now use your API key, and future sessions will automatically fallback when quota is exceeded.',
+    getFailureMessage: (error) =>
+      `Failed to switch to Gemini API key: ${
+        error instanceof Error ? error.message : String(error)
+      }. Setting saved for future sessions.`,
+    missingEnvMessage:
+      'Enabled Gemini API key fallback for future sessions. Set GEMINI_API_KEY environment variable to use API key authentication.',
+  },
+  'vertex-ai': {
+    settingValue: { enabled: true, type: 'vertex-ai' },
+    refreshAuthType: AuthType.USE_VERTEX_AI,
+    hasEnvVars: () =>
+      Boolean(
+        process.env['GOOGLE_API_KEY'] ||
+          (process.env['GOOGLE_CLOUD_PROJECT'] &&
+            process.env['GOOGLE_CLOUD_LOCATION']),
+      ),
+    successMessage:
+      '✓ Switched to Vertex AI authentication. This session will now use Vertex AI, and future sessions will automatically fallback when quota is exceeded.',
+    getFailureMessage: (error) =>
+      `Failed to switch to Vertex AI: ${
+        error instanceof Error ? error.message : String(error)
+      }. Setting saved for future sessions.`,
+    missingEnvMessage:
+      'Enabled Vertex AI fallback for future sessions. Set GOOGLE_API_KEY or (GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION) environment variables to use Vertex AI authentication.',
+  },
+};
+
 export function useQuotaAndFallback({
   config,
   historyManager,
@@ -48,6 +94,7 @@ export function useQuotaAndFallback({
       failedModel,
       fallbackModel,
       error,
+      autoFallbackStatus,
     ): Promise<FallbackIntent | null> => {
       if (config.isInFallbackMode()) {
         return null;
@@ -122,62 +169,41 @@ export function useQuotaAndFallback({
       setModelSwitchedFromQuotaError(true);
       config.setQuotaErrorOccurred(true);
 
-      // Interactive Fallback for Pro quota
+      // Handle auto-fallback results from core
+      if (autoFallbackStatus?.status === 'success') {
+        // Core successfully switched auth - show success message
+        const authTypeName =
+          autoFallbackStatus.authType === 'gemini-api-key'
+            ? 'Gemini API key'
+            : 'Vertex AI';
+        historyManager.addItem(
+          {
+            type: MessageType.INFO,
+            text: `✓ Automatically switched to ${authTypeName} authentication due to quota limits. Retrying your request...`,
+          },
+          Date.now(),
+        );
+        return 'retry';
+      }
+
+      if (autoFallbackStatus?.status === 'missing-env-vars') {
+        // Auto-fallback enabled but env vars missing
+        const envVarName =
+          autoFallbackStatus.authType === 'gemini-api-key'
+            ? 'GEMINI_API_KEY'
+            : 'GOOGLE_API_KEY or (GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION)';
+        historyManager.addItem(
+          {
+            type: MessageType.INFO,
+            text: `Auto fallback is enabled but required environment variables are not set. Set ${envVarName} to use automatic fallback.`,
+          },
+          Date.now(),
+        );
+        return 'stop';
+      }
+
+      // Interactive Fallback for Pro quota (no auto-fallback or not attempted)
       if (error instanceof TerminalQuotaError) {
-        // Check if auto fallback is already enabled
-        const autoFallback = config.getAutoFallback();
-
-        if (autoFallback?.enabled) {
-          // Auto-switch without showing dialog
-          const fallbackAuthType =
-            autoFallback.type === 'gemini-api-key'
-              ? AuthType.USE_GEMINI
-              : AuthType.USE_VERTEX_AI;
-
-          const hasEnvVars =
-            autoFallback.type === 'gemini-api-key'
-              ? process.env['GEMINI_API_KEY']
-              : process.env['GOOGLE_API_KEY'] ||
-                (process.env['GOOGLE_CLOUD_PROJECT'] &&
-                  process.env['GOOGLE_CLOUD_LOCATION']);
-
-          if (hasEnvVars) {
-            try {
-              await config.refreshAuth(fallbackAuthType);
-              const authTypeName =
-                autoFallback.type === 'gemini-api-key'
-                  ? 'Gemini API key'
-                  : 'Vertex AI';
-              historyManager.addItem(
-                {
-                  type: MessageType.INFO,
-                  text: `✓ Automatically switched to ${authTypeName} authentication due to quota limits. Retrying your request...`,
-                },
-                Date.now(),
-              );
-              return 'retry';
-            } catch (error) {
-              historyManager.addItem(
-                {
-                  type: MessageType.INFO,
-                  text: `Failed to switch to fallback auth: ${error instanceof Error ? error.message : String(error)}. Stopping request.`,
-                },
-                Date.now(),
-              );
-              return 'stop';
-            }
-          } else {
-            historyManager.addItem(
-              {
-                type: MessageType.INFO,
-                text: `Auto fallback is enabled but required environment variables are not set. Set ${autoFallback.type === 'gemini-api-key' ? 'GEMINI_API_KEY' : 'GOOGLE_API_KEY or (GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION)'} to use automatic fallback.`,
-              },
-              Date.now(),
-            );
-            return 'stop';
-          }
-        }
-
         // Auto fallback not enabled - show interactive dialog
         if (isDialogPending.current) {
           return 'stop'; // A dialog is already active, so just stop this request.
@@ -204,25 +230,26 @@ export function useQuotaAndFallback({
   }, [config, historyManager, userTier, setModelSwitchedFromQuotaError]);
 
   const handleProQuotaChoice = useCallback(
-    async (choice: 'auth' | 'continue' | 'gemini-api-key' | 'vertex-ai') => {
+    async (choice: 'auth' | 'continue' | AutoFallbackType) => {
       if (!proQuotaRequest) return;
 
-      if (choice === 'gemini-api-key') {
-        // Set auto fallback to Gemini API key
+      if (choice === 'gemini-api-key' || choice === 'vertex-ai') {
+        const choiceConfig = AUTO_FALLBACK_CONFIG[choice];
+
+        // Set auto fallback preference
         await settings.setValue(
           SettingScope.User,
           'security.auth.autoFallback',
-          { enabled: true, type: 'gemini-api-key' },
+          choiceConfig.settingValue,
         );
 
-        // Immediately switch to Gemini API key auth for this session
-        if (process.env['GEMINI_API_KEY']) {
+        if (choiceConfig.hasEnvVars()) {
           try {
-            await config.refreshAuth(AuthType.USE_GEMINI);
+            await config.refreshAuth(choiceConfig.refreshAuthType);
             historyManager.addItem(
               {
                 type: MessageType.INFO,
-                text: '✓ Switched to Gemini API key authentication. This session will now use your API key, and future sessions will automatically fallback when quota is exceeded.',
+                text: choiceConfig.successMessage,
               },
               Date.now(),
             );
@@ -230,7 +257,7 @@ export function useQuotaAndFallback({
             historyManager.addItem(
               {
                 type: MessageType.INFO,
-                text: `Failed to switch to Gemini API key: ${error instanceof Error ? error.message : String(error)}. Setting saved for future sessions.`,
+                text: choiceConfig.getFailureMessage(error),
               },
               Date.now(),
             );
@@ -239,57 +266,12 @@ export function useQuotaAndFallback({
           historyManager.addItem(
             {
               type: MessageType.INFO,
-              text: 'Enabled Gemini API key fallback for future sessions. Set GEMINI_API_KEY environment variable to use API key authentication.',
+              text: choiceConfig.missingEnvMessage,
             },
             Date.now(),
           );
         }
 
-        // After setting the flag and switching auth, proceed with retry
-        proQuotaRequest.resolve('retry');
-      } else if (choice === 'vertex-ai') {
-        // Set auto fallback to Vertex AI
-        await settings.setValue(
-          SettingScope.User,
-          'security.auth.autoFallback',
-          { enabled: true, type: 'vertex-ai' },
-        );
-
-        // Immediately switch to Vertex AI auth for this session
-        const hasVertexEnv =
-          process.env['GOOGLE_API_KEY'] ||
-          (process.env['GOOGLE_CLOUD_PROJECT'] &&
-            process.env['GOOGLE_CLOUD_LOCATION']);
-        if (hasVertexEnv) {
-          try {
-            await config.refreshAuth(AuthType.USE_VERTEX_AI);
-            historyManager.addItem(
-              {
-                type: MessageType.INFO,
-                text: '✓ Switched to Vertex AI authentication. This session will now use Vertex AI, and future sessions will automatically fallback when quota is exceeded.',
-              },
-              Date.now(),
-            );
-          } catch (error) {
-            historyManager.addItem(
-              {
-                type: MessageType.INFO,
-                text: `Failed to switch to Vertex AI: ${error instanceof Error ? error.message : String(error)}. Setting saved for future sessions.`,
-              },
-              Date.now(),
-            );
-          }
-        } else {
-          historyManager.addItem(
-            {
-              type: MessageType.INFO,
-              text: 'Enabled Vertex AI fallback for future sessions. Set GOOGLE_API_KEY or (GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION) environment variables to use Vertex AI authentication.',
-            },
-            Date.now(),
-          );
-        }
-
-        // After setting the flag and switching auth, proceed with retry
         proQuotaRequest.resolve('retry');
       } else {
         const intent: FallbackIntent = choice === 'auth' ? 'auth' : 'retry';

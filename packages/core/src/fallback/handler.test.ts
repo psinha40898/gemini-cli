@@ -167,7 +167,7 @@ describe('handleFallback', () => {
     });
   });
 
-  it('should pass the correct context (failedModel, fallbackModel, error) to the handler', async () => {
+  it('should pass the correct context (failedModel, fallbackModel, error, autoFallbackStatus) to the handler', async () => {
     const mockError = new Error('Quota Exceeded');
     mockHandler.mockResolvedValue('retry');
 
@@ -177,6 +177,7 @@ describe('handleFallback', () => {
       MOCK_PRO_MODEL,
       FALLBACK_MODEL,
       mockError,
+      { status: 'not-attempted' },
     );
   });
 
@@ -240,6 +241,8 @@ describe('handleFallback', () => {
       const originalEnv = process.env['GEMINI_API_KEY'];
       process.env['GEMINI_API_KEY'] = 'test-key';
 
+      mockHandler.mockResolvedValue('retry');
+
       const result = await handleFallback(
         configWithAutoFallback,
         MOCK_PRO_MODEL,
@@ -248,7 +251,13 @@ describe('handleFallback', () => {
 
       expect(result).toBe(true);
       expect(mockRefreshAuth).toHaveBeenCalledWith(AUTH_API_KEY);
-      expect(mockHandler).not.toHaveBeenCalled();
+      // Should pass success status to UI handler
+      expect(mockHandler).toHaveBeenCalledWith(
+        MOCK_PRO_MODEL,
+        FALLBACK_MODEL,
+        undefined,
+        { status: 'success', authType: 'gemini-api-key' },
+      );
 
       process.env['GEMINI_API_KEY'] = originalEnv;
     });
@@ -281,9 +290,15 @@ describe('handleFallback', () => {
         AUTH_OAUTH,
       );
 
+      expect(result).toBe(true);
       expect(mockRefreshAuth).not.toHaveBeenCalled();
-      expect(mockHandler).toHaveBeenCalled(); // Should fall through to UI handler
-      expect(result).toBe(true); // Handler returned 'retry'
+      // Should pass missing-env-vars status to UI handler
+      expect(mockHandler).toHaveBeenCalledWith(
+        MOCK_PRO_MODEL,
+        FALLBACK_MODEL,
+        undefined,
+        { status: 'missing-env-vars', authType: 'gemini-api-key' },
+      );
 
       process.env['GEMINI_API_KEY'] = originalEnv;
     });
