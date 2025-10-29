@@ -42,11 +42,11 @@ import {
   uiTelemetryService,
 } from '../telemetry/index.js';
 import { tokenLimit } from '../core/tokenLimits.js';
-import { StartSessionEvent } from '../telemetry/index.js';
 import {
   DEFAULT_GEMINI_EMBEDDING_MODEL,
   DEFAULT_GEMINI_FLASH_MODEL,
   DEFAULT_GEMINI_MODEL,
+  DEFAULT_GEMINI_MODEL_AUTO,
   DEFAULT_THINKING_MODE,
 } from './models.js';
 import { shouldAttemptBrowserLaunch } from '../utils/browser.js';
@@ -55,10 +55,7 @@ import { ideContextStore } from '../ide/ideContext.js';
 import { WriteTodosTool } from '../tools/write-todos.js';
 import type { FileSystemService } from '../services/fileSystemService.js';
 import { StandardFileSystemService } from '../services/fileSystemService.js';
-import {
-  logCliConfiguration,
-  logRipgrepFallback,
-} from '../telemetry/loggers.js';
+import { logRipgrepFallback } from '../telemetry/loggers.js';
 import { RipgrepFallbackEvent } from '../telemetry/types.js';
 import type { FallbackModelHandler } from '../fallback/types.js';
 import { ModelRouterService } from '../routing/modelRouterService.js';
@@ -158,6 +155,10 @@ import {
   DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
 } from './constants.js';
 import { debugLogger } from '../utils/debugLogger.js';
+import {
+  type ExtensionLoader,
+  SimpleExtensionLoader,
+} from '../utils/extensionLoader.js';
 
 export type { FileFilteringOptions };
 export {
@@ -252,7 +253,7 @@ export interface ConfigParameters {
   maxSessionTurns?: number;
   experimentalZedIntegration?: boolean;
   listExtensions?: boolean;
-  extensions?: GeminiCLIExtension[];
+  extensionLoader?: ExtensionLoader;
   enabledExtensions?: string[];
   blockedMcpServers?: Array<{ name: string; extensionName: string }>;
   noBrowser?: boolean;
@@ -283,11 +284,13 @@ export interface ConfigParameters {
   output?: OutputSettings;
   useModelRouter?: boolean;
   enableMessageBusIntegration?: boolean;
+  disableModelRouterForAuth?: AuthType[];
   codebaseInvestigatorSettings?: CodebaseInvestigatorSettings;
   continueOnFailedApiCall?: boolean;
   retryFetchErrors?: boolean;
   enableShellOutputEfficiency?: boolean;
   fakeResponses?: string;
+  recordResponses?: string;
   ptyInfo?: string;
   disableYoloMode?: boolean;
 }
@@ -345,7 +348,7 @@ export class Config {
   private inFallbackMode = false;
   private readonly maxSessionTurns: number;
   private readonly listExtensions: boolean;
-  private readonly _extensions: GeminiCLIExtension[];
+  private readonly _extensionLoader: ExtensionLoader;
   private readonly _enabledExtensions: string[];
   private readonly _blockedMcpServers: Array<{
     name: string;
@@ -380,7 +383,9 @@ export class Config {
   private readonly messageBus: MessageBus;
   private readonly policyEngine: PolicyEngine;
   private readonly outputSettings: OutputSettings;
-  private readonly useModelRouter: boolean;
+  private useModelRouter: boolean;
+  private readonly initialUseModelRouter: boolean;
+  private readonly disableModelRouterForAuth?: AuthType[];
   private readonly enableMessageBusIntegration: boolean;
   private readonly codebaseInvestigatorSettings: CodebaseInvestigatorSettings;
   private readonly continueOnFailedApiCall: boolean;
@@ -391,6 +396,7 @@ export class Config {
     type: 'gemini-api-key' | 'vertex-ai';
   };
   readonly fakeResponses?: string;
+  readonly recordResponses?: string;
   private readonly disableYoloMode: boolean;
 
   constructor(params: ConfigParameters) {
@@ -452,7 +458,8 @@ export class Config {
     this.experimentalZedIntegration =
       params.experimentalZedIntegration ?? false;
     this.listExtensions = params.listExtensions ?? false;
-    this._extensions = params.extensions ?? [];
+    this._extensionLoader =
+      params.extensionLoader ?? new SimpleExtensionLoader([]);
     this._enabledExtensions = params.enabledExtensions ?? [];
     this._blockedMcpServers = params.blockedMcpServers ?? [];
     this.noBrowser = params.noBrowser ?? false;
@@ -482,7 +489,11 @@ export class Config {
     this.enableToolOutputTruncation = params.enableToolOutputTruncation ?? true;
     this.useSmartEdit = params.useSmartEdit ?? true;
     this.useWriteTodos = params.useWriteTodos ?? false;
-    this.useModelRouter = params.useModelRouter ?? false;
+    this.initialUseModelRouter = params.useModelRouter ?? false;
+    this.useModelRouter = this.initialUseModelRouter;
+    this.disableModelRouterForAuth = params.disableModelRouterForAuth ?? [
+      AuthType.LOGIN_WITH_GOOGLE,
+    ];
     this.enableMessageBusIntegration =
       params.enableMessageBusIntegration ?? false;
     this.codebaseInvestigatorSettings = {
@@ -500,6 +511,7 @@ export class Config {
     this.extensionManagement = params.extensionManagement ?? true;
     this.storage = new Storage(this.targetDir);
     this.fakeResponses = params.fakeResponses;
+    this.recordResponses = params.recordResponses;
     this.enablePromptCompletion = params.enablePromptCompletion ?? false;
     this.fileExclusions = new FileExclusions(this);
     this.eventEmitter = params.eventEmitter;
@@ -559,6 +571,16 @@ export class Config {
   }
 
   async refreshAuth(authMethod: AuthType) {
+    this.useModelRouter = this.initialUseModelRouter;
+    if (this.disableModelRouterForAuth?.includes(authMethod)) {
+      this.useModelRouter = false;
+      if (this.model === DEFAULT_GEMINI_MODEL_AUTO) {
+        this.model = DEFAULT_GEMINI_MODEL;
+      }
+    } else if (this.useModelRouter && this.model === DEFAULT_GEMINI_MODEL) {
+      this.model = DEFAULT_GEMINI_MODEL_AUTO;
+    }
+
     // Vertex and Genai have incompatible encryption and sending history with
     // thoughtSignature from Genai to Vertex will fail, we need to strip them
     if (
@@ -586,9 +608,6 @@ export class Config {
 
     // Reset the session flag since we're explicitly changing auth and using default model
     this.inFallbackMode = false;
-
-    // Logging the cli configuration here as the auth related configuration params would have been loaded by this point
-    logCliConfiguration(this, new StartSessionEvent(this, this.toolRegistry));
   }
 
   getUserTier(): UserTierId | undefined {
@@ -911,7 +930,11 @@ export class Config {
   }
 
   getExtensions(): GeminiCLIExtension[] {
-    return this._extensions;
+    return this._extensionLoader.getExtensions();
+  }
+
+  getExtensionLoader(): ExtensionLoader {
+    return this._extensionLoader;
   }
 
   // The list of explicitly enabled extensions, if any were given, may contain
@@ -1117,6 +1140,11 @@ export class Config {
 
   async createToolRegistry(): Promise<ToolRegistry> {
     const registry = new ToolRegistry(this, this.eventEmitter);
+
+    // Set message bus on tool registry before discovery so MCP tools can access it
+    if (this.getEnableMessageBusIntegration()) {
+      registry.setMessageBus(this.messageBus);
+    }
 
     // helper to create & register core tools that are enabled
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
