@@ -251,7 +251,6 @@ describe('handleFallback', () => {
 
       expect(result).toBe(true);
       expect(mockRefreshAuth).toHaveBeenCalledWith(AUTH_API_KEY);
-      // Should pass success status to UI handler
       expect(mockHandler).toHaveBeenCalledWith(
         MOCK_PRO_MODEL,
         FALLBACK_MODEL,
@@ -292,7 +291,6 @@ describe('handleFallback', () => {
 
       expect(result).toBe(true);
       expect(mockRefreshAuth).not.toHaveBeenCalled();
-      // Should pass missing-env-vars status to UI handler
       expect(mockHandler).toHaveBeenCalledWith(
         MOCK_PRO_MODEL,
         FALLBACK_MODEL,

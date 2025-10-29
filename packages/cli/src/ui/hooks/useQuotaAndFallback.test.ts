@@ -230,7 +230,6 @@ describe('useQuotaAndFallback', () => {
         const handler = setFallbackHandlerSpy.mock
           .calls[0][0] as FallbackModelHandler;
 
-        // Simulate core handler passing success status
         const intent = await handler(
           'gemini-pro',
           'gemini-flash',
@@ -238,13 +237,10 @@ describe('useQuotaAndFallback', () => {
           { status: 'success', authType: 'gemini-api-key' },
         );
 
-        // Should NOT show dialog (no proQuotaRequest set)
         expect(result.current.proQuotaRequest).toBeNull();
 
-        // Should return 'retry' to retry the request
         expect(intent).toBe('retry');
 
-        // Should show auto-switch success message
         expect(mockHistoryManager.addItem).toHaveBeenCalledWith(
           expect.objectContaining({
             type: MessageType.INFO,

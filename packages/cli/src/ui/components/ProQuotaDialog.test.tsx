@@ -106,7 +106,6 @@ describe('ProQuotaDialog', () => {
       />,
     );
 
-    // Check that RadioButtonSelect was called with the Gemini API key option included
     expect(RadioButtonSelect).toHaveBeenCalledWith(
       expect.objectContaining({
         items: expect.arrayContaining([
@@ -143,10 +142,8 @@ describe('ProQuotaDialog', () => {
       />,
     );
 
-    // Get the onSelect function passed to RadioButtonSelect
     const onSelect = (RadioButtonSelect as Mock).mock.calls[0][0].onSelect;
 
-    // Simulate the selection
     onSelect('gemini-api-key');
 
     expect(mockOnChoice).toHaveBeenCalledWith('gemini-api-key');
@@ -163,7 +160,6 @@ describe('ProQuotaDialog', () => {
       />,
     );
 
-    // Check that RadioButtonSelect was called with the Vertex AI option included
     expect(RadioButtonSelect).toHaveBeenCalledWith(
       expect.objectContaining({
         items: expect.arrayContaining([
@@ -200,10 +196,8 @@ describe('ProQuotaDialog', () => {
       />,
     );
 
-    // Get the onSelect function passed to RadioButtonSelect
     const onSelect = (RadioButtonSelect as Mock).mock.calls[0][0].onSelect;
 
-    // Simulate the selection
     onSelect('vertex-ai');
 
     expect(mockOnChoice).toHaveBeenCalledWith('vertex-ai');
@@ -220,7 +214,6 @@ describe('ProQuotaDialog', () => {
       />,
     );
 
-    // Check that RadioButtonSelect was called with both options
     expect(RadioButtonSelect).toHaveBeenCalledWith(
       expect.objectContaining({
         items: expect.arrayContaining([
