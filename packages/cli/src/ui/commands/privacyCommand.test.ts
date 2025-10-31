@@ -17,14 +17,12 @@ describe('privacyCommand', () => {
   });
 
   it('should return a dialog action to open the privacy dialog', () => {
-    // Ensure the command has an action to test.
     if (!privacyCommand.action) {
       throw new Error('The privacy command must have an action.');
     }
 
     const result = privacyCommand.action(mockContext, '');
 
-    // Assert that the action returns the correct object to trigger the privacy dialog.
     expect(result).toEqual({
       type: 'dialog',
       dialog: 'privacy',

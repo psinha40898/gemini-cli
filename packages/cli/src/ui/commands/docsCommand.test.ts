@@ -11,7 +11,6 @@ import { type CommandContext } from './types.js';
 import { createMockCommandContext } from '../../test-utils/mockCommandContext.js';
 import { MessageType } from '../types.js';
 
-// Mock the 'open' library
 vi.mock('open', () => ({
   default: vi.fn(),
 }));
@@ -19,14 +18,11 @@ vi.mock('open', () => ({
 describe('docsCommand', () => {
   let mockContext: CommandContext;
   beforeEach(() => {
-    // Create a fresh mock context before each test
     mockContext = createMockCommandContext();
-    // Reset the `open` mock
     vi.mocked(open).mockClear();
   });
 
   afterEach(() => {
-    // Restore any stubbed environment variables
     vi.unstubAllEnvs();
   });
 
@@ -69,7 +65,6 @@ describe('docsCommand', () => {
       expect.any(Number),
     );
 
-    // Ensure 'open' was not called in the sandbox
     expect(open).not.toHaveBeenCalled();
   });
 
@@ -93,7 +88,6 @@ describe('docsCommand', () => {
       expect.any(Number),
     );
 
-    // 'open' should be called in this specific sandbox case
     expect(open).toHaveBeenCalledWith(docsUrl);
   });
 });

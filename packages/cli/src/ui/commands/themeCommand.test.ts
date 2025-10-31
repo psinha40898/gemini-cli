@@ -17,14 +17,12 @@ describe('themeCommand', () => {
   });
 
   it('should return a dialog action to open the theme dialog', () => {
-    // Ensure the command has an action to test.
     if (!themeCommand.action) {
       throw new Error('The theme command must have an action.');
     }
 
     const result = themeCommand.action(mockContext, '');
 
-    // Assert that the action returns the correct object to trigger the theme dialog.
     expect(result).toEqual({
       type: 'dialog',
       dialog: 'theme',

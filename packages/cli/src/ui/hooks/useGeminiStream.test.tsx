@@ -81,7 +81,7 @@ vi.mock('@google/gemini-cli-core', async (importOriginal) => {
     GeminiClient: MockedGeminiClientClass,
     UserPromptEvent: MockedUserPromptEvent,
     parseAndFormatApiError: mockParseAndFormatApiError,
-    tokenLimit: vi.fn().mockReturnValue(100), // Mock tokenLimit
+    tokenLimit: vi.fn().mockReturnValue(100),
   };
 });
 
@@ -160,10 +160,9 @@ describe('useGeminiStream', () => {
   let handleAtCommandSpy: MockInstance;
 
   beforeEach(() => {
-    vi.clearAllMocks(); // Clear mocks before each test
+    vi.clearAllMocks();
 
     mockAddItem = vi.fn();
-    // Define the mock for getGeminiClient
     const mockGetGeminiClient = vi.fn().mockImplementation(() => {
       // MockedGeminiClientClass is defined in the module scope by the previous change.
       // It will use the mockStartChat and mockSendMessageStream that are managed within beforeEach.
@@ -1984,12 +1983,10 @@ describe('useGeminiStream', () => {
         ),
       );
 
-      // Submit a query
       await act(async () => {
         await result.current.submitQuery('Generate long text');
       });
 
-      // Check that the info message was added
       await waitFor(() => {
         expect(mockAddItem).toHaveBeenCalledWith(
           {
@@ -2044,12 +2041,10 @@ describe('useGeminiStream', () => {
           ),
         );
 
-        // Submit a query
         await act(async () => {
           await result.current.submitQuery('Test overflow');
         });
 
-        // Check that the message was added without suggestion
         await waitFor(() => {
           expect(mockAddItem).toHaveBeenCalledWith(
             {
@@ -2099,12 +2094,10 @@ describe('useGeminiStream', () => {
           ),
         );
 
-        // Submit a query
         await act(async () => {
           await result.current.submitQuery('Test overflow');
         });
 
-        // Check that the message was added with suggestion
         await waitFor(() => {
           expect(mockAddItem).toHaveBeenCalledWith(
             {
@@ -2155,12 +2148,10 @@ describe('useGeminiStream', () => {
         ),
       );
 
-      // Submit a query
       await act(async () => {
         await result.current.submitQuery('Test overflow');
       });
 
-      // Check that onCancelSubmit was called
       await waitFor(() => {
         expect(onCancelSubmitSpy).toHaveBeenCalled();
       });
@@ -2204,7 +2195,6 @@ describe('useGeminiStream', () => {
         ),
       );
 
-      // Submit a query
       await act(async () => {
         await result.current.submitQuery('Test normal completion');
       });
@@ -2260,7 +2250,6 @@ describe('useGeminiStream', () => {
         ),
       );
 
-      // Submit a query
       await act(async () => {
         await result.current.submitQuery('Test unspecified finish');
       });
@@ -2632,7 +2621,6 @@ describe('useGeminiStream', () => {
         ),
       );
 
-      // Submit query
       await act(async () => {
         await result.current.submitQuery('Test query');
       });
@@ -2690,12 +2678,10 @@ describe('useGeminiStream', () => {
         ),
       );
 
-      // Submit query
       await act(async () => {
         await result.current.submitQuery('Test query');
       });
 
-      // Verify error message was added
       await waitFor(() => {
         expect(mockAddItem).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -2705,7 +2691,6 @@ describe('useGeminiStream', () => {
         );
       });
 
-      // Verify parseAndFormatApiError was called
       expect(mockParseAndFormatApiError).toHaveBeenCalledWith(
         { message: 'Test error' },
         expect.any(String),

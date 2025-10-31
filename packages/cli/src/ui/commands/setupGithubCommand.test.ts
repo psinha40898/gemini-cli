@@ -20,7 +20,6 @@ import * as commandUtils from '../utils/commandUtils.js';
 
 vi.mock('child_process');
 
-// Mock fetch globally
 global.fetch = vi.fn();
 
 vi.mock('../../utils/gitUtils.js', () => ({
@@ -102,7 +101,6 @@ describe('setupGithubCommand', async () => {
       expect(contents).toContain(workflow);
     }
 
-    // Verify that .gitignore was created with the expected entries
     const gitignorePath = path.join(scratchDir, '.gitignore');
     const gitignoreExists = await fs
       .access(gitignorePath)
@@ -211,7 +209,6 @@ describe('updateGitignore', () => {
   });
 
   it('handles file system errors gracefully', async () => {
-    // Try to update gitignore in a non-existent directory
     const nonExistentDir = path.join(scratchDir, 'non-existent');
 
     // This should not throw an error

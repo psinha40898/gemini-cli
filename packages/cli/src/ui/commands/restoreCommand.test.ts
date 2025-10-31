@@ -107,7 +107,7 @@ describe('restoreCommand', () => {
         messageType: 'info',
         content: 'No restorable tool calls found.',
       });
-      // Verify the directory was created by the command.
+
       await expect(fs.stat(checkpointsDir)).resolves.toBeDefined();
     });
 
