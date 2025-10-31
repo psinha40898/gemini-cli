@@ -103,7 +103,6 @@ vi.mock('./contexts/SessionContext.js');
 vi.mock('./components/shared/text-buffer.js');
 vi.mock('./hooks/useLogger.js');
 
-// Mock external utilities
 vi.mock('../utils/events.js');
 vi.mock('../utils/handleAutoUpdate.js');
 vi.mock('./utils/ConsolePatcher.js');
@@ -280,10 +279,8 @@ describe('AppContainer State Management', () => {
       currentLoadingPhrase: '',
     });
 
-    // Mock Config
     mockConfig = makeFakeConfig();
 
-    // Mock config's getTargetDir to return consistent workspace directory
     vi.spyOn(mockConfig, 'getTargetDir').mockReturnValue('/test/workspace');
 
     mockExtensionManager = vi.mockObject({
@@ -295,7 +292,6 @@ describe('AppContainer State Management', () => {
       mockExtensionManager,
     );
 
-    // Mock LoadedSettings
     mockSettings = {
       merged: {
         hideBanner: false,
@@ -310,7 +306,6 @@ describe('AppContainer State Management', () => {
       },
     } as unknown as LoadedSettings;
 
-    // Mock InitializationResult
     mockInitResult = {
       themeError: null,
       authError: null,
