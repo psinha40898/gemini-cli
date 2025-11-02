@@ -462,12 +462,15 @@ describe('useQuotaAndFallback', () => {
 
       const handler = setFallbackHandlerSpy.mock
         .calls[0][0] as FallbackModelHandler;
-      const promise = handler(
-        'gemini-pro',
-        'gemini-flash',
-        new TerminalQuotaError('pro quota', mockGoogleApiError),
-      );
-      await act(async () => {});
+      let promise!: Promise<FallbackIntent | null>;
+      await act(async () => {
+        promise = handler(
+          'gemini-pro',
+          'gemini-flash',
+          new TerminalQuotaError('pro quota', mockGoogleApiError),
+        );
+        await Promise.resolve();
+      });
 
       await act(async () => {
         await result.current.handleProQuotaChoice('gemini-api-key');
@@ -518,12 +521,15 @@ describe('useQuotaAndFallback', () => {
 
       const handler = setFallbackHandlerSpy.mock
         .calls[0][0] as FallbackModelHandler;
-      const promise = handler(
-        'gemini-pro',
-        'gemini-flash',
-        new TerminalQuotaError('pro quota', mockGoogleApiError),
-      );
-      await act(async () => {});
+      let promise!: Promise<FallbackIntent | null>;
+      await act(async () => {
+        promise = handler(
+          'gemini-pro',
+          'gemini-flash',
+          new TerminalQuotaError('pro quota', mockGoogleApiError),
+        );
+        await Promise.resolve();
+      });
 
       await act(async () => {
         await result.current.handleProQuotaChoice('gemini-api-key');
