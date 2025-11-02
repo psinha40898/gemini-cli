@@ -45,6 +45,8 @@ export interface UIActions {
   ) => void;
   setQueueErrorMessage: (message: string | null) => void;
   popAllMessages: (onPop: (messages: string | undefined) => void) => void;
+  handleApiKeySubmit: (apiKey: string) => Promise<void>;
+  handleApiKeyCancel: () => void;
 }
 
 export const UIActionsContext = createContext<UIActions | null>(null);
