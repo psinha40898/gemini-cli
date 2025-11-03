@@ -12,8 +12,9 @@ import { renderHook } from '../../test-utils/render.js';
 import {
   useReactToolScheduler,
   mapToDisplay,
+  type TrackedToolCall,
+  type TrackedWaitingToolCall,
 } from './useReactToolScheduler.js';
-import type { PartUnion, FunctionResponse } from '@google/genai';
 import type {
   Config,
   ToolCallRequestInfo,
@@ -152,7 +153,9 @@ describe('useReactToolScheduler in YOLO Mode', () => {
       callId: 'yoloCall',
       name: 'mockToolRequiresConfirmation',
       args: { data: 'any data' },
-    } as any;
+      isClientInitiated: false,
+      prompt_id: 'test-prompt-id',
+    };
 
     act(() => {
       schedule(request, new AbortController().signal);
@@ -221,10 +224,13 @@ describe('useReactToolScheduler', () => {
         ({
           onConfirm: mockOnUserConfirmForToolConfirmation,
           fileName: 'mockToolRequiresConfirmation.ts',
+          filePath: '/mock/path/mockToolRequiresConfirmation.ts',
           fileDiff: 'Mock tool requires confirmation',
+          originalContent: null,
+          newContent: 'mocked new content',
           type: 'edit',
           title: 'Mock Tool Requires Confirmation',
-        }) as any,
+        }) satisfies ToolCallConfirmationDetails,
     );
 
     vi.useFakeTimers();
@@ -264,7 +270,9 @@ describe('useReactToolScheduler', () => {
       callId: 'call1',
       name: 'mockTool',
       args: { param: 'value' },
-    } as any;
+      isClientInitiated: false,
+      prompt_id: 'test-prompt-id',
+    };
 
     let completedToolCalls: ToolCall[] = [];
     onComplete.mockImplementation((calls) => {
@@ -321,10 +329,11 @@ describe('useReactToolScheduler', () => {
     const setToolCallsForDisplay = result.current[3];
 
     // Manually set a tool call in the display.
+    // Using a minimal stub object to test that old calls are cleared.
     const oldToolCall = {
       request: { callId: 'oldCall' },
-      status: 'success',
-    } as any;
+      status: 'success' as const,
+    } as TrackedToolCall;
     act(() => {
       setToolCallsForDisplay([oldToolCall]);
     });
@@ -334,7 +343,9 @@ describe('useReactToolScheduler', () => {
       callId: 'newCall',
       name: 'mockTool',
       args: {},
-    } as any;
+      isClientInitiated: false,
+      prompt_id: 'test-prompt-id',
+    };
     act(() => {
       schedule(newRequest, new AbortController().signal);
     });
@@ -375,7 +386,9 @@ describe('useReactToolScheduler', () => {
       callId: 'cancelCall',
       name: 'mockTool',
       args: {},
-    } as any;
+      isClientInitiated: false,
+      prompt_id: 'test-prompt-id',
+    };
 
     act(() => {
       schedule(request, new AbortController().signal);
@@ -420,7 +433,9 @@ describe('useReactToolScheduler', () => {
       callId: 'call1',
       name: 'nonexistentTool',
       args: {},
-    } as any;
+      isClientInitiated: false,
+      prompt_id: 'test-prompt-id',
+    };
 
     let completedToolCalls: ToolCall[] = [];
     onComplete.mockImplementation((calls) => {
@@ -459,7 +474,9 @@ describe('useReactToolScheduler', () => {
       callId: 'call1',
       name: 'mockTool',
       args: {},
-    } as any;
+      isClientInitiated: false,
+      prompt_id: 'test-prompt-id',
+    };
 
     let completedToolCalls: ToolCall[] = [];
     onComplete.mockImplementation((calls) => {
@@ -494,7 +511,9 @@ describe('useReactToolScheduler', () => {
       callId: 'call1',
       name: 'mockTool',
       args: {},
-    } as any;
+      isClientInitiated: false,
+      prompt_id: 'test-prompt-id',
+    };
 
     let completedToolCalls: ToolCall[] = [];
     onComplete.mockImplementation((calls) => {
@@ -534,7 +553,9 @@ describe('useReactToolScheduler', () => {
       callId: 'callConfirm',
       name: 'mockToolRequiresConfirmation',
       args: { data: 'sensitive' },
-    } as any;
+      isClientInitiated: false,
+      prompt_id: 'test-prompt-id',
+    };
 
     act(() => {
       schedule(request, new AbortController().signal);
@@ -543,7 +564,7 @@ describe('useReactToolScheduler', () => {
       await vi.advanceTimersByTimeAsync(0);
     });
 
-    const waitingCall = result.current[0][0] as any;
+    const waitingCall = result.current[0][0] as TrackedWaitingToolCall;
     expect(waitingCall.status).toBe('awaiting_approval');
     capturedOnConfirmForTest = waitingCall.confirmationDetails?.onConfirm;
     expect(capturedOnConfirmForTest).toBeDefined();
@@ -592,7 +613,9 @@ describe('useReactToolScheduler', () => {
       callId: 'callConfirmCancel',
       name: 'mockToolRequiresConfirmation',
       args: {},
-    } as any;
+      isClientInitiated: false,
+      prompt_id: 'test-prompt-id',
+    };
 
     act(() => {
       schedule(request, new AbortController().signal);
@@ -601,7 +624,7 @@ describe('useReactToolScheduler', () => {
       await vi.advanceTimersByTimeAsync(0);
     });
 
-    const waitingCall = result.current[0][0] as any;
+    const waitingCall = result.current[0][0] as TrackedWaitingToolCall;
     expect(waitingCall.status).toBe('awaiting_approval');
     capturedOnConfirmForTest = waitingCall.confirmationDetails?.onConfirm;
     expect(capturedOnConfirmForTest).toBeDefined();
@@ -667,7 +690,9 @@ describe('useReactToolScheduler', () => {
       callId: 'liveCall',
       name: 'mockToolWithLiveOutput',
       args: {},
-    } as any;
+      isClientInitiated: false,
+      prompt_id: 'test-prompt-id',
+    };
 
     act(() => {
       schedule(request, new AbortController().signal);
@@ -753,8 +778,20 @@ describe('useReactToolScheduler', () => {
     const { result } = renderScheduler();
     const schedule = result.current[1];
     const requests: ToolCallRequestInfo[] = [
-      { callId: 'multi1', name: 'tool1', args: { p: 1 } } as any,
-      { callId: 'multi2', name: 'tool2', args: { p: 2 } } as any,
+      {
+        callId: 'multi1',
+        name: 'tool1',
+        args: { p: 1 },
+        isClientInitiated: false,
+        prompt_id: 'test-prompt-id',
+      },
+      {
+        callId: 'multi2',
+        name: 'tool2',
+        args: { p: 2 },
+        isClientInitiated: false,
+        prompt_id: 'test-prompt-id',
+      },
     ];
 
     act(() => {
@@ -842,12 +879,16 @@ describe('useReactToolScheduler', () => {
       callId: 'run1',
       name: 'mockTool',
       args: {},
-    } as any;
+      isClientInitiated: false,
+      prompt_id: 'test-prompt-id',
+    };
     const request2: ToolCallRequestInfo = {
       callId: 'run2',
       name: 'mockTool',
       args: {},
-    } as any;
+      isClientInitiated: false,
+      prompt_id: 'test-prompt-id',
+    };
 
     act(() => {
       schedule(request1, new AbortController().signal);
@@ -899,7 +940,9 @@ describe('mapToDisplay', () => {
     callId: 'testCallId',
     name: 'testTool',
     args: { foo: 'bar' },
-  } as any;
+    isClientInitiated: false,
+    prompt_id: 'test-prompt-id',
+  };
 
   const baseTool = new MockTool({
     name: 'testTool',
@@ -908,7 +951,7 @@ describe('mapToDisplay', () => {
     shouldConfirmExecute: vi.fn(),
   });
 
-  const baseResponse: ToolCallResponseInfo = {
+  const baseResponse = {
     callId: 'testCallId',
     responseParts: [
       {
@@ -916,12 +959,15 @@ describe('mapToDisplay', () => {
           name: 'testTool',
           id: 'testCallId',
           response: { output: 'Test output' },
-        } as FunctionResponse,
-      } as PartUnion,
+        },
+      },
     ],
     resultDisplay: 'Test display output',
     error: undefined,
-  } as any;
+    errorType: undefined,
+    outputFile: undefined,
+    contentLength: undefined,
+  } satisfies ToolCallResponseInfo;
 
   // Define a more specific type for extraProps for these tests
   // This helps ensure that tool and confirmationDetails are only accessed when they are expected to exist.
