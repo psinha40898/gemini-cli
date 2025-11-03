@@ -132,8 +132,18 @@ Follow these steps:
 14. Discuss with me before making any comments on the issue. I will clarify
     which possible issues you identified are problems, which ones you need to
     investigate further, and which ones I do not care about.
-15. If I request you to add comments to the issue, use
-    `gh pr comment {{args}} --body {{review}}` to post the review to the PR.
+15. If I request you to add comments to the issue, you must use this exact
+    approach to avoid shell escaping issues:
+    * Keep your review in markdown format (GitHub will render it properly)
+    * Use printf with escaped newlines piped to gh: 
+      `printf "review text with \\n for newlines" | gh pr comment {{args}} --body-file -`
+    * Example:
+      ```
+      printf "# Review\\n\\nThe **AUTO_FALLBACK_CONFIG** is well organized.\\n\\nIssues:\\n- Fix the handleProQuotaChoice function" | gh pr comment {{args}} --body-file -
+      ```
+    * Use \\n for line breaks, escape any $ or ` characters with backslash
+    * This ensures all text, including terms like AUTO_FALLBACK_CONFIG, appears
+      correctly without corruption
 
 Remember to use the GitHub CLI (`gh`) with the Shell tool for all
 GitHub-related tasks.
