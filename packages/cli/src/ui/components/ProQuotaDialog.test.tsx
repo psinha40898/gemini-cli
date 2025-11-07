@@ -56,7 +56,7 @@ describe('ProQuotaDialog', () => {
     unmount();
   });
 
-  it('should call onChoice with "auth" when "Change auth" is selected', () => {
+  it('should call onChoice with "retry_later" when "Try again later" is selected', () => {
     const mockOnChoice = vi.fn();
     const { unmount } = render(
       <ProQuotaDialog
@@ -72,14 +72,14 @@ describe('ProQuotaDialog', () => {
 
     // Simulate the selection
     act(() => {
-      onSelect('auth');
+      onSelect('retry_later');
     });
 
-    expect(mockOnChoice).toHaveBeenCalledWith('auth');
+    expect(mockOnChoice).toHaveBeenCalledWith('retry_later');
     unmount();
   });
 
-  it('should call onChoice with "continue" when "Continue with flash" is selected', () => {
+  it('should call onChoice with "retry" when "Switch to flash" is selected', () => {
     const mockOnChoice = vi.fn();
     const { unmount } = render(
       <ProQuotaDialog
@@ -116,14 +116,14 @@ describe('ProQuotaDialog', () => {
       expect.objectContaining({
         items: expect.arrayContaining([
           {
-            label: 'Change auth (executes the /auth command)',
-            value: 'auth',
-            key: 'auth',
+            label: 'Try again later',
+            value: 'retry_later',
+            key: 'retry_later',
           },
           {
-            label: `Continue with gemini-2.5-flash`,
-            value: 'continue',
-            key: 'continue',
+            label: `Switch to gemini-2.5-flash for the rest of this session`,
+            value: 'retry',
+            key: 'retry',
           },
           {
             label: 'Always fallback to Gemini API key',
@@ -168,14 +168,14 @@ describe('ProQuotaDialog', () => {
       expect.objectContaining({
         items: expect.arrayContaining([
           {
-            label: 'Change auth (executes the /auth command)',
-            value: 'auth',
-            key: 'auth',
+            label: 'Try again later',
+            value: 'retry_later',
+            key: 'retry_later',
           },
           {
-            label: `Continue with gemini-2.5-flash`,
-            value: 'continue',
-            key: 'continue',
+            label: `Switch to gemini-2.5-flash for the rest of this session`,
+            value: 'retry',
+            key: 'retry',
           },
           {
             label: 'Always fallback to Vertex AI',
@@ -220,14 +220,14 @@ describe('ProQuotaDialog', () => {
       expect.objectContaining({
         items: expect.arrayContaining([
           {
-            label: 'Change auth (executes the /auth command)',
-            value: 'auth',
-            key: 'auth',
+            label: 'Try again later',
+            value: 'retry_later',
+            key: 'retry_later',
           },
           {
-            label: `Continue with gemini-2.5-flash`,
-            value: 'continue',
-            key: 'continue',
+            label: `Switch to gemini-2.5-flash for the rest of this session`,
+            value: 'retry',
+            key: 'retry',
           },
           {
             label: 'Always fallback to Gemini API key',

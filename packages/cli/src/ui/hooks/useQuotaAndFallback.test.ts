@@ -29,6 +29,7 @@ import {
 import { useQuotaAndFallback } from './useQuotaAndFallback.js';
 import type { UseHistoryManagerReturn } from './useHistoryManager.js';
 import { MessageType } from '../types.js';
+import type { LoadedSettings } from '../../config/settings.js';
 
 // Use a type alias for SpyInstance as it's not directly exported
 type SpyInstance = ReturnType<typeof vi.spyOn>;
@@ -37,7 +38,7 @@ describe('useQuotaAndFallback', () => {
   let mockConfig: Config;
   let mockHistoryManager: UseHistoryManagerReturn;
   let mockSetModelSwitchedFromQuotaError: Mock;
-  let mockSettings: { setValue: Mock };
+  let mockSettings: LoadedSettings;
   let setFallbackHandlerSpy: SpyInstance;
   let mockGoogleApiError: GoogleApiError;
 
@@ -65,7 +66,7 @@ describe('useQuotaAndFallback', () => {
     mockSetModelSwitchedFromQuotaError = vi.fn();
     mockSettings = {
       setValue: vi.fn(),
-    };
+    } as unknown as LoadedSettings;
 
     setFallbackHandlerSpy = vi.spyOn(mockConfig, 'setFallbackModelHandler');
     vi.spyOn(mockConfig, 'setQuotaErrorOccurred');

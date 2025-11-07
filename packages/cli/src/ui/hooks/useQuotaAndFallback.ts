@@ -17,16 +17,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { type UseHistoryManagerReturn } from './useHistoryManager.js';
 import { MessageType } from '../types.js';
 import { type ProQuotaDialogRequest } from '../contexts/UIStateContext.js';
-import { SettingScope } from '../../config/settings.js';
+import { type LoadedSettings, SettingScope } from '../../config/settings.js';
 
 interface UseQuotaAndFallbackArgs {
   config: Config;
   historyManager: UseHistoryManagerReturn;
   userTier: UserTierId | undefined;
   setModelSwitchedFromQuotaError: (value: boolean) => void;
-  settings: {
-    setValue: (scope: SettingScope, key: string, value: unknown) => void;
-  };
+  settings: LoadedSettings;
 }
 
 type AutoFallbackType = 'gemini-api-key' | 'vertex-ai';
