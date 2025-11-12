@@ -43,6 +43,7 @@ const createMockConfig = (overrides: Partial<Config> = {}): Config =>
     getContentGeneratorConfig: vi.fn(() => undefined),
     getAutoFallback: vi.fn(() => ({ enabled: false, type: 'gemini-api-key' })),
     refreshAuth: vi.fn(),
+    isInteractive: vi.fn(() => false),
     ...overrides,
   }) as unknown as Config;
 
