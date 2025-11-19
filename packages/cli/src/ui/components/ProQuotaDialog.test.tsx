@@ -36,6 +36,8 @@ describe('ProQuotaDialog', () => {
           fallbackModel="gemini-2.5-pro"
           message="flash error"
           isTerminalQuotaError={true} // should not matter
+          hasApiKey={false}
+          hasVertexAI={false}
           onChoice={mockOnChoice}
           userTier={UserTierId.FREE}
         />,
@@ -72,6 +74,8 @@ describe('ProQuotaDialog', () => {
             message="paid tier quota error"
             isTerminalQuotaError={true}
             isModelNotFoundError={false}
+            hasApiKey={false}
+            hasVertexAI={false}
             onChoice={mockOnChoice}
             userTier={UserTierId.LEGACY}
           />,
@@ -105,6 +109,8 @@ describe('ProQuotaDialog', () => {
             message="free tier quota error"
             isTerminalQuotaError={true}
             isModelNotFoundError={false}
+            hasApiKey={false}
+            hasVertexAI={false}
             onChoice={mockOnChoice}
             userTier={UserTierId.FREE}
           />,
@@ -145,6 +151,8 @@ describe('ProQuotaDialog', () => {
             message="capacity error"
             isTerminalQuotaError={false}
             isModelNotFoundError={false}
+            hasApiKey={false}
+            hasVertexAI={false}
             onChoice={mockOnChoice}
             userTier={UserTierId.FREE}
           />,
@@ -181,6 +189,8 @@ describe('ProQuotaDialog', () => {
             message="You don't have access to gemini-3-pro-preview yet."
             isTerminalQuotaError={false}
             isModelNotFoundError={true}
+            hasApiKey={false}
+            hasVertexAI={false}
             onChoice={mockOnChoice}
             userTier={UserTierId.FREE}
           />,
@@ -214,6 +224,8 @@ describe('ProQuotaDialog', () => {
             message="You don't have access to gemini-3-pro-preview yet."
             isTerminalQuotaError={false}
             isModelNotFoundError={true}
+            hasApiKey={false}
+            hasVertexAI={false}
             onChoice={mockOnChoice}
             userTier={UserTierId.LEGACY}
           />,
@@ -249,6 +261,8 @@ describe('ProQuotaDialog', () => {
           fallbackModel="gemini-2.5-flash"
           message=""
           isTerminalQuotaError={false}
+          hasApiKey={false}
+          hasVertexAI={false}
           onChoice={mockOnChoice}
           userTier={UserTierId.FREE}
         />,
@@ -272,6 +286,8 @@ describe('ProQuotaDialog', () => {
           fallbackModel="gemini-2.5-pro"
           message=""
           isTerminalQuotaError={false}
+          hasApiKey={false}
+          hasVertexAI={false}
           onChoice={mockOnChoice}
           userTier={UserTierId.FREE}
         />,
@@ -291,6 +307,8 @@ describe('ProQuotaDialog', () => {
           fallbackModel="gemini-2.5-flash"
           message=""
           isTerminalQuotaError={false}
+          hasApiKey={false}
+          hasVertexAI={false}
           onChoice={mockOnChoice}
           userTier={UserTierId.FREE}
         />,

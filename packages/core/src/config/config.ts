@@ -306,6 +306,10 @@ export interface ConfigParameters {
     [K in HookEventName]?: HookDefinition[];
   };
   previewFeatures?: boolean;
+  autoFallback?: {
+    enabled: boolean;
+    type: 'gemini-api-key' | 'vertex-ai';
+  };
 }
 
 export class Config {
@@ -413,6 +417,10 @@ export class Config {
   readonly fakeResponses?: string;
   readonly recordResponses?: string;
   private readonly disableYoloMode: boolean;
+  private readonly autoFallback: {
+    enabled: boolean;
+    type: 'gemini-api-key' | 'vertex-ai';
+  };
   private pendingIncludeDirectories: string[];
   private readonly enableHooks: boolean;
   private readonly hooks:
@@ -559,6 +567,10 @@ export class Config {
     };
     this.retryFetchErrors = params.retryFetchErrors ?? false;
     this.disableYoloMode = params.disableYoloMode ?? false;
+    this.autoFallback = params.autoFallback ?? {
+      enabled: false,
+      type: 'gemini-api-key',
+    };
     this.hooks = params.hooks;
     this.experiments = params.experiments;
 
@@ -751,6 +763,13 @@ export class Config {
 
   getContentGeneratorConfig(): ContentGeneratorConfig {
     return this.contentGeneratorConfig;
+  }
+
+  getAutoFallback(): {
+    enabled: boolean;
+    type: 'gemini-api-key' | 'vertex-ai';
+  } {
+    return this.autoFallback;
   }
 
   getModel(): string {
