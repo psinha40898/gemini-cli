@@ -646,7 +646,7 @@ export interface Transformation {
   collaspedText: string;
 }
 export const imagePathRegex =
-  /@([^[\]\r\n]+?\.(?:png|jpg|jpeg|gif|webp|svg|bmp))\b/gi;
+  /@([^\s[\]\r\n]+?\.(?:png|jpg|jpeg|gif|webp|svg|bmp))\b/gi;
 
 export function getTransformedImagePath(filePath: string): string {
   const fileName = path.basename(filePath);
@@ -665,6 +665,9 @@ export function getTransformedImagePath(filePath: string): string {
 export function getTransformationsForLine(line: string): Transformation[] {
   const transformations: Transformation[] = [];
   let match: RegExpExecArray | null;
+
+  // Reset regex state to ensure clean matching from start of line
+  imagePathRegex.lastIndex = 0;
 
   while ((match = imagePathRegex.exec(line)) !== null) {
     const logicalText = match[0];
@@ -687,6 +690,7 @@ export function getTransformationsForLine(line: string): Transformation[] {
       });
     }
   }
+
   return transformations;
 }
 
