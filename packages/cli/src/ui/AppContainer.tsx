@@ -1579,6 +1579,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
       handleApiKeySubmit,
       handleApiKeyCancel,
       setBannerVisible,
+      setEmbeddedShellFocused,
     }),
     [
       handleThemeSelect,
@@ -1609,6 +1610,7 @@ Logging in with Google... Please restart Gemini CLI to continue.
       handleApiKeySubmit,
       handleApiKeyCancel,
       setBannerVisible,
+      setEmbeddedShellFocused,
     ],
   );
 
