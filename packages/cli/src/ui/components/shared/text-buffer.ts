@@ -1735,15 +1735,12 @@ export function textBufferReducer(
   action: TextBufferAction,
   options: TextBufferOptions = {},
 ): TextBufferState {
-  let newState = textBufferReducerLogic(state, action, options);
+  const newState = textBufferReducerLogic(state, action, options);
 
-  // If lines changed, recompute cached transformation spans
-  if (newState.lines !== state.lines) {
-    newState = {
-      ...newState,
-      transformationsByLine: computeTransformationsForLines(newState.lines),
-    } as TextBufferState;
-  }
+  const newTransformedLines =
+    newState.lines !== state.lines
+      ? computeTransformationsForLines(newState.lines)
+      : state.transformationsByLine;
 
   const oldTransform = getTransformUnderCursor(
     state.cursorRow,
@@ -1776,6 +1773,7 @@ export function textBufferReducer(
         newState.cursorRow,
         newState.cursorCol,
       ]),
+      transformationsByLine: newTransformedLines,
     };
   }
 
