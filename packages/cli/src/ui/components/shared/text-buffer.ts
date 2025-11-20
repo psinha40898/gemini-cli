@@ -662,7 +662,9 @@ export function getTransformedImagePath(filePath: string): string {
   return `[Image ${truncatedBase}${extension}]`;
 }
 
-export function getTransformationsForLine(line: string): Transformation[] {
+export function calculateTransformationsForLine(
+  line: string,
+): Transformation[] {
   const transformations: Transformation[] = [];
   let match: RegExpExecArray | null;
 
@@ -694,10 +696,8 @@ export function getTransformationsForLine(line: string): Transformation[] {
   return transformations;
 }
 
-export function computeTransformationsForLines(
-  lines: string[],
-): Transformation[][] {
-  return lines.map((ln) => getTransformationsForLine(ln));
+export function calculateTransformations(lines: string[]): Transformation[][] {
+  return lines.map((ln) => calculateTransformationsForLine(ln));
 }
 
 export function getTransformUnderCursor(
@@ -818,7 +818,7 @@ function calculateLayout(
 
   logicalLines.forEach((logLine, logIndex) => {
     logicalToVisualMap[logIndex] = [];
-    const transformations = getTransformationsForLine(logLine);
+    const transformations = calculateTransformationsForLine(logLine);
     const { transformedLine, transformedToLogMap } = calculateTransformedLine(
       logLine,
       logIndex,
@@ -1739,7 +1739,7 @@ export function textBufferReducer(
 
   const newTransformedLines =
     newState.lines !== state.lines
-      ? computeTransformationsForLines(newState.lines)
+      ? calculateTransformations(newState.lines)
       : state.transformationsByLine;
 
   const oldTransform = getTransformUnderCursor(
@@ -1750,7 +1750,7 @@ export function textBufferReducer(
   const newTransform = getTransformUnderCursor(
     newState.cursorRow,
     newState.cursorCol,
-    newState.transformationsByLine,
+    newTransformedLines,
   );
   const oldInside = oldTransform !== null;
   const newInside = newTransform !== null;
@@ -1800,7 +1800,7 @@ export function useTextBuffer({
       lines.length === 0 ? [''] : lines,
       initialCursorOffset,
     );
-    const transformationsByLine = computeTransformationsForLines(
+    const transformationsByLine = calculateTransformations(
       lines.length === 0 ? [''] : lines,
     );
     const visualLayout = calculateLayout(

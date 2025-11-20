@@ -24,7 +24,7 @@ import {
   findWordEndInLine,
   findNextWordStartInLine,
   isWordCharStrict,
-  getTransformationsForLine,
+  calculateTransformationsForLine,
   calculateTransformedLine,
   getTransformUnderCursor,
   getTransformedImagePath,
@@ -2253,7 +2253,7 @@ describe('Transformation Utilities', () => {
   describe('getTransformationsForLine', () => {
     it('should find transformations in a line', () => {
       const line = 'Check out @test.png and @another.jpg';
-      const result = getTransformationsForLine(line);
+      const result = calculateTransformationsForLine(line);
 
       expect(result).toHaveLength(2);
       expect(result[0]).toMatchObject({
@@ -2268,24 +2268,24 @@ describe('Transformation Utilities', () => {
 
     it('should handle no transformations', () => {
       const line = 'Just some regular text';
-      const result = getTransformationsForLine(line);
+      const result = calculateTransformationsForLine(line);
       expect(result).toEqual([]);
     });
 
     it('should handle empty line', () => {
-      const result = getTransformationsForLine('');
+      const result = calculateTransformationsForLine('');
       expect(result).toEqual([]);
     });
 
     it('should merge multiple transformations in a row', () => {
       const line = '@a.png@b.png@c.png';
-      const result = getTransformationsForLine(line);
+      const result = calculateTransformationsForLine(line);
       expect(result).toHaveLength(1);
     });
 
     it('should handle multiple transformations in a row', () => {
       const line = '@a.png @b.png @c.png';
-      const result = getTransformationsForLine(line);
+      const result = calculateTransformationsForLine(line);
       expect(result).toHaveLength(3);
     });
   });
@@ -2335,7 +2335,7 @@ describe('Transformation Utilities', () => {
   describe('calculateTransformedLine', () => {
     it('should transform a line with one transformation', () => {
       const line = 'Check out @test.png';
-      const transformations = getTransformationsForLine(line);
+      const transformations = calculateTransformationsForLine(line);
       const result = calculateTransformedLine(line, 0, [0, 0], transformations);
 
       expect(result.transformedLine).toBe('Check out [Image @test.png]');
@@ -2348,7 +2348,7 @@ describe('Transformation Utilities', () => {
 
     it('should handle cursor inside transformation', () => {
       const line = 'Check out @test.png';
-      const transformations = getTransformationsForLine(line);
+      const transformations = calculateTransformationsForLine(line);
       // Cursor at '@' (position 10 in the line)
       const result = calculateTransformedLine(
         line,
