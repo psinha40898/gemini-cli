@@ -31,7 +31,7 @@ import {
 import { useQuotaAndFallback } from './useQuotaAndFallback.js';
 import type { UseHistoryManagerReturn } from './useHistoryManager.js';
 import { MessageType } from '../types.js';
-import type { LoadedSettings } from '../../config/settings.js';
+import { type LoadedSettings, SettingScope } from '../../config/settings.js';
 
 // Use a type alias for SpyInstance as it's not directly exported
 type SpyInstance = ReturnType<typeof vi.spyOn>;
@@ -57,6 +57,7 @@ describe('useQuotaAndFallback', () => {
     vi.spyOn(mockConfig, 'getContentGeneratorConfig').mockReturnValue({
       authType: AuthType.LOGIN_WITH_GOOGLE,
     });
+    vi.spyOn(mockConfig, 'refreshAuth').mockResolvedValue(undefined);
 
     mockHistoryManager = {
       addItem: vi.fn(),
@@ -341,6 +342,95 @@ To disable Gemini 3, disable "Preview features" in /settings.`,
         expect(intent).toBe('retry_always');
         expect(result.current.proQuotaRequest).toBeNull();
       });
+
+      it('should handle auto-fallback success correctly', async () => {
+        const { result } = renderHook(() =>
+          useQuotaAndFallback({
+            config: mockConfig,
+            historyManager: mockHistoryManager,
+            userTier: UserTierId.FREE,
+            setModelSwitchedFromQuotaError: mockSetModelSwitchedFromQuotaError,
+            settings: mockSettings,
+          }),
+        );
+
+        const handler = setFallbackHandlerSpy.mock
+          .calls[0][0] as FallbackModelHandler;
+
+        const autoFallbackStatus = {
+          status: 'success' as const,
+          authType: 'gemini-api-key' as const,
+        };
+
+        let intent: FallbackIntent | null;
+        await act(async () => {
+          intent = await handler(
+            'gemini-pro',
+            'gemini-flash',
+            new TerminalQuotaError('pro quota', mockGoogleApiError),
+            autoFallbackStatus,
+          );
+        });
+
+        // Should return retry_once immediately without showing dialog
+        expect(intent!).toBe('retry_once');
+        expect(result.current.proQuotaRequest).toBeNull();
+
+        // Should add success message to history
+        expect(mockHistoryManager.addItem).toHaveBeenCalledTimes(1);
+        const lastCall = (mockHistoryManager.addItem as Mock).mock.calls[0][0];
+        expect(lastCall.type).toBe(MessageType.INFO);
+        expect(lastCall.text).toContain(
+          '✓ Automatically switched to Gemini API key authentication',
+        );
+      });
+
+      it('should handle auto-fallback missing-env-vars correctly', async () => {
+        const { result } = renderHook(() =>
+          useQuotaAndFallback({
+            config: mockConfig,
+            historyManager: mockHistoryManager,
+            userTier: UserTierId.FREE,
+            setModelSwitchedFromQuotaError: mockSetModelSwitchedFromQuotaError,
+            settings: mockSettings,
+          }),
+        );
+
+        const handler = setFallbackHandlerSpy.mock
+          .calls[0][0] as FallbackModelHandler;
+
+        const autoFallbackStatus = {
+          status: 'missing-env-vars' as const,
+          authType: 'gemini-api-key' as const,
+        };
+
+        let promise: Promise<FallbackIntent | null>;
+        await act(() => {
+          promise = handler(
+            'gemini-pro',
+            'gemini-flash',
+            new TerminalQuotaError('pro quota', mockGoogleApiError),
+            autoFallbackStatus,
+          );
+        });
+
+        // Should show dialog
+        expect(result.current.proQuotaRequest).not.toBeNull();
+
+        // Should add warning message to history
+        expect(mockHistoryManager.addItem).toHaveBeenCalledTimes(1);
+        const lastCall = (mockHistoryManager.addItem as Mock).mock.calls[0][0];
+        expect(lastCall.type).toBe(MessageType.INFO);
+        expect(lastCall.text).toContain(
+          'Auto-fallback to Gemini API key is enabled but environment variables are missing',
+        );
+
+        // Resolve dialog to cleanup
+        await act(() => {
+          result.current.handleProQuotaChoice('retry_later');
+        });
+        await promise!;
+      });
     });
   });
 
@@ -466,6 +556,152 @@ To disable Gemini 3, disable "Preview features" in /settings.`,
       expect(lastCall.text).toContain(
         `Switched to fallback model gemini-flash. We will periodically check if ${PREVIEW_GEMINI_MODEL} is available again.`,
       );
+    });
+
+    it('should handle "gemini-api-key" choice with env var present', async () => {
+      vi.stubEnv('GEMINI_API_KEY', 'test-key');
+      const { result } = renderHook(() =>
+        useQuotaAndFallback({
+          config: mockConfig,
+          historyManager: mockHistoryManager,
+          userTier: UserTierId.FREE,
+          setModelSwitchedFromQuotaError: mockSetModelSwitchedFromQuotaError,
+          settings: mockSettings,
+        }),
+      );
+
+      const handler = setFallbackHandlerSpy.mock
+        .calls[0][0] as FallbackModelHandler;
+      let promise: Promise<FallbackIntent | null>;
+      await act(() => {
+        promise = handler(
+          'gemini-pro',
+          'gemini-flash',
+          new TerminalQuotaError('pro quota', mockGoogleApiError),
+        );
+      });
+
+      await act(async () => {
+        await result.current.handleProQuotaChoice('gemini-api-key');
+      });
+
+      const intent = await promise!;
+      expect(intent).toBe('retry_once');
+      expect(result.current.proQuotaRequest).toBeNull();
+
+      // Verify settings were saved
+      expect(mockSettings.setValue).toHaveBeenCalledWith(
+        SettingScope.User,
+        'security.auth.autoFallback',
+        { enabled: true, type: 'gemini-api-key' },
+      );
+
+      // Verify auth refresh was called
+      expect(mockConfig.refreshAuth).toHaveBeenCalledWith(AuthType.USE_GEMINI);
+
+      // Verify success message
+      expect(mockHistoryManager.addItem).toHaveBeenCalledTimes(1);
+      const lastCall = (mockHistoryManager.addItem as Mock).mock.calls[0][0];
+      expect(lastCall.type).toBe(MessageType.INFO);
+      expect(lastCall.text).toContain(
+        '✓ Switched to Gemini API key authentication',
+      );
+    });
+
+    it('should handle "gemini-api-key" choice with missing env var', async () => {
+      vi.stubEnv('GEMINI_API_KEY', '');
+      const { result } = renderHook(() =>
+        useQuotaAndFallback({
+          config: mockConfig,
+          historyManager: mockHistoryManager,
+          userTier: UserTierId.FREE,
+          setModelSwitchedFromQuotaError: mockSetModelSwitchedFromQuotaError,
+          settings: mockSettings,
+        }),
+      );
+
+      const handler = setFallbackHandlerSpy.mock
+        .calls[0][0] as FallbackModelHandler;
+      let promise: Promise<FallbackIntent | null>;
+      await act(() => {
+        promise = handler(
+          'gemini-pro',
+          'gemini-flash',
+          new TerminalQuotaError('pro quota', mockGoogleApiError),
+        );
+      });
+
+      await act(async () => {
+        await result.current.handleProQuotaChoice('gemini-api-key');
+      });
+
+      const intent = await promise!;
+      expect(intent).toBe('retry_once');
+
+      // Verify settings were saved
+      expect(mockSettings.setValue).toHaveBeenCalledWith(
+        SettingScope.User,
+        'security.auth.autoFallback',
+        { enabled: true, type: 'gemini-api-key' },
+      );
+
+      // Verify auth refresh was NOT called
+      expect(mockConfig.refreshAuth).not.toHaveBeenCalled();
+
+      // Verify missing env message
+      expect(mockHistoryManager.addItem).toHaveBeenCalledTimes(1);
+      const lastCall = (mockHistoryManager.addItem as Mock).mock.calls[0][0];
+      expect(lastCall.text).toContain(
+        'Enabled Gemini API key fallback for future sessions. Set GEMINI_API_KEY',
+      );
+    });
+
+    it('should handle "vertex-ai" choice with env var present', async () => {
+      vi.stubEnv('GOOGLE_API_KEY', 'test-key');
+      const { result } = renderHook(() =>
+        useQuotaAndFallback({
+          config: mockConfig,
+          historyManager: mockHistoryManager,
+          userTier: UserTierId.FREE,
+          setModelSwitchedFromQuotaError: mockSetModelSwitchedFromQuotaError,
+          settings: mockSettings,
+        }),
+      );
+
+      const handler = setFallbackHandlerSpy.mock
+        .calls[0][0] as FallbackModelHandler;
+      let promise: Promise<FallbackIntent | null>;
+      await act(() => {
+        promise = handler(
+          'gemini-pro',
+          'gemini-flash',
+          new TerminalQuotaError('pro quota', mockGoogleApiError),
+        );
+      });
+
+      await act(async () => {
+        await result.current.handleProQuotaChoice('vertex-ai');
+      });
+
+      const intent = await promise!;
+      expect(intent).toBe('retry_once');
+
+      // Verify settings were saved
+      expect(mockSettings.setValue).toHaveBeenCalledWith(
+        SettingScope.User,
+        'security.auth.autoFallback',
+        { enabled: true, type: 'vertex-ai' },
+      );
+
+      // Verify auth refresh was called
+      expect(mockConfig.refreshAuth).toHaveBeenCalledWith(
+        AuthType.USE_VERTEX_AI,
+      );
+
+      // Verify success message
+      expect(mockHistoryManager.addItem).toHaveBeenCalledTimes(1);
+      const lastCall = (mockHistoryManager.addItem as Mock).mock.calls[0][0];
+      expect(lastCall.text).toContain('✓ Switched to Vertex AI authentication');
     });
   });
 });
