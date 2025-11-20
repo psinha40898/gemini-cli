@@ -27,6 +27,9 @@ export const DEFAULT_MODEL_CONFIGS: ModelConfigServiceConfig = {
             includeThoughts: true,
             thinkingBudget: -1,
           },
+          temperature: 1,
+          topP: 0.95,
+          topK: 64,
         },
       },
     },
@@ -51,6 +54,13 @@ export const DEFAULT_MODEL_CONFIGS: ModelConfigServiceConfig = {
       extends: 'chat-base',
       modelConfig: {
         model: 'gemini-2.5-flash-lite',
+      },
+    },
+    // Bases for the internal model configs.
+    'gemini-2.5-flash-base': {
+      extends: 'base',
+      modelConfig: {
+        model: 'gemini-2.5-flash',
       },
     },
     classifier: {
@@ -107,23 +117,44 @@ export const DEFAULT_MODEL_CONFIGS: ModelConfigServiceConfig = {
         },
       },
     },
-    'web-search-tool': {
-      extends: 'base',
+    'web-search': {
+      extends: 'gemini-2.5-flash-base',
       modelConfig: {
-        model: 'gemini-2.5-flash',
         generateContentConfig: {
           tools: [{ googleSearch: {} }],
         },
       },
     },
-    'web-fetch-tool': {
-      extends: 'base',
+    'web-fetch': {
+      extends: 'gemini-2.5-flash-base',
       modelConfig: {
-        model: 'gemini-2.5-flash',
         generateContentConfig: {
           tools: [{ urlContext: {} }],
         },
       },
+    },
+    // TODO(joshualitt): During cleanup, make modelConfig optional.
+    'web-fetch-fallback': {
+      extends: 'gemini-2.5-flash-base',
+      modelConfig: {},
+    },
+    'loop-detection': {
+      extends: 'gemini-2.5-flash-base',
+      modelConfig: {},
+    },
+    'loop-detection-double-check': {
+      extends: 'base',
+      modelConfig: {
+        model: 'gemini-2.5-pro',
+      },
+    },
+    'llm-edit-fixer': {
+      extends: 'gemini-2.5-flash-base',
+      modelConfig: {},
+    },
+    'next-speaker-checker': {
+      extends: 'gemini-2.5-flash-base',
+      modelConfig: {},
     },
   },
 };
