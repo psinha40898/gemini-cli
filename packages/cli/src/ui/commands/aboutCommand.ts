@@ -9,7 +9,12 @@ import type { CommandContext, SlashCommand } from './types.js';
 import { CommandKind } from './types.js';
 import process from 'node:process';
 import { MessageType, type HistoryItemAbout } from '../types.js';
-import { IdeClient, AuthType, UserAccountManager, debugLogger } from '@google/gemini-cli-core';
+import {
+  IdeClient,
+  AuthType,
+  UserAccountManager,
+  debugLogger,
+} from '@google/gemini-cli-core';
 
 function formatAuthLabel(authType: string): string {
   switch (authType) {
@@ -76,15 +81,35 @@ export const aboutCommand: SlashCommand = {
     }
     const modelVersion = context.services.config?.getModel() || 'Unknown';
     const cliVersion = await getCliVersion();
-    const settingsAuthType =
-      context.services.settings.merged.security?.auth?.selectedType || '';
+    const mergedSettings = context.services.settings.merged;
+    const settingsAuthType = mergedSettings.security?.auth?.selectedType || '';
     const config = context.services.config;
     const currentAuthType =
       config?.getContentGeneratorConfig()?.authType ?? undefined;
-    const autoFallback = config?.getAutoFallback() ?? {
-      enabled: false,
-      type: 'gemini-api-key' as const,
-    };
+    const authSettings =
+      (mergedSettings.security?.auth as
+        | { autoFallback?: { enabled?: boolean; type?: string } }
+        | undefined) ?? undefined;
+    const settingsAutoFallback = authSettings?.autoFallback;
+    const autoFallbackFromConfig = (
+      config as unknown as {
+        getAutoFallback?: () => {
+          enabled: boolean;
+          type: 'gemini-api-key' | 'vertex-ai';
+        };
+      }
+    )?.getAutoFallback?.();
+    const autoFallback = settingsAutoFallback
+      ? {
+          enabled: !!settingsAutoFallback.enabled,
+          type: (settingsAutoFallback.type ?? 'gemini-api-key') as
+            | 'gemini-api-key'
+            | 'vertex-ai',
+        }
+      : (autoFallbackFromConfig ?? {
+          enabled: false,
+          type: 'gemini-api-key' as const,
+        });
     const selectedAuthType = formatAuthDisplay(
       settingsAuthType,
       currentAuthType,
