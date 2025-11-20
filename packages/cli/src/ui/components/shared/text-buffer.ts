@@ -2269,7 +2269,12 @@ export function useTextBuffer({
 
   const moveToVisualPosition = useCallback(
     (visRow: number, visCol: number): void => {
-      const { visualLines, visualToLogicalMap } = visualLayout;
+      const {
+        visualLines,
+        visualToLogicalMap,
+        transformedToLogicalMaps,
+        visualToTransformedMap,
+      } = visualLayout;
       // Clamp visRow to valid range
       const clampedVisRow = Math.max(
         0,
@@ -2280,9 +2285,23 @@ export function useTextBuffer({
       const clampedVisCol = Math.max(0, Math.min(visCol, cpLen(visualLine)));
 
       if (visualToLogicalMap[clampedVisRow]) {
-        const [logRow, logStartCol] = visualToLogicalMap[clampedVisRow];
+        const [logRow] = visualToLogicalMap[clampedVisRow];
+        const transformedToLogicalMap =
+          transformedToLogicalMaps?.[logRow] ?? [];
+
+        // Where does this visual line begin within the transformed line?
+        const startColInTransformed =
+          visualToTransformedMap?.[clampedVisRow] ?? 0;
+
+        // Map visual column into transformed space, then back to logical space.
+        const transformedCol = Math.min(
+          startColInTransformed + clampedVisCol,
+          Math.max(0, transformedToLogicalMap.length - 1),
+        );
+
         const newCursorRow = logRow;
-        const newCursorCol = logStartCol + clampedVisCol;
+        const newCursorCol =
+          transformedToLogicalMap[transformedCol] ?? cpLen(lines[logRow] ?? '');
 
         dispatch({
           type: 'set_cursor',
@@ -2294,7 +2313,7 @@ export function useTextBuffer({
         });
       }
     },
-    [visualLayout],
+    [visualLayout, lines],
   );
 
   const getOffset = useCallback(
