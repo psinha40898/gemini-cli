@@ -36,7 +36,7 @@ vi.mock('./sandboxConfig.js', () => ({
 vi.mock('fs', async (importOriginal) => {
   const actualFs = await importOriginal<typeof import('fs')>();
   const pathMod = await import('node:path');
-  const mockHome = '/mock/home/user';
+  const mockHome = pathMod.resolve(pathMod.sep, 'mock', 'home', 'user');
   const MOCK_CWD1 = process.cwd();
   const MOCK_CWD2 = pathMod.resolve(pathMod.sep, 'home', 'user', 'project');
 
@@ -69,7 +69,7 @@ vi.mock('os', async (importOriginal) => {
   const actualOs = await importOriginal<typeof os>();
   return {
     ...actualOs,
-    homedir: vi.fn(() => '/mock/home/user'),
+    homedir: vi.fn(() => path.resolve(path.sep, 'mock', 'home', 'user')),
   };
 });
 
@@ -1146,9 +1146,7 @@ describe('loadCliConfig with allowed-mcp-server-names', () => {
     ];
     const argv = await parseArguments({} as Settings);
     const config = await loadCliConfig(baseSettings, 'test-session', argv);
-    expect(config.getMcpServers()).toEqual({
-      server1: { url: 'http://localhost:8080' },
-    });
+    expect(config.getAllowedMcpServers()).toEqual(['server1']);
   });
 
   it('should allow multiple specified MCP servers', async () => {
@@ -1162,10 +1160,7 @@ describe('loadCliConfig with allowed-mcp-server-names', () => {
     ];
     const argv = await parseArguments({} as Settings);
     const config = await loadCliConfig(baseSettings, 'test-session', argv);
-    expect(config.getMcpServers()).toEqual({
-      server1: { url: 'http://localhost:8080' },
-      server3: { url: 'http://localhost:8082' },
-    });
+    expect(config.getAllowedMcpServers()).toEqual(['server1', 'server3']);
   });
 
   it('should handle server names that do not exist', async () => {
@@ -1179,16 +1174,14 @@ describe('loadCliConfig with allowed-mcp-server-names', () => {
     ];
     const argv = await parseArguments({} as Settings);
     const config = await loadCliConfig(baseSettings, 'test-session', argv);
-    expect(config.getMcpServers()).toEqual({
-      server1: { url: 'http://localhost:8080' },
-    });
+    expect(config.getAllowedMcpServers()).toEqual(['server1', 'server4']);
   });
 
   it('should allow no MCP servers if the flag is provided but empty', async () => {
     process.argv = ['node', 'script.js', '--allowed-mcp-server-names', ''];
     const argv = await parseArguments({} as Settings);
     const config = await loadCliConfig(baseSettings, 'test-session', argv);
-    expect(config.getMcpServers()).toEqual({});
+    expect(config.getAllowedMcpServers()).toEqual(['']);
   });
 
   it('should read allowMCPServers from settings', async () => {
@@ -1199,10 +1192,7 @@ describe('loadCliConfig with allowed-mcp-server-names', () => {
       mcp: { allowed: ['server1', 'server2'] },
     };
     const config = await loadCliConfig(settings, 'test-session', argv);
-    expect(config.getMcpServers()).toEqual({
-      server1: { url: 'http://localhost:8080' },
-      server2: { url: 'http://localhost:8081' },
-    });
+    expect(config.getAllowedMcpServers()).toEqual(['server1', 'server2']);
   });
 
   it('should read excludeMCPServers from settings', async () => {
@@ -1213,9 +1203,7 @@ describe('loadCliConfig with allowed-mcp-server-names', () => {
       mcp: { excluded: ['server1', 'server2'] },
     };
     const config = await loadCliConfig(settings, 'test-session', argv);
-    expect(config.getMcpServers()).toEqual({
-      server3: { url: 'http://localhost:8082' },
-    });
+    expect(config.getBlockedMcpServers()).toEqual(['server1', 'server2']);
   });
 
   it('should override allowMCPServers with excludeMCPServers if overlapping', async () => {
@@ -1229,9 +1217,8 @@ describe('loadCliConfig with allowed-mcp-server-names', () => {
       },
     };
     const config = await loadCliConfig(settings, 'test-session', argv);
-    expect(config.getMcpServers()).toEqual({
-      server2: { url: 'http://localhost:8081' },
-    });
+    expect(config.getAllowedMcpServers()).toEqual(['server1', 'server2']);
+    expect(config.getBlockedMcpServers()).toEqual(['server1']);
   });
 
   it('should prioritize mcp server flag if set', async () => {
@@ -1250,9 +1237,7 @@ describe('loadCliConfig with allowed-mcp-server-names', () => {
       },
     };
     const config = await loadCliConfig(settings, 'test-session', argv);
-    expect(config.getMcpServers()).toEqual({
-      server1: { url: 'http://localhost:8080' },
-    });
+    expect(config.getAllowedMcpServers()).toEqual(['server1']);
   });
 
   it('should prioritize CLI flag over both allowed and excluded settings', async () => {
@@ -1273,10 +1258,8 @@ describe('loadCliConfig with allowed-mcp-server-names', () => {
       },
     };
     const config = await loadCliConfig(settings, 'test-session', argv);
-    expect(config.getMcpServers()).toEqual({
-      server2: { url: 'http://localhost:8081' },
-      server3: { url: 'http://localhost:8082' },
-    });
+    expect(config.getAllowedMcpServers()).toEqual(['server2', 'server3']);
+    expect(config.getBlockedMcpServers()).toEqual([]);
   });
 });
 
@@ -1497,7 +1480,9 @@ describe('loadCliConfig folderTrust', () => {
 describe('loadCliConfig with includeDirectories', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(os.homedir).mockReturnValue('/mock/home/user');
+    vi.mocked(os.homedir).mockReturnValue(
+      path.resolve(path.sep, 'mock', 'home', 'user'),
+    );
     vi.stubEnv('GEMINI_API_KEY', 'test-api-key');
     vi.spyOn(process, 'cwd').mockReturnValue(
       path.resolve(path.sep, 'home', 'user', 'project'),
@@ -1545,7 +1530,7 @@ describe('loadCliConfig with includeDirectories', () => {
   });
 });
 
-describe('loadCliConfig chatCompression', () => {
+describe('loadCliConfig compressionThreshold', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(os.homedir).mockReturnValue('/mock/home/user');
@@ -1558,28 +1543,24 @@ describe('loadCliConfig chatCompression', () => {
     vi.restoreAllMocks();
   });
 
-  it('should pass chatCompression settings to the core config', async () => {
+  it('should pass settings to the core config', async () => {
     process.argv = ['node', 'script.js'];
     const argv = await parseArguments({} as Settings);
     const settings: Settings = {
       model: {
-        chatCompression: {
-          contextPercentageThreshold: 0.5,
-        },
+        compressionThreshold: 0.5,
       },
     };
     const config = await loadCliConfig(settings, 'test-session', argv);
-    expect(config.getChatCompression()).toEqual({
-      contextPercentageThreshold: 0.5,
-    });
+    expect(await config.getCompressionThreshold()).toBe(0.5);
   });
 
-  it('should have undefined chatCompression if not in settings', async () => {
+  it('should have undefined compressionThreshold if not in settings', async () => {
     process.argv = ['node', 'script.js'];
     const argv = await parseArguments({} as Settings);
     const settings: Settings = {};
     const config = await loadCliConfig(settings, 'test-session', argv);
-    expect(config.getChatCompression()).toBeUndefined();
+    expect(await config.getCompressionThreshold()).toBeUndefined();
   });
 });
 

@@ -13,9 +13,7 @@ import process from 'node:process';
 import { mcpCommand } from '../commands/mcp.js';
 import type {
   FileFilteringOptions,
-  MCPServerConfig,
   OutputFormat,
-  GeminiCLIExtension,
 } from '@google/gemini-cli-core';
 import { extensionsCommand } from '../commands/extensions.js';
 import {
@@ -49,9 +47,13 @@ import { appEvents } from '../utils/events.js';
 import { isWorkspaceTrusted } from './trustedFolders.js';
 import { createPolicyEngineConfig } from './policy.js';
 import { ExtensionManager } from './extension-manager.js';
-import type { ExtensionLoader } from '@google/gemini-cli-core/src/utils/extensionLoader.js';
+import type {
+  ExtensionEvents,
+  ExtensionLoader,
+} from '@google/gemini-cli-core/src/utils/extensionLoader.js';
 import { requestConsentNonInteractive } from './extensions/consent.js';
 import { promptForSetting } from './extensions/extensionSettings.js';
+import type { EventEmitter } from 'node:stream';
 
 export interface CliArgs {
   query: string | undefined;
@@ -74,6 +76,7 @@ export interface CliArgs {
   useWriteTodos: boolean | undefined;
   outputFormat: string | undefined;
   fakeResponses: string | undefined;
+  recordResponses: string | undefined;
 }
 
 export async function parseArguments(settings: Settings): Promise<CliArgs> {
@@ -202,6 +205,12 @@ export async function parseArguments(settings: Settings): Promise<CliArgs> {
         .option('fake-responses', {
           type: 'string',
           description: 'Path to a file with fake model responses for testing.',
+          hidden: true,
+        })
+        .option('record-responses', {
+          type: 'string',
+          description: 'Path to a file to record model responses for testing.',
+          hidden: true,
         })
         .deprecateOption(
           'prompt',
@@ -422,8 +431,9 @@ export async function loadCliConfig(
     requestSetting: promptForSetting,
     workspaceDir: cwd,
     enabledExtensionOverrides: argv.extensions,
+    eventEmitter: appEvents as EventEmitter<ExtensionEvents>,
   });
-  extensionManager.loadExtensions();
+  await extensionManager.loadExtensions();
 
   // Call the (now wrapper) loadHierarchicalGeminiMemory which calls the server's version
   const { memoryContent, fileCount, filePaths } =
@@ -441,7 +451,6 @@ export async function loadCliConfig(
       memoryFileFiltering,
     );
 
-  let mcpServers = mergeMcpServers(settings, extensionManager.getExtensions());
   const question = argv.promptInteractive || argv.prompt || '';
 
   // Determine approval mode with backward compatibility
@@ -512,26 +521,8 @@ export async function loadCliConfig(
     approvalMode,
   );
 
-  // Debug: Log the merged policy configuration
-  // Only log when message bus integration is enabled (when policies are active)
   const enableMessageBusIntegration =
     settings.tools?.enableMessageBusIntegration ?? false;
-  if (enableMessageBusIntegration) {
-    debugLogger.debug('=== Policy Engine Configuration ===');
-    debugLogger.debug(
-      `Default decision: ${policyEngineConfig.defaultDecision}`,
-    );
-    debugLogger.debug(`Total rules: ${policyEngineConfig.rules?.length || 0}`);
-    if (policyEngineConfig.rules && policyEngineConfig.rules.length > 0) {
-      debugLogger.debug('Rules (sorted by priority):');
-      policyEngineConfig.rules.forEach((rule, index) => {
-        debugLogger.debug(
-          `  [${index}] toolName: ${rule.toolName || '*'}, decision: ${rule.decision}, priority: ${rule.priority}, argsPattern: ${rule.argsPattern ? rule.argsPattern.source : 'none'}`,
-        );
-      });
-    }
-    debugLogger.debug('===================================');
-  }
 
   const allowedTools = argv.allowedTools || settings.tools?.allowed || [];
   const allowedToolsSet = new Set(allowedTools);
@@ -576,37 +567,8 @@ export async function loadCliConfig(
 
   const excludeTools = mergeExcludeTools(
     settings,
-    extensionManager.getExtensions(),
     extraExcludes.length > 0 ? extraExcludes : undefined,
   );
-  const blockedMcpServers: Array<{ name: string; extensionName: string }> = [];
-
-  if (!argv.allowedMcpServerNames) {
-    if (settings.mcp?.allowed) {
-      mcpServers = allowedMcpServers(
-        mcpServers,
-        settings.mcp.allowed,
-        blockedMcpServers,
-      );
-    }
-
-    if (settings.mcp?.excluded) {
-      const excludedNames = new Set(settings.mcp.excluded.filter(Boolean));
-      if (excludedNames.size > 0) {
-        mcpServers = Object.fromEntries(
-          Object.entries(mcpServers).filter(([key]) => !excludedNames.has(key)),
-        );
-      }
-    }
-  }
-
-  if (argv.allowedMcpServerNames) {
-    mcpServers = allowedMcpServers(
-      mcpServers,
-      argv.allowedMcpServerNames,
-      blockedMcpServers,
-    );
-  }
 
   const useModelRouter = settings.experimental?.useModelRouter ?? true;
   const defaultModel = useModelRouter
@@ -644,7 +606,11 @@ export async function loadCliConfig(
     toolDiscoveryCommand: settings.tools?.discoveryCommand,
     toolCallCommand: settings.tools?.callCommand,
     mcpServerCommand: settings.mcp?.serverCommand,
-    mcpServers,
+    mcpServers: settings.mcpServers,
+    allowedMcpServers: argv.allowedMcpServerNames ?? settings.mcp?.allowed,
+    blockedMcpServers: argv.allowedMcpServerNames
+      ? [] // explicitly allowed servers overrides everything
+      : settings.mcp?.excluded,
     userMemory: memoryContent,
     geminiMdFileCount: fileCount,
     geminiMdFilePaths: filePaths,
@@ -673,11 +639,11 @@ export async function loadCliConfig(
     listExtensions: argv.listExtensions || false,
     enabledExtensions: argv.extensions,
     extensionLoader: extensionManager,
-    blockedMcpServers,
+    enableExtensionReloading: settings.experimental?.extensionReloading,
     noBrowser: !!process.env['NO_BROWSER'],
     summarizeToolOutput: settings.model?.summarizeToolOutput,
     ideMode,
-    chatCompression: settings.model?.chatCompression,
+    compressionThreshold: settings.model?.compressionThreshold,
     folderTrust,
     interactive,
     trustedFolder,
@@ -700,80 +666,23 @@ export async function loadCliConfig(
     codebaseInvestigatorSettings:
       settings.experimental?.codebaseInvestigatorSettings,
     fakeResponses: argv.fakeResponses,
+    recordResponses: argv.recordResponses,
     retryFetchErrors: settings.general?.retryFetchErrors ?? false,
     ptyInfo: ptyInfo?.name,
+    modelConfigServiceConfig: settings.modelConfigs,
+    // TODO: loading of hooks based on workspace trust
+    enableHooks: settings.tools?.enableHooks ?? false,
+    hooks: settings.hooks || {},
   });
-}
-
-function allowedMcpServers(
-  mcpServers: { [x: string]: MCPServerConfig },
-  allowMCPServers: string[],
-  blockedMcpServers: Array<{ name: string; extensionName: string }>,
-) {
-  const allowedNames = new Set(allowMCPServers.filter(Boolean));
-  if (allowedNames.size > 0) {
-    mcpServers = Object.fromEntries(
-      Object.entries(mcpServers).filter(([key, server]) => {
-        const isAllowed = allowedNames.has(key);
-        if (!isAllowed) {
-          blockedMcpServers.push({
-            name: key,
-            extensionName: server.extension?.name || '',
-          });
-        }
-        return isAllowed;
-      }),
-    );
-  } else {
-    blockedMcpServers.push(
-      ...Object.entries(mcpServers).map(([key, server]) => ({
-        name: key,
-        extensionName: server.extension?.name || '',
-      })),
-    );
-    mcpServers = {};
-  }
-  return mcpServers;
-}
-
-function mergeMcpServers(settings: Settings, extensions: GeminiCLIExtension[]) {
-  const mcpServers = { ...(settings.mcpServers || {}) };
-  for (const extension of extensions) {
-    if (!extension.isActive) {
-      continue;
-    }
-    Object.entries(extension.mcpServers || {}).forEach(([key, server]) => {
-      if (mcpServers[key]) {
-        debugLogger.warn(
-          `Skipping extension MCP config for server with key "${key}" as it already exists.`,
-        );
-        return;
-      }
-      mcpServers[key] = {
-        ...server,
-        extension,
-      };
-    });
-  }
-  return mcpServers;
 }
 
 function mergeExcludeTools(
   settings: Settings,
-  extensions: GeminiCLIExtension[],
   extraExcludes?: string[] | undefined,
 ): string[] {
   const allExcludeTools = new Set([
     ...(settings.tools?.exclude || []),
     ...(extraExcludes || []),
   ]);
-  for (const extension of extensions) {
-    if (!extension.isActive) {
-      continue;
-    }
-    for (const tool of extension.excludeTools || []) {
-      allExcludeTools.add(tool);
-    }
-  }
   return [...allExcludeTools];
 }
