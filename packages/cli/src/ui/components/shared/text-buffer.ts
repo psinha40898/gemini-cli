@@ -654,15 +654,18 @@ export function getTransformedImagePath(filePath: string): string {
   // Ignore leading @ when stripping directories, but keep it for simple '@file.png'
   const withoutAt = raw.startsWith('@') ? raw.slice(1) : raw;
 
+  // Unescape the path to handle escaped spaces and other characters
+  const unescaped = unescapePath(withoutAt);
+
   // Find last directory separator, supporting both POSIX and Windows styles
   const lastSepIndex = Math.max(
-    withoutAt.lastIndexOf('/'),
-    withoutAt.lastIndexOf('\\'),
+    unescaped.lastIndexOf('/'),
+    unescaped.lastIndexOf('\\'),
   );
 
-  // If we saw a separator, take the segment after it; otherwise fall back to the raw string without '@'
+  // If we saw a separator, take the segment after it; otherwise fall back to the unescaped string
   const fileName =
-    lastSepIndex >= 0 ? withoutAt.slice(lastSepIndex + 1) : withoutAt;
+    lastSepIndex >= 0 ? unescaped.slice(lastSepIndex + 1) : unescaped;
 
   const extension = path.extname(fileName);
   const baseName = path.basename(fileName, extension);

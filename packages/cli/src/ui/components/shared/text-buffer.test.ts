@@ -2278,13 +2278,18 @@ describe('Transformation Utilities', () => {
     });
 
     it('should handle POSIX-style forward-slash paths on any platform', () => {
-      const input = 'C:/Users/foo/screenshots/image@2x.png';
-      expect(getTransformedImagePath(input)).toBe('[Image image@2x.png]');
+      const input = '@C:/Users/foo/screenshots/image2x.png';
+      expect(getTransformedImagePath(input)).toBe('[Image image2x.png]');
     });
 
     it('should handle Windows-style backslash paths on any platform', () => {
-      const input = 'C:\\Users\\foo\\screenshots\\image@2x.png';
-      expect(getTransformedImagePath(input)).toBe('[Image image@2x.png]');
+      const input = '@C:\\Users\\foo\\screenshots\\image2x.png';
+      expect(getTransformedImagePath(input)).toBe('[Image image2x.png]');
+    });
+
+    it('should handle escaped spaces in paths', () => {
+      const input = '@path/to/my\\ file.png';
+      expect(getTransformedImagePath(input)).toBe('[Image my file.png]');
     });
   });
 
