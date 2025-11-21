@@ -156,6 +156,7 @@ describe('InputPrompt', () => {
       deleteWordLeft: vi.fn(),
       deleteWordRight: vi.fn(),
       visualToLogicalMap: [[0, 0]],
+      visualToTransformedMap: [0],
       transformationsByLine: [],
       getOffset: vi.fn().mockReturnValue(0),
     } as unknown as TextBuffer;
