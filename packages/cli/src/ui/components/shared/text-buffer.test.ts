@@ -2286,11 +2286,11 @@ describe('Transformation Utilities', () => {
       expect(result).toHaveLength(2);
       expect(result[0]).toMatchObject({
         logicalText: '@test.png',
-        collaspedText: '[Image @test.png]',
+        collapsedText: '[Image @test.png]',
       });
       expect(result[1]).toMatchObject({
         logicalText: '@another.jpg',
-        collaspedText: '[Image @another.jpg]',
+        collapsedText: '[Image @another.jpg]',
       });
     });
 
@@ -2327,13 +2327,13 @@ describe('Transformation Utilities', () => {
         logStart: 5,
         logEnd: 14,
         logicalText: '@test.png',
-        collaspedText: '[Image @test.png]',
+        collapsedText: '[Image @test.png]',
       },
       {
         logStart: 20,
         logEnd: 31,
         logicalText: '@another.jpg',
-        collaspedText: '[Image @another.jpg]',
+        collapsedText: '[Image @another.jpg]',
       },
     ];
 

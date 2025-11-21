@@ -80,7 +80,7 @@ export function parseInputForHighlighting(
       cursorCol <= transformation.logEnd;
     const transformationText = isCursorInside
       ? transformation.logicalText
-      : transformation.collaspedText;
+      : transformation.collapsedText;
     tokens.push({ text: transformationText, type: 'file' });
 
     column = transformation.logEnd;

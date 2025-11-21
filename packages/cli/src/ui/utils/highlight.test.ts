@@ -141,7 +141,7 @@ describe('parseInputForHighlighting with Transformations', () => {
       logStart: 10,
       logEnd: 19,
       logicalText: '@test.png',
-      collaspedText: '[Image test.png]',
+      collapsedText: '[Image test.png]',
     },
   ];
 
@@ -182,13 +182,13 @@ describe('parseInputForHighlighting with Transformations', () => {
         logStart: 8,
         logEnd: 18,
         logicalText: '@test1.png',
-        collaspedText: '[Image test1.png]',
+        collapsedText: '[Image test1.png]',
       },
       {
         logStart: 23,
         logEnd: 33,
         logicalText: '@test2.png',
-        collaspedText: '[Image test2.png]',
+        collapsedText: '[Image test2.png]',
       },
     ];
 

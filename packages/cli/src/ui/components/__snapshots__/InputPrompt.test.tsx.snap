@@ -32,6 +32,30 @@ exports[`InputPrompt > command search (Ctrl+R when not in shell) > renders match
  git commit -m "feat: add search" in src/app"
 `;
 
+exports[`InputPrompt > queued message editing > should navigate input history on fresh start when no queued messages exist 1`] = `
+"╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ >   Type your message or @path/to/file                                                                              │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;
+
+exports[`InputPrompt > queued message editing > should not show inverted cursor when shell is focused 1`] = `
+"╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ >   Type your message or @path/to/file                                                                              │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;
+
+exports[`InputPrompt > queued message editing > should render correctly in yolo mode 1`] = `
+"╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ *   Type your message or @path/to/file                                                                              │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;
+
+exports[`InputPrompt > queued message editing > should render correctly when accepting edits 1`] = `
+"╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ >   Type your message or @path/to/file                                                                              │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯"
+`;
+
 exports[`InputPrompt > snapshots > should not show inverted cursor when shell is focused 1`] = `
 "╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ >   Type your message or @path/to/file                                                                              │

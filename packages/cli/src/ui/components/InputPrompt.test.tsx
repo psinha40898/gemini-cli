@@ -10,6 +10,10 @@ import { act } from 'react';
 import type { InputPromptProps } from './InputPrompt.js';
 import { InputPrompt } from './InputPrompt.js';
 import type { TextBuffer } from './shared/text-buffer.js';
+import {
+  calculateTransformationsForLine,
+  calculateTransformedLine,
+} from './shared/text-buffer.js';
 import type { Config } from '@google/gemini-cli-core';
 import { ApprovalMode } from '@google/gemini-cli-core';
 import * as path from 'node:path';
@@ -2253,17 +2257,71 @@ describe('InputPrompt', () => {
       expect(props.buffer.setText).not.toHaveBeenCalled();
 
       unmount();
+      const { stdout: snapshotFrame, unmount: snapshotUnmount } =
+        renderWithProviders(<InputPrompt {...props} />);
+      await waitFor(() => expect(snapshotFrame.lastFrame()).toMatchSnapshot());
+      snapshotUnmount();
     });
-  });
 
-  describe('snapshots', () => {
-    it('should render correctly in shell mode', async () => {
-      props.shellModeActive = true;
-      const { stdout, unmount } = renderWithProviders(
-        <InputPrompt {...props} />,
-      );
-      await waitFor(() => expect(stdout.lastFrame()).toMatchSnapshot());
-      unmount();
+    describe('image path transformations', () => {
+      const logicalLine = '@/path/to/screenshots/screenshot@2x.png';
+      const transformations = calculateTransformationsForLine(logicalLine);
+
+      const applyVisualState = (
+        visualLine: string,
+        cursorCol: number,
+      ): void => {
+        mockBuffer.text = logicalLine;
+        mockBuffer.lines = [logicalLine];
+        mockBuffer.viewportVisualLines = [visualLine];
+        mockBuffer.allVisualLines = [visualLine];
+        mockBuffer.visualToLogicalMap = [[0, 0]];
+        mockBuffer.visualToTransformedMap = [0];
+        mockBuffer.transformationsByLine = [transformations];
+        mockBuffer.cursor = [0, cursorCol];
+        mockBuffer.visualCursor = [0, 0];
+      };
+
+      it('shows the collapsed label when cursor is outside the image span', async () => {
+        const { transformedLine } = calculateTransformedLine(
+          logicalLine,
+          0,
+          [0, transformations[0].logEnd + 5],
+          transformations,
+        );
+        applyVisualState(transformedLine, transformations[0].logEnd + 5);
+
+        const { stdout, unmount } = renderWithProviders(
+          <InputPrompt {...props} />,
+          { uiActions },
+        );
+        await waitFor(() => {
+          const frame = stdout.lastFrame() ?? '';
+          expect(frame).toContain(transformations[0].collapsedText);
+          expect(frame).not.toContain(logicalLine);
+        });
+        unmount();
+      });
+
+      it('expands the image path when the cursor sits on it', async () => {
+        const { transformedLine } = calculateTransformedLine(
+          logicalLine,
+          0,
+          [0, transformations[0].logStart + 1],
+          transformations,
+        );
+        applyVisualState(transformedLine, transformations[0].logStart + 1);
+
+        const { stdout, unmount } = renderWithProviders(
+          <InputPrompt {...props} />,
+          { uiActions },
+        );
+        await waitFor(() => {
+          const frame = stdout.lastFrame() ?? '';
+          expect(frame).toContain(logicalLine);
+        });
+        unmount();
+      });
     });
 
     it('should render correctly when accepting edits', async () => {

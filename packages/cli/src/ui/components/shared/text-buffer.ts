@@ -643,10 +643,10 @@ export interface Transformation {
   logStart: number;
   logEnd: number;
   logicalText: string;
-  collaspedText: string;
+  collapsedText: string;
 }
 export const imagePathRegex =
-  /@((?:[^\s[\]\r\n]|\\ )+?\.(?:png|jpg|jpeg|gif|webp|svg|bmp))\b/gi;
+  /@((?:[^\s\r\n]|\\.)+?\.(?:png|jpg|jpeg|gif|webp|svg|bmp))\b/gi;
 
 export function getTransformedImagePath(filePath: string): string {
   const fileName = path.basename(filePath);
@@ -680,7 +680,7 @@ export function calculateTransformationsForLine(
       logStart,
       logEnd,
       logicalText,
-      collaspedText: getTransformedImagePath(logicalText),
+      collapsedText: getTransformedImagePath(logicalText),
     });
   }
 
@@ -737,7 +737,7 @@ export function calculateTransformedLine(
       cursorCol <= transform.logEnd;
     const transformedText = isExpanded
       ? transform.logicalText
-      : transform.collaspedText;
+      : transform.collapsedText;
     transformedLine += transformedText;
 
     // Map transformed characters back to logical characters
