@@ -2253,7 +2253,7 @@ describe('Unicode helper functions', () => {
 describe('Transformation Utilities', () => {
   describe('getTransformedImagePath', () => {
     it('should transform a simple image path', () => {
-      expect(getTransformedImagePath('@test.png')).toBe('[Image @test.png]');
+      expect(getTransformedImagePath('@test.png')).toBe('[Image test.png]');
     });
 
     it('should handle paths with directories', () => {
@@ -2269,12 +2269,22 @@ describe('Transformation Utilities', () => {
     });
 
     it('should handle different image extensions', () => {
-      expect(getTransformedImagePath('@test.jpg')).toBe('[Image @test.jpg]');
-      expect(getTransformedImagePath('@test.jpeg')).toBe('[Image @test.jpeg]');
-      expect(getTransformedImagePath('@test.gif')).toBe('[Image @test.gif]');
-      expect(getTransformedImagePath('@test.webp')).toBe('[Image @test.webp]');
-      expect(getTransformedImagePath('@test.svg')).toBe('[Image @test.svg]');
-      expect(getTransformedImagePath('@test.bmp')).toBe('[Image @test.bmp]');
+      expect(getTransformedImagePath('@test.jpg')).toBe('[Image test.jpg]');
+      expect(getTransformedImagePath('@test.jpeg')).toBe('[Image test.jpeg]');
+      expect(getTransformedImagePath('@test.gif')).toBe('[Image test.gif]');
+      expect(getTransformedImagePath('@test.webp')).toBe('[Image test.webp]');
+      expect(getTransformedImagePath('@test.svg')).toBe('[Image test.svg]');
+      expect(getTransformedImagePath('@test.bmp')).toBe('[Image test.bmp]');
+    });
+
+    it('should handle POSIX-style forward-slash paths on any platform', () => {
+      const input = 'C:/Users/foo/screenshots/image@2x.png';
+      expect(getTransformedImagePath(input)).toBe('[Image image@2x.png]');
+    });
+
+    it('should handle Windows-style backslash paths on any platform', () => {
+      const input = 'C:\\Users\\foo\\screenshots\\image@2x.png';
+      expect(getTransformedImagePath(input)).toBe('[Image image@2x.png]');
     });
   });
 
@@ -2286,11 +2296,11 @@ describe('Transformation Utilities', () => {
       expect(result).toHaveLength(2);
       expect(result[0]).toMatchObject({
         logicalText: '@test.png',
-        collapsedText: '[Image @test.png]',
+        collapsedText: '[Image test.png]',
       });
       expect(result[1]).toMatchObject({
         logicalText: '@another.jpg',
-        collapsedText: '[Image @another.jpg]',
+        collapsedText: '[Image another.jpg]',
       });
     });
 
@@ -2369,8 +2379,8 @@ describe('Transformation Utilities', () => {
       const transformations = calculateTransformationsForLine(line);
       const result = calculateTransformedLine(line, 0, [0, 0], transformations);
 
-      expect(result.transformedLine).toBe('Check out [Image @test.png]');
-      expect(result.transformedToLogMap).toHaveLength(28); // Length includes all characters in the transformed line
+      expect(result.transformedLine).toBe('Check out [Image test.png]');
+      expect(result.transformedToLogMap).toHaveLength(27); // Length includes all characters in the transformed line
 
       // Test that we have proper mappings
       expect(result.transformedToLogMap[0]).toBe(0); // 'C'

@@ -649,7 +649,21 @@ export const imagePathRegex =
   /@((?:[^\s\r\n]|\\.)+?\.(?:png|jpg|jpeg|gif|webp|svg|bmp))\b/gi;
 
 export function getTransformedImagePath(filePath: string): string {
-  const fileName = path.basename(filePath);
+  const raw = filePath;
+
+  // Ignore leading @ when stripping directories, but keep it for simple '@file.png'
+  const withoutAt = raw.startsWith('@') ? raw.slice(1) : raw;
+
+  // Find last directory separator, supporting both POSIX and Windows styles
+  const lastSepIndex = Math.max(
+    withoutAt.lastIndexOf('/'),
+    withoutAt.lastIndexOf('\\'),
+  );
+
+  // If we saw a separator, take the segment after it; otherwise fall back to the raw string without '@'
+  const fileName =
+    lastSepIndex >= 0 ? withoutAt.slice(lastSepIndex + 1) : withoutAt;
+
   const extension = path.extname(fileName);
   const baseName = path.basename(fileName, extension);
   const maxBaseLength = 10;
