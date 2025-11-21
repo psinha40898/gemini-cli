@@ -646,7 +646,7 @@ export interface Transformation {
   collapsedText: string;
 }
 export const imagePathRegex =
-  /@((?:[^\s\r\n]|\\.)+?\.(?:png|jpg|jpeg|gif|webp|svg|bmp))\b/gi;
+  /@((?:\\.|[^\s\r\n\\])+?\.(?:png|jpg|jpeg|gif|webp|svg|bmp))\b/gi;
 
 export function getTransformedImagePath(filePath: string): string {
   const raw = filePath;
