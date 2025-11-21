@@ -2277,10 +2277,13 @@ describe('Transformation Utilities', () => {
       expect(result).toEqual([]);
     });
 
-    it('should merge multiple transformations in a row', () => {
+    it('should keep adjacent image paths as separate transformations', () => {
       const line = '@a.png@b.png@c.png';
       const result = calculateTransformationsForLine(line);
-      expect(result).toHaveLength(1);
+      expect(result).toHaveLength(3);
+      expect(result[0].logicalText).toBe('@a.png');
+      expect(result[1].logicalText).toBe('@b.png');
+      expect(result[2].logicalText).toBe('@c.png');
     });
 
     it('should handle multiple transformations in a row', () => {

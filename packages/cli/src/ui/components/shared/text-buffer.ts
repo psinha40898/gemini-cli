@@ -676,21 +676,12 @@ export function calculateTransformationsForLine(
     const logStart = cpLen(line.substring(0, match.index));
     const logEnd = logStart + cpLen(logicalText);
 
-    const last = transformations[transformations.length - 1];
-    if (last && last.logEnd === logStart) {
-      // ── NEW: merge directly-adjacent matches ────────────
-      last.logicalText += logicalText;
-      last.logEnd = logEnd;
-      // collapsed label = right-most image path
-      last.collaspedText = getTransformedImagePath(logicalText);
-    } else {
-      transformations.push({
-        logStart,
-        logEnd,
-        logicalText,
-        collaspedText: getTransformedImagePath(logicalText),
-      });
-    }
+    transformations.push({
+      logStart,
+      logEnd,
+      logicalText,
+      collaspedText: getTransformedImagePath(logicalText),
+    });
   }
 
   return transformations;
