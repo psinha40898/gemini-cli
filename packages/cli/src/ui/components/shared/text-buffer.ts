@@ -2273,56 +2273,56 @@ export function useTextBuffer({
       );
       const visualLine = visualLines[clampedVisRow] || '';
 
-if (visualToLogicalMap[clampedVisRow]) {
-  const [logRow, logStartCol] = visualToLogicalMap[clampedVisRow];
-  const transformedToLogicalMap =
-    transformedToLogicalMaps?.[logRow] ?? [];
+      if (visualToLogicalMap[clampedVisRow]) {
+        const [logRow] = visualToLogicalMap[clampedVisRow];
+        const transformedToLogicalMap =
+          transformedToLogicalMaps?.[logRow] ?? [];
 
-  // Where does this visual line begin within the transformed line?
-  const startColInTransformed =
-    visualToTransformedMap?.[clampedVisRow] ?? 0;
+        // Where does this visual line begin within the transformed line?
+        const startColInTransformed =
+          visualToTransformedMap?.[clampedVisRow] ?? 0;
 
-  // Handle wide characters: convert visual X position to character offset
-  const codePoints = toCodePoints(visualLine);
-  let currentVisX = 0;
-  let charOffset = 0;
+        // Handle wide characters: convert visual X position to character offset
+        const codePoints = toCodePoints(visualLine);
+        let currentVisX = 0;
+        let charOffset = 0;
 
-  for (const char of codePoints) {
-    const charWidth = getCachedStringWidth(char);
-    // If the click is within this character
-    if (clampedVisCol < currentVisX + charWidth) {
-      // Check if we clicked the second half of a wide character
-      if (charWidth > 1 && clampedVisCol >= currentVisX + charWidth / 2) {
-        charOffset++;
+        for (const char of codePoints) {
+          const charWidth = getCachedStringWidth(char);
+          // If the click is within this character
+          if (visCol < currentVisX + charWidth) {
+            // Check if we clicked the second half of a wide character
+            if (charWidth > 1 && visCol >= currentVisX + charWidth / 2) {
+              charOffset++;
+            }
+            break;
+          }
+          currentVisX += charWidth;
+          charOffset++;
+        }
+
+        // Clamp charOffset to length
+        charOffset = Math.min(charOffset, codePoints.length);
+
+        // Map character offset through transformations to get logical position
+        const transformedCol = Math.min(
+          startColInTransformed + charOffset,
+          Math.max(0, transformedToLogicalMap.length - 1),
+        );
+
+        const newCursorRow = logRow;
+        const newCursorCol =
+          transformedToLogicalMap[transformedCol] ?? cpLen(lines[logRow] ?? '');
+
+        dispatch({
+          type: 'set_cursor',
+          payload: {
+            cursorRow: newCursorRow,
+            cursorCol: newCursorCol,
+            preferredCol: charOffset,
+          },
+        });
       }
-      break;
-    }
-    currentVisX += charWidth;
-    charOffset++;
-  }
-
-  // Clamp charOffset to length
-  charOffset = Math.min(charOffset, codePoints.length);
-
-  // Map character offset through transformations to get logical position
-  const transformedCol = Math.min(
-    startColInTransformed + charOffset,
-    Math.max(0, transformedToLogicalMap.length - 1),
-  );
-
-  const newCursorRow = logRow;
-  const newCursorCol =
-    transformedToLogicalMap[transformedCol] ?? cpLen(lines[logRow] ?? '');
-
-  dispatch({
-    type: 'set_cursor',
-    payload: {
-      cursorRow: newCursorRow,
-      cursorCol: newCursorCol,
-      preferredCol: clampedVisCol,
-    },
-  });
-}
     },
     [visualLayout, lines],
   );
