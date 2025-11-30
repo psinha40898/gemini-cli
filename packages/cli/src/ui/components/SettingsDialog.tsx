@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import { Box, Text } from 'ink';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Box, Text, type DOMElement } from 'ink';
 import { theme } from '../semantic-colors.js';
 import type {
   LoadableSettingScope,
@@ -18,6 +18,12 @@ import {
   getScopeMessageForSetting,
 } from '../../utils/dialogScopeUtils.js';
 import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
+import {
+  ScrollableList,
+  type ScrollableListRef,
+} from './shared/ScrollableList.js';
+import { useAlternateBuffer } from '../hooks/useAlternateBuffer.js';
+import { useMouseClick } from '../hooks/useMouseClick.js';
 import {
   getDialogSettingKeys,
   setPendingSettingValue,
@@ -55,6 +61,33 @@ interface SettingsDialogProps {
 
 const maxItemsToShow = 8;
 
+// Clickable wrapper for settings items when in alternate buffer mode
+interface ClickableSettingsRowProps {
+  children: React.ReactNode;
+  onClick: () => void;
+  isEnabled: boolean;
+}
+
+function ClickableSettingsRow({
+  children,
+  onClick,
+  isEnabled,
+}: ClickableSettingsRowProps): React.JSX.Element {
+  const rowRef = useRef<DOMElement>(null);
+
+  const handleClick = useCallback(() => {
+    onClick();
+  }, [onClick]);
+
+  useMouseClick(rowRef, handleClick, { isActive: isEnabled });
+
+  return (
+    <Box ref={rowRef} flexDirection="column">
+      {children}
+    </Box>
+  );
+}
+
 export function SettingsDialog({
   settings,
   onSelect,
@@ -64,6 +97,9 @@ export function SettingsDialog({
 }: SettingsDialogProps): React.JSX.Element {
   // Get vim mode context to sync vim mode changes
   const { vimEnabled, toggleVimEnabled } = useVimMode();
+
+  // Check if alternate buffer mode is enabled
+  const isAlternateBuffer = useAlternateBuffer();
 
   // Focus state: 'settings' or 'scope'
   const [focusSection, setFocusSection] = useState<'settings' | 'scope'>(
@@ -249,6 +285,12 @@ export function SettingsDialog({
 
   const items = generateSettingsItems();
 
+  // Type for settings items (used by ScrollableList)
+  type SettingItem = (typeof items)[number];
+
+  // Ref for ScrollableList to enable programmatic scrolling
+  const scrollableListRef = useRef<ScrollableListRef<SettingItem>>(null);
+
   // Generic edit state
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editBuffer, setEditBuffer] = useState<string>('');
@@ -381,7 +423,8 @@ export function SettingsDialog({
   // Height constraint calculations similar to ThemeDialog
   const DIALOG_PADDING = 4;
   const SETTINGS_TITLE_HEIGHT = 2; // "Settings" title + spacing
-  const SCROLL_ARROWS_HEIGHT = 2; // Up and down arrows
+  // Scroll arrows only needed in non-alternate buffer mode
+  const SCROLL_ARROWS_HEIGHT = isAlternateBuffer ? 0 : 2;
   const SPACING_HEIGHT = 1; // Space between settings list and scope
   const SCOPE_SELECTION_HEIGHT = 4; // Apply To section height
   const BOTTOM_HELP_TEXT_HEIGHT = 1; // Help text
@@ -448,6 +491,19 @@ export function SettingsDialog({
   const effectiveMaxItemsToShow = availableTerminalHeight
     ? Math.min(maxVisibleItems, items.length)
     : maxItemsToShow;
+
+  // Calculate the height for ScrollableList (each item is 2 lines)
+  const scrollableHeight = effectiveMaxItemsToShow * 2;
+
+  // Scroll to keep activeSettingIndex visible when it changes (for alternate buffer mode)
+  useEffect(() => {
+    if (isAlternateBuffer) {
+      scrollableListRef.current?.scrollToIndex({
+        index: activeSettingIndex,
+        viewPosition: 0.5, // Center the item in view
+      });
+    }
+  }, [activeSettingIndex, isAlternateBuffer]);
 
   // Ensure focus stays on settings when scope selection is hidden
   React.useEffect(() => {
@@ -772,123 +828,295 @@ export function SettingsDialog({
           {focusSection === 'settings' ? '> ' : '  '}Settings
         </Text>
         <Box height={1} />
-        {showScrollUp && <Text color={theme.text.secondary}>▲</Text>}
-        {visibleItems.map((item, idx) => {
-          const isActive =
-            focusSection === 'settings' &&
-            activeSettingIndex === idx + scrollOffset;
+        {isAlternateBuffer ? (
+          // Alternate buffer mode: Use ScrollableList with mouse support
+          <Box height={scrollableHeight}>
+            <ScrollableList
+              ref={scrollableListRef}
+              hasFocus={focusSection === 'settings'}
+              data={items}
+              estimatedItemHeight={() => 2}
+              keyExtractor={(item) => item.value}
+              renderItem={({ item, index }) => {
+                const isActive =
+                  focusSection === 'settings' && activeSettingIndex === index;
 
-          const scopeSettings = settings.forScope(selectedScope).settings;
-          const mergedSettings = settings.merged;
+                const scopeSettings = settings.forScope(selectedScope).settings;
+                const mergedSettings = settings.merged;
 
-          let displayValue: string;
-          if (editingKey === item.value) {
-            // Show edit buffer with advanced cursor highlighting
-            if (cursorVisible && editCursorPos < cpLen(editBuffer)) {
-              // Cursor is in the middle or at start of text
-              const beforeCursor = cpSlice(editBuffer, 0, editCursorPos);
-              const atCursor = cpSlice(
-                editBuffer,
-                editCursorPos,
-                editCursorPos + 1,
-              );
-              const afterCursor = cpSlice(editBuffer, editCursorPos + 1);
-              displayValue =
-                beforeCursor + chalk.inverse(atCursor) + afterCursor;
-            } else if (cursorVisible && editCursorPos >= cpLen(editBuffer)) {
-              // Cursor is at the end - show inverted space
-              displayValue = editBuffer + chalk.inverse(' ');
-            } else {
-              // Cursor not visible
-              displayValue = editBuffer;
-            }
-          } else if (item.type === 'number' || item.type === 'string') {
-            // For numbers/strings, get the actual current value from pending settings
-            const path = item.value.split('.');
-            const currentValue = getNestedValue(pendingSettings, path);
+                let displayValue: string;
+                if (editingKey === item.value) {
+                  // Show edit buffer with advanced cursor highlighting
+                  if (cursorVisible && editCursorPos < cpLen(editBuffer)) {
+                    // Cursor is in the middle or at start of text
+                    const beforeCursor = cpSlice(editBuffer, 0, editCursorPos);
+                    const atCursor = cpSlice(
+                      editBuffer,
+                      editCursorPos,
+                      editCursorPos + 1,
+                    );
+                    const afterCursor = cpSlice(editBuffer, editCursorPos + 1);
+                    displayValue =
+                      beforeCursor + chalk.inverse(atCursor) + afterCursor;
+                  } else if (
+                    cursorVisible &&
+                    editCursorPos >= cpLen(editBuffer)
+                  ) {
+                    // Cursor is at the end - show inverted space
+                    displayValue = editBuffer + chalk.inverse(' ');
+                  } else {
+                    // Cursor not visible
+                    displayValue = editBuffer;
+                  }
+                } else if (item.type === 'number' || item.type === 'string') {
+                  // For numbers/strings, get the actual current value from pending settings
+                  const path = item.value.split('.');
+                  const currentValue = getNestedValue(pendingSettings, path);
 
-            const defaultValue = getDefaultValue(item.value);
+                  const defaultValue = getDefaultValue(item.value);
 
-            if (currentValue !== undefined && currentValue !== null) {
-              displayValue = String(currentValue);
-            } else {
-              displayValue =
-                defaultValue !== undefined && defaultValue !== null
-                  ? String(defaultValue)
-                  : '';
-            }
+                  if (currentValue !== undefined && currentValue !== null) {
+                    displayValue = String(currentValue);
+                  } else {
+                    displayValue =
+                      defaultValue !== undefined && defaultValue !== null
+                        ? String(defaultValue)
+                        : '';
+                  }
 
-            // Add * if value differs from default OR if currently being modified
-            const isModified = modifiedSettings.has(item.value);
-            const effectiveCurrentValue =
-              currentValue !== undefined && currentValue !== null
-                ? currentValue
-                : defaultValue;
-            const isDifferentFromDefault =
-              effectiveCurrentValue !== defaultValue;
+                  // Add * if value differs from default OR if currently being modified
+                  const isModified = modifiedSettings.has(item.value);
+                  const effectiveCurrentValue =
+                    currentValue !== undefined && currentValue !== null
+                      ? currentValue
+                      : defaultValue;
+                  const isDifferentFromDefault =
+                    effectiveCurrentValue !== defaultValue;
 
-            if (isDifferentFromDefault || isModified) {
-              displayValue += '*';
-            }
-          } else {
-            // For booleans and other types, use existing logic
-            displayValue = getDisplayValue(
-              item.value,
-              scopeSettings,
-              mergedSettings,
-              modifiedSettings,
-              pendingSettings,
-            );
-          }
-          const shouldBeGreyedOut = isDefaultValue(item.value, scopeSettings);
+                  if (isDifferentFromDefault || isModified) {
+                    displayValue += '*';
+                  }
+                } else {
+                  // For booleans and other types, use existing logic
+                  displayValue = getDisplayValue(
+                    item.value,
+                    scopeSettings,
+                    mergedSettings,
+                    modifiedSettings,
+                    pendingSettings,
+                  );
+                }
+                const shouldBeGreyedOut = isDefaultValue(
+                  item.value,
+                  scopeSettings,
+                );
 
-          // Generate scope message for this setting
-          const scopeMessage = getScopeMessageForSetting(
-            item.value,
-            selectedScope,
-            settings,
-          );
+                // Generate scope message for this setting
+                const scopeMessage = getScopeMessageForSetting(
+                  item.value,
+                  selectedScope,
+                  settings,
+                );
 
-          return (
-            <React.Fragment key={item.value}>
-              <Box flexDirection="row" alignItems="center">
-                <Box minWidth={2} flexShrink={0}>
-                  <Text
-                    color={
-                      isActive ? theme.status.success : theme.text.secondary
+                const handleRowClick = () => {
+                  // Set this item as active and toggle it
+                  setActiveSettingIndex(index);
+                  if (item.type === 'number' || item.type === 'string') {
+                    startEditing(item.value);
+                  } else {
+                    item.toggle();
+                  }
+                };
+
+                return (
+                  <ClickableSettingsRow
+                    key={item.value}
+                    onClick={handleRowClick}
+                    isEnabled={
+                      isAlternateBuffer &&
+                      focusSection === 'settings' &&
+                      !editingKey
                     }
                   >
-                    {isActive ? '●' : ''}
-                  </Text>
-                </Box>
-                <Box minWidth={50}>
-                  <Text
-                    color={isActive ? theme.status.success : theme.text.primary}
-                  >
-                    {item.label}
-                    {scopeMessage && (
-                      <Text color={theme.text.secondary}> {scopeMessage}</Text>
-                    )}
-                  </Text>
-                </Box>
-                <Box minWidth={3} />
-                <Text
-                  color={
-                    isActive
-                      ? theme.status.success
-                      : shouldBeGreyedOut
-                        ? theme.text.secondary
-                        : theme.text.primary
-                  }
-                >
-                  {displayValue}
-                </Text>
-              </Box>
-              <Box height={1} />
-            </React.Fragment>
-          );
-        })}
-        {showScrollDown && <Text color={theme.text.secondary}>▼</Text>}
+                    <Box flexDirection="row" alignItems="center">
+                      <Box minWidth={2} flexShrink={0}>
+                        <Text
+                          color={
+                            isActive
+                              ? theme.status.success
+                              : theme.text.secondary
+                          }
+                        >
+                          {isActive ? '●' : ''}
+                        </Text>
+                      </Box>
+                      <Box minWidth={50}>
+                        <Text
+                          color={
+                            isActive ? theme.status.success : theme.text.primary
+                          }
+                        >
+                          {item.label}
+                          {scopeMessage && (
+                            <Text color={theme.text.secondary}>
+                              {' '}
+                              {scopeMessage}
+                            </Text>
+                          )}
+                        </Text>
+                      </Box>
+                      <Box minWidth={3} />
+                      <Text
+                        color={
+                          isActive
+                            ? theme.status.success
+                            : shouldBeGreyedOut
+                              ? theme.text.secondary
+                              : theme.text.primary
+                        }
+                      >
+                        {displayValue}
+                      </Text>
+                    </Box>
+                    <Box height={1} />
+                  </ClickableSettingsRow>
+                );
+              }}
+            />
+          </Box>
+        ) : (
+          // Standard mode: Use manual scrolling with scroll indicators
+          <>
+            {showScrollUp && <Text color={theme.text.secondary}>▲</Text>}
+            {visibleItems.map((item, idx) => {
+              const isActive =
+                focusSection === 'settings' &&
+                activeSettingIndex === idx + scrollOffset;
+
+              const scopeSettings = settings.forScope(selectedScope).settings;
+              const mergedSettings = settings.merged;
+
+              let displayValue: string;
+              if (editingKey === item.value) {
+                // Show edit buffer with advanced cursor highlighting
+                if (cursorVisible && editCursorPos < cpLen(editBuffer)) {
+                  // Cursor is in the middle or at start of text
+                  const beforeCursor = cpSlice(editBuffer, 0, editCursorPos);
+                  const atCursor = cpSlice(
+                    editBuffer,
+                    editCursorPos,
+                    editCursorPos + 1,
+                  );
+                  const afterCursor = cpSlice(editBuffer, editCursorPos + 1);
+                  displayValue =
+                    beforeCursor + chalk.inverse(atCursor) + afterCursor;
+                } else if (
+                  cursorVisible &&
+                  editCursorPos >= cpLen(editBuffer)
+                ) {
+                  // Cursor is at the end - show inverted space
+                  displayValue = editBuffer + chalk.inverse(' ');
+                } else {
+                  // Cursor not visible
+                  displayValue = editBuffer;
+                }
+              } else if (item.type === 'number' || item.type === 'string') {
+                // For numbers/strings, get the actual current value from pending settings
+                const path = item.value.split('.');
+                const currentValue = getNestedValue(pendingSettings, path);
+
+                const defaultValue = getDefaultValue(item.value);
+
+                if (currentValue !== undefined && currentValue !== null) {
+                  displayValue = String(currentValue);
+                } else {
+                  displayValue =
+                    defaultValue !== undefined && defaultValue !== null
+                      ? String(defaultValue)
+                      : '';
+                }
+
+                // Add * if value differs from default OR if currently being modified
+                const isModified = modifiedSettings.has(item.value);
+                const effectiveCurrentValue =
+                  currentValue !== undefined && currentValue !== null
+                    ? currentValue
+                    : defaultValue;
+                const isDifferentFromDefault =
+                  effectiveCurrentValue !== defaultValue;
+
+                if (isDifferentFromDefault || isModified) {
+                  displayValue += '*';
+                }
+              } else {
+                // For booleans and other types, use existing logic
+                displayValue = getDisplayValue(
+                  item.value,
+                  scopeSettings,
+                  mergedSettings,
+                  modifiedSettings,
+                  pendingSettings,
+                );
+              }
+              const shouldBeGreyedOut = isDefaultValue(
+                item.value,
+                scopeSettings,
+              );
+
+              // Generate scope message for this setting
+              const scopeMessage = getScopeMessageForSetting(
+                item.value,
+                selectedScope,
+                settings,
+              );
+
+              return (
+                <React.Fragment key={item.value}>
+                  <Box flexDirection="row" alignItems="center">
+                    <Box minWidth={2} flexShrink={0}>
+                      <Text
+                        color={
+                          isActive ? theme.status.success : theme.text.secondary
+                        }
+                      >
+                        {isActive ? '●' : ''}
+                      </Text>
+                    </Box>
+                    <Box minWidth={50}>
+                      <Text
+                        color={
+                          isActive ? theme.status.success : theme.text.primary
+                        }
+                      >
+                        {item.label}
+                        {scopeMessage && (
+                          <Text color={theme.text.secondary}>
+                            {' '}
+                            {scopeMessage}
+                          </Text>
+                        )}
+                      </Text>
+                    </Box>
+                    <Box minWidth={3} />
+                    <Text
+                      color={
+                        isActive
+                          ? theme.status.success
+                          : shouldBeGreyedOut
+                            ? theme.text.secondary
+                            : theme.text.primary
+                      }
+                    >
+                      {displayValue}
+                    </Text>
+                  </Box>
+                  <Box height={1} />
+                </React.Fragment>
+              );
+            })}
+            {showScrollDown && <Text color={theme.text.secondary}>▼</Text>}
+          </>
+        )}
 
         <Box height={1} />
 
