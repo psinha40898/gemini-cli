@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Box, Text } from 'ink';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Box, Text, type DOMElement } from 'ink';
 import { theme } from '../semantic-colors.js';
 import type {
   LoadableSettingScope,
@@ -48,6 +48,8 @@ import {
 import { debugLogger } from '@google/gemini-cli-core';
 import { keyMatchers, Command } from '../keyMatchers.js';
 import type { Config } from '@google/gemini-cli-core';
+import { useAlternateBuffer } from '../hooks/useAlternateBuffer.js';
+import { useMouseClick } from '../hooks/useMouseClick.js';
 
 interface SettingsDialogProps {
   settings: LoadedSettings;
@@ -59,6 +61,33 @@ interface SettingsDialogProps {
 
 const maxItemsToShow = 8;
 
+// Clickable wrapper for settings items when in alternate buffer mode
+interface ClickableSettingsRowProps {
+  children: React.ReactNode;
+  onClick: () => void;
+  isEnabled: boolean;
+}
+
+function ClickableSettingsRow({
+  children,
+  onClick,
+  isEnabled,
+}: ClickableSettingsRowProps): React.JSX.Element {
+  const rowRef = useRef<DOMElement>(null);
+
+  const handleClick = useCallback(() => {
+    onClick();
+  }, [onClick]);
+
+  useMouseClick(rowRef, handleClick, { isActive: isEnabled });
+
+  return (
+    <Box ref={rowRef} flexDirection="column">
+      {children}
+    </Box>
+  );
+}
+
 export function SettingsDialog({
   settings,
   onSelect,
@@ -68,6 +97,7 @@ export function SettingsDialog({
 }: SettingsDialogProps): React.JSX.Element {
   // Get vim mode context to sync vim mode changes
   const { vimEnabled, toggleVimEnabled } = useVimMode();
+  const isAlternateBuffer = useAlternateBuffer();
 
   // Focus state: 'settings' or 'scope'
   const [focusSection, setFocusSection] = useState<'settings' | 'scope'>(
@@ -856,8 +886,26 @@ export function SettingsDialog({
                 settings,
               );
 
+              const handleRowClick = () => {
+                // Set this item as active and toggle it
+                setActiveSettingIndex(index);
+                if (item.type === 'number' || item.type === 'string') {
+                  startEditing(item.value);
+                } else {
+                  item.toggle();
+                }
+              };
+
               return (
-                <React.Fragment key={item.value}>
+                <ClickableSettingsRow
+                  key={item.value}
+                  onClick={handleRowClick}
+                  isEnabled={
+                    isAlternateBuffer &&
+                    focusSection === 'settings' &&
+                    !editingKey
+                  }
+                >
                   <Box flexDirection="row" alignItems="center">
                     <Box minWidth={2} flexShrink={0}>
                       <Text
@@ -897,7 +945,7 @@ export function SettingsDialog({
                     </Text>
                   </Box>
                   <Box height={1} />
-                </React.Fragment>
+                </ClickableSettingsRow>
               );
             }}
           />
