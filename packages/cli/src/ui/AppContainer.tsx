@@ -263,6 +263,15 @@ export const AppContainer = (props: AppContainerProps) => {
   const { stdout } = useStdout();
   const app = useApp();
 
+  useEffect(() => {
+    if (!config.getDebugMode()) {
+      return;
+    }
+    debugLogger.debug(
+      `[DEBUG] Terminal size changed: ${terminalWidth}x${terminalHeight}`,
+    );
+  }, [config, terminalWidth, terminalHeight]);
+
   // Additional hooks moved from App.tsx
   const { stats: sessionStats } = useSessionStats();
   const branchName = useGitBranchName(config.getTargetDir());
