@@ -30,6 +30,7 @@ import {
 } from './shared/ScrollableList.js';
 import { keyMatchers, Command } from '../keyMatchers.js';
 import { useMouseClick } from '../hooks/useMouseClick.js';
+import { useUIState } from '../contexts/UIStateContext.js';
 
 // Type definitions for flattened dialog items
 type ThemeDialogItem =
@@ -71,6 +72,9 @@ export function ThemeDialog({
 }: ThemeDialogProps): React.JSX.Element {
   const isAlternateBuffer = useAlternateBuffer();
   const { refreshStatic } = useUIActions();
+  const { focusedZone } = useUIState();
+  const isDialogActive = focusedZone === 'dialog';
+
   const [selectedScope, setSelectedScope] = useState<LoadableSettingScope>(
     SettingScope.User,
   );
@@ -323,7 +327,7 @@ export function ThemeDialog({
         }
       }
     },
-    { isActive: true },
+    { isActive: !isAlternateBuffer || isDialogActive },
   );
 
   // Generate scope message for theme setting
@@ -559,7 +563,7 @@ export function ThemeDialog({
         <Box flexDirection="column" width="45%" height="100%" paddingRight={2}>
           <ScrollableList
             ref={scrollableListRef}
-            hasFocus={true}
+            hasFocus={isDialogActive}
             data={leftColumnData}
             renderItem={renderLeftColumnItem}
             estimatedItemHeight={() => 1}

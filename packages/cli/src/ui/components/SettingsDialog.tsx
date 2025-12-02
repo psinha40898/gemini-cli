@@ -56,6 +56,7 @@ import {
 import { debugLogger } from '@google/gemini-cli-core';
 import { keyMatchers, Command } from '../keyMatchers.js';
 import type { Config } from '@google/gemini-cli-core';
+import { useUIState } from '../contexts/UIStateContext.js';
 
 // Type definitions for flattened dialog items in alt buffer mode
 type SettingsDialogItem =
@@ -96,6 +97,8 @@ export function SettingsDialog({
 }: SettingsDialogProps): React.JSX.Element {
   // Get vim mode context to sync vim mode changes
   const { vimEnabled, toggleVimEnabled } = useVimMode();
+  const { focusedZone } = useUIState();
+  const isDialogActive = focusedZone === 'dialog';
 
   // Focus state: 'settings' or 'scope'
   const [focusSection, setFocusSection] = useState<'settings' | 'scope'>(
@@ -299,6 +302,93 @@ export function SettingsDialog({
   };
 
   const items = generateSettingsItems();
+
+  // Height constraint calculations similar to ThemeDialog
+  const DIALOG_PADDING = 4;
+  const SETTINGS_TITLE_HEIGHT = 2; // "Settings" title + spacing
+  const SCROLL_ARROWS_HEIGHT = 2; // Up and down arrows
+  const SPACING_HEIGHT = 1; // Space between settings list and scope
+  const SCOPE_SELECTION_HEIGHT = 4; // Apply To section height
+  const BOTTOM_HELP_TEXT_HEIGHT = 1; // Help text
+  const RESTART_PROMPT_HEIGHT = showRestartPrompt ? 1 : 0;
+
+  let currentAvailableTerminalHeight =
+    availableTerminalHeight ?? Number.MAX_SAFE_INTEGER;
+  currentAvailableTerminalHeight -= 2; // Top and bottom borders
+
+  // Start with basic fixed height (without scope selection)
+  let totalFixedHeight =
+    DIALOG_PADDING +
+    SETTINGS_TITLE_HEIGHT +
+    SCROLL_ARROWS_HEIGHT +
+    SPACING_HEIGHT +
+    BOTTOM_HELP_TEXT_HEIGHT +
+    RESTART_PROMPT_HEIGHT;
+
+  // Calculate how much space we have for settings
+  let availableHeightForSettings = Math.max(
+    1,
+    currentAvailableTerminalHeight - totalFixedHeight,
+  );
+
+  // Each setting item takes 2 lines (the setting row + spacing)
+  let maxVisibleItems = Math.max(1, Math.floor(availableHeightForSettings / 2));
+
+  // Decide whether to show scope selection based on remaining space
+  let showScopeSelection = true;
+
+  // If we have limited height, prioritize showing more settings over scope selection
+  if (availableTerminalHeight && availableTerminalHeight < 25) {
+    // For very limited height, hide scope selection to show more settings
+    const totalWithScope = totalFixedHeight + SCOPE_SELECTION_HEIGHT;
+    const availableWithScope = Math.max(
+      1,
+      currentAvailableTerminalHeight - totalWithScope,
+    );
+    const maxItemsWithScope = Math.max(1, Math.floor(availableWithScope / 2));
+
+    // If hiding scope selection allows us to show significantly more settings, do it
+    if (maxVisibleItems > maxItemsWithScope + 1) {
+      showScopeSelection = false;
+    } else {
+      // Otherwise include scope selection and recalculate
+      totalFixedHeight += SCOPE_SELECTION_HEIGHT;
+      availableHeightForSettings = Math.max(
+        1,
+        currentAvailableTerminalHeight - totalFixedHeight,
+      );
+      maxVisibleItems = Math.max(1, Math.floor(availableHeightForSettings / 2));
+    }
+  } else {
+    // For normal height, include scope selection
+    totalFixedHeight += SCOPE_SELECTION_HEIGHT;
+    availableHeightForSettings = Math.max(
+      1,
+      currentAvailableTerminalHeight - totalFixedHeight,
+    );
+    maxVisibleItems = Math.max(1, Math.floor(availableHeightForSettings / 2));
+  }
+
+  // Use the calculated maxVisibleItems or fall back to the original maxItemsToShow
+  const effectiveMaxItemsToShow = availableTerminalHeight
+    ? Math.min(maxVisibleItems, items.length)
+    : maxItemsToShow;
+
+  // Ensure focus stays on settings when scope selection is hidden
+  React.useEffect(() => {
+    if (!showScopeSelection && focusSection === 'scope') {
+      setFocusSection('settings');
+    }
+  }, [showScopeSelection, focusSection]);
+
+  // Scroll logic for settings
+  const visibleItems = items.slice(
+    scrollOffset,
+    scrollOffset + effectiveMaxItemsToShow,
+  );
+  // Show arrows if there are more items than can be displayed
+  const showScrollUp = items.length > effectiveMaxItemsToShow;
+  const showScrollDown = items.length > effectiveMaxItemsToShow;
 
   // Generic edit state
   const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -880,7 +970,7 @@ export function SettingsDialog({
       const { name } = key;
 
       // Tab: toggle focused section
-      if (name === 'tab') {
+      if (name === 'tab' && showScopeSelection) {
         setFocusSection((prev) => (prev === 'settings' ? 'scope' : 'settings'));
         return;
       }
@@ -1056,95 +1146,11 @@ export function SettingsDialog({
       handleScopeSelect,
       saveRestartRequiredSettings,
       startEditing,
+      showScopeSelection,
     ],
   );
 
-  // Height constraint calculations similar to ThemeDialog
-  const DIALOG_PADDING = 4;
-  const SETTINGS_TITLE_HEIGHT = 2; // "Settings" title + spacing
-  const SCROLL_ARROWS_HEIGHT = 2; // Up and down arrows
-  const SPACING_HEIGHT = 1; // Space between settings list and scope
-  const SCOPE_SELECTION_HEIGHT = 4; // Apply To section height
-  const BOTTOM_HELP_TEXT_HEIGHT = 1; // Help text
-  const RESTART_PROMPT_HEIGHT = showRestartPrompt ? 1 : 0;
-
-  let currentAvailableTerminalHeight =
-    availableTerminalHeight ?? Number.MAX_SAFE_INTEGER;
-  currentAvailableTerminalHeight -= 2; // Top and bottom borders
-
-  // Start with basic fixed height (without scope selection)
-  let totalFixedHeight =
-    DIALOG_PADDING +
-    SETTINGS_TITLE_HEIGHT +
-    SCROLL_ARROWS_HEIGHT +
-    SPACING_HEIGHT +
-    BOTTOM_HELP_TEXT_HEIGHT +
-    RESTART_PROMPT_HEIGHT;
-
-  // Calculate how much space we have for settings
-  let availableHeightForSettings = Math.max(
-    1,
-    currentAvailableTerminalHeight - totalFixedHeight,
-  );
-
-  // Each setting item takes 2 lines (the setting row + spacing)
-  let maxVisibleItems = Math.max(1, Math.floor(availableHeightForSettings / 2));
-
-  // Decide whether to show scope selection based on remaining space
-  let showScopeSelection = true;
-
-  // If we have limited height, prioritize showing more settings over scope selection
-  if (availableTerminalHeight && availableTerminalHeight < 25) {
-    // For very limited height, hide scope selection to show more settings
-    const totalWithScope = totalFixedHeight + SCOPE_SELECTION_HEIGHT;
-    const availableWithScope = Math.max(
-      1,
-      currentAvailableTerminalHeight - totalWithScope,
-    );
-    const maxItemsWithScope = Math.max(1, Math.floor(availableWithScope / 2));
-
-    // If hiding scope selection allows us to show significantly more settings, do it
-    if (maxVisibleItems > maxItemsWithScope + 1) {
-      showScopeSelection = false;
-    } else {
-      // Otherwise include scope selection and recalculate
-      totalFixedHeight += SCOPE_SELECTION_HEIGHT;
-      availableHeightForSettings = Math.max(
-        1,
-        currentAvailableTerminalHeight - totalFixedHeight,
-      );
-      maxVisibleItems = Math.max(1, Math.floor(availableHeightForSettings / 2));
-    }
-  } else {
-    // For normal height, include scope selection
-    totalFixedHeight += SCOPE_SELECTION_HEIGHT;
-    availableHeightForSettings = Math.max(
-      1,
-      currentAvailableTerminalHeight - totalFixedHeight,
-    );
-    maxVisibleItems = Math.max(1, Math.floor(availableHeightForSettings / 2));
-  }
-
-  // Use the calculated maxVisibleItems or fall back to the original maxItemsToShow
-  const effectiveMaxItemsToShow = availableTerminalHeight
-    ? Math.min(maxVisibleItems, items.length)
-    : maxItemsToShow;
-
-  // Ensure focus stays on settings when scope selection is hidden
-  React.useEffect(() => {
-    if (!showScopeSelection && focusSection === 'scope') {
-      setFocusSection('settings');
-    }
-  }, [showScopeSelection, focusSection]);
-
-  // Scroll logic for settings
-  const visibleItems = items.slice(
-    scrollOffset,
-    scrollOffset + effectiveMaxItemsToShow,
-  );
-  // Show arrows if there are more items than can be displayed
-  const showScrollUp = items.length > effectiveMaxItemsToShow;
-  const showScrollDown = items.length > effectiveMaxItemsToShow;
+  // Scroll logic for settings (moved up)
 
   useKeypress(
     (key) => {
@@ -1418,7 +1424,7 @@ export function SettingsDialog({
         }
       }
     },
-    { isActive: true },
+    { isActive: !isAlternateBuffer || isDialogActive },
   );
 
   // Alternate buffer mode: vertical layout with fixed bottom section
@@ -1439,11 +1445,12 @@ export function SettingsDialog({
           ref={containerRef}
           flexDirection="column"
           flexGrow={1}
+          paddingBottom={SPACING_HEIGHT}
           width="100%"
         >
           <ScrollableList
             ref={scrollableListRef}
-            hasFocus={focusSection === 'settings'}
+            hasFocus={isDialogActive}
             data={leftColumnData}
             renderItem={renderLeftColumnItem}
             estimatedItemHeight={() => 1}

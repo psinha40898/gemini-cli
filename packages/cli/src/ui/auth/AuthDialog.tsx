@@ -31,6 +31,7 @@ import { AuthState } from '../types.js';
 import { runExitCleanup } from '../../utils/cleanup.js';
 import { validateAuthMethodWithSettings } from './useAuth.js';
 import { RELAUNCH_EXIT_CODE } from '../../utils/processUtils.js';
+import { useUIState } from '../contexts/UIStateContext.js';
 
 interface AuthDialogProps {
   config: Config;
@@ -60,6 +61,9 @@ export function AuthDialog({
   terminalHeight,
 }: AuthDialogProps): React.JSX.Element {
   const isAlternateBuffer = useAlternateBuffer();
+  const { focusedZone } = useUIState();
+  const isDialogActive = focusedZone === 'dialog';
+
   const [exiting, setExiting] = useState(false);
   const [activeAuthIndex, setActiveAuthIndex] = useState(-1); // -1 means use initialAuthIndex
   const scrollableListRef = useRef<ScrollableListRef<AuthDialogItem>>(null);
@@ -259,7 +263,7 @@ export function AuthDialog({
         }
       }
     },
-    { isActive: true },
+    { isActive: !isAlternateBuffer || isDialogActive },
   );
 
   // Build flattened data for ScrollableList
@@ -463,7 +467,7 @@ export function AuthDialog({
       >
         <ScrollableList
           ref={scrollableListRef}
-          hasFocus={true}
+          hasFocus={isDialogActive}
           data={flattenedData}
           renderItem={renderItem}
           estimatedItemHeight={() => 2}

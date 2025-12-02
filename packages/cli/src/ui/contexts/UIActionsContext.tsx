@@ -13,6 +13,7 @@ import { type LoadableSettingScope } from '../../config/settings.js';
 import type { AuthState } from '../types.js';
 import { type PermissionsDialogProps } from '../components/PermissionsModifyTrustDialog.js';
 import type { SessionInfo } from '../../utils/sessionUtils.js';
+import type { FocusedZone } from './UIStateContext.js';
 
 export interface UIActions {
   handleThemeSelect: (themeName: string, scope: LoadableSettingScope) => void;
@@ -56,6 +57,7 @@ export interface UIActions {
   handleApiKeyCancel: () => void;
   setBannerVisible: (visible: boolean) => void;
   setEmbeddedShellFocused: (value: boolean) => void;
+  setFocusedZone: (zone: FocusedZone) => void;
 }
 
 export const UIActionsContext = createContext<UIActions | null>(null);

@@ -15,7 +15,11 @@ import {
 import { type DOMElement, measureElement } from 'ink';
 import { App } from './App.js';
 import { AppContext } from './contexts/AppContext.js';
-import { UIStateContext, type UIState } from './contexts/UIStateContext.js';
+import {
+  UIStateContext,
+  type UIState,
+  type FocusedZone,
+} from './contexts/UIStateContext.js';
 import {
   UIActionsContext,
   type UIActions,
@@ -198,6 +202,8 @@ export const AppContainer = (props: AppContainerProps) => {
   const [defaultBannerText, setDefaultBannerText] = useState('');
   const [warningBannerText, setWarningBannerText] = useState('');
   const [bannerVisible, setBannerVisible] = useState(true);
+
+  const [focusedZone, setFocusedZone] = useState<FocusedZone>('dialog');
 
   const extensionManager = config.getExtensionLoader() as ExtensionManager;
   // We are in the interactive CLI, update how we request consent and settings.
@@ -1346,6 +1352,23 @@ Logging in with Google... Restarting Gemini CLI to continue.
     isAuthDialogOpen ||
     authState === AuthState.AwaitingApiKeyInput;
 
+  useEffect(() => {
+    if (dialogsVisible) {
+      setFocusedZone('dialog');
+    } else {
+      setFocusedZone('background');
+    }
+  }, [dialogsVisible]);
+
+  useKeypress(
+    (key) => {
+      if (keyMatchers[Command.SWITCH_FOCUS](key) && dialogsVisible) {
+        setFocusedZone(focusedZone === 'background' ? 'dialog' : 'background');
+      }
+    },
+    { isActive: true },
+  );
+
   const pendingHistoryItems = useMemo(
     () => [...pendingSlashCommandHistoryItems, ...pendingGeminiHistoryItems],
     [pendingSlashCommandHistoryItems, pendingGeminiHistoryItems],
@@ -1491,6 +1514,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
         warningText: warningBannerText,
       },
       bannerVisible,
+      focusedZone,
     }),
     [
       isThemeDialogOpen,
@@ -1583,6 +1607,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
       defaultBannerText,
       warningBannerText,
       bannerVisible,
+      focusedZone,
     ],
   );
 
@@ -1626,6 +1651,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
       handleApiKeyCancel,
       setBannerVisible,
       setEmbeddedShellFocused,
+      setFocusedZone,
     }),
     [
       handleThemeSelect,
@@ -1661,6 +1687,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
       handleApiKeyCancel,
       setBannerVisible,
       setEmbeddedShellFocused,
+      setFocusedZone,
     ],
   );
 

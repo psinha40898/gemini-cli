@@ -122,7 +122,9 @@ export const MainContent = () => {
   if (isAlternateBuffer) {
     return (
       <ScrollableList
-        hasFocus={!uiState.isEditorDialogOpen}
+        hasFocus={
+          !uiState.isEditorDialogOpen && uiState.focusedZone === 'background'
+        }
         data={virtualizedData}
         renderItem={renderItem}
         estimatedItemHeight={() => 100}

@@ -71,6 +71,7 @@ export enum Command {
   SUBMIT_REVERSE_SEARCH = 'submitReverseSearch',
   ACCEPT_SUGGESTION_REVERSE_SEARCH = 'acceptSuggestionReverseSearch',
   TOGGLE_SHELL_INPUT_FOCUS = 'toggleShellInputFocus',
+  SWITCH_FOCUS = 'switchFocus',
 
   // Suggestion expansion
   EXPAND_SUGGESTION = 'expandSuggestion',
@@ -210,6 +211,7 @@ export const defaultKeyBindings: KeyBindingConfig = {
   [Command.SUBMIT_REVERSE_SEARCH]: [{ key: 'return', ctrl: false }],
   [Command.ACCEPT_SUGGESTION_REVERSE_SEARCH]: [{ key: 'tab' }],
   [Command.TOGGLE_SHELL_INPUT_FOCUS]: [{ key: 'f', ctrl: true }],
+  [Command.SWITCH_FOCUS]: [{ key: 'f6' }],
 
   // Suggestion expansion
   [Command.EXPAND_SUGGESTION]: [{ key: 'right' }],
@@ -304,6 +306,7 @@ export const commandCategories: readonly CommandCategory[] = [
       Command.TOGGLE_COPY_MODE,
       Command.SHOW_MORE_LINES,
       Command.TOGGLE_SHELL_INPUT_FOCUS,
+      Command.SWITCH_FOCUS,
     ],
   },
   {
@@ -361,6 +364,7 @@ export const commandDescriptions: Readonly<Record<Command, string>> = {
     'Accept a suggestion while reverse searching.',
   [Command.TOGGLE_SHELL_INPUT_FOCUS]:
     'Toggle focus between the shell and Gemini input.',
+  [Command.SWITCH_FOCUS]: 'Switch focus between dialog and main content.',
   [Command.EXPAND_SUGGESTION]: 'Expand an inline suggestion.',
   [Command.COLLAPSE_SUGGESTION]: 'Collapse an inline suggestion.',
 };

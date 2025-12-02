@@ -136,7 +136,10 @@ export interface UIState {
   };
   bannerVisible: boolean;
   customDialog: React.ReactNode | null;
+  focusedZone: FocusedZone;
 }
+
+export type FocusedZone = 'background' | 'dialog';
 
 export const UIStateContext = createContext<UIState | null>(null);
 
