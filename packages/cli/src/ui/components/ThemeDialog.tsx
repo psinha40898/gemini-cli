@@ -531,6 +531,18 @@ export function ThemeDialog({
     leftColumnData,
   ]);
 
+  // Calculate dialog height for alternate buffer mode
+  // Use similar logic to AuthDialog: max 20 rows or 60% of terminal height
+  const dialogHeight = useMemo(() => {
+    if (!availableTerminalHeight) return '100%';
+    // We use availableTerminalHeight here which is passed from DialogManager
+    // Note: availableTerminalHeight in props is actually terminalHeight from DialogManager
+    // but the prop name in ThemeDialog is availableTerminalHeight.
+    // Let's use a safe fallback if it's somehow missing or huge.
+    const height = Math.min(20, Math.floor(availableTerminalHeight * 0.6));
+    return height;
+  }, [availableTerminalHeight]);
+
   // Alternate buffer mode: two columns - left scrolls, right is sticky preview
   if (isAlternateBuffer) {
     return (
@@ -541,7 +553,7 @@ export function ThemeDialog({
         flexDirection="row"
         padding={1}
         width="100%"
-        height="100%"
+        height={dialogHeight}
       >
         {/* Left Column: ScrollableList with themes and scope */}
         <Box flexDirection="column" width="45%" height="100%" paddingRight={2}>
