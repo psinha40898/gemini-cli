@@ -397,32 +397,31 @@ export function AuthDialog({
   // Mouse click handler for alternate buffer mode
   const handleMouseClick = useCallback(
     (_event: unknown, _relX: number, relY: number) => {
-      // relY is relative to containerRef which has border (1 row) + padding (1 row)
-      const BORDER_PADDING_OFFSET = 2;
+      const BORDER_PADDING_OFFSET = 2; // border + padding surrounding ScrollableList
 
-      // Inside ScrollableList, calculate row positions:
-      // - Row 0: title (1 row, no margin)
-      // - Row 1: question margin (marginTop={1})
-      // - Row 2: question text (1 row)
-      // - Rows 3+: auth-methods (1 row each, no margin)
-      const AUTH_START_ROW = 3; // title (1) + question with marginTop (2)
+      const listRef = scrollableListRef.current;
+      if (!listRef) {
+        return;
+      }
 
-      const scrollState = scrollableListRef.current?.getScrollState();
+      const scrollState = listRef.getScrollState();
       const scrollTop = scrollState?.scrollTop ?? 0;
 
-      // Calculate the row within the scrollable content
       const contentRelY = relY - BORDER_PADDING_OFFSET;
-      if (contentRelY < 0) return; // Clicked on border/padding
+      if (contentRelY < 0) {
+        // Clicked on border/padding, ignore.
+        return;
+      }
 
       const clickedRow = scrollTop + contentRelY;
-      const authMethodRow = clickedRow - AUTH_START_ROW;
-
-      if (authMethodRow >= 0 && authMethodRow < items.length) {
-        setActiveAuthIndex(authMethodRow);
+      const dataIndex = listRef.getItemIndexAtRow(clickedRow);
+      const clickedItem = flattenedData[dataIndex];
+      if (clickedItem?.type === 'auth-method') {
+        setActiveAuthIndex(clickedItem.index);
         onAuthError(null);
       }
     },
-    [items, onAuthError],
+    [flattenedData, onAuthError],
   );
 
   // Register mouse click handler for alternate buffer mode
