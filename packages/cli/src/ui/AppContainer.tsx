@@ -263,6 +263,20 @@ export const AppContainer = (props: AppContainerProps) => {
   const { stdout } = useStdout();
   const app = useApp();
 
+  useEffect(() => {
+    if (!config.getDebugMode()) {
+      return;
+    }
+    const message = `[DEBUG] Terminal size changed: ${terminalWidth}x${terminalHeight}`;
+    debugLogger.debug(message);
+    try {
+      const timestamped = `${new Date().toISOString()} ${message}\n`;
+      fs.appendFileSync('/tmp/gemini-terminal-size.log', timestamped);
+    } catch (error) {
+      debugLogger.warn('Failed to record terminal size log:', error);
+    }
+  }, [config, terminalWidth, terminalHeight]);
+
   // Additional hooks moved from App.tsx
   const { stats: sessionStats } = useSessionStats();
   const branchName = useGitBranchName(config.getTargetDir());

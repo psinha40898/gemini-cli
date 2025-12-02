@@ -4,8 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import { Box, Text } from 'ink';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from 'react';
+import { Box, Text, type DOMElement } from 'ink';
 import { theme } from '../semantic-colors.js';
 import type {
   LoadableSettingScope,
@@ -18,6 +24,12 @@ import {
   getScopeMessageForSetting,
 } from '../../utils/dialogScopeUtils.js';
 import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
+import {
+  ScrollableList,
+  type ScrollableListRef,
+} from './shared/ScrollableList.js';
+import { useAlternateBuffer } from '../hooks/useAlternateBuffer.js';
+import { useMouseClick } from '../hooks/useMouseClick.js';
 import {
   getDialogSettingKeys,
   setPendingSettingValue,
@@ -34,7 +46,7 @@ import {
   getEffectiveValue,
 } from '../../utils/settingsUtils.js';
 import { useVimMode } from '../contexts/VimModeContext.js';
-import { useKeypress } from '../hooks/useKeypress.js';
+import { useKeypress, type Key } from '../hooks/useKeypress.js';
 import chalk from 'chalk';
 import { cpSlice, cpLen, stripUnsafeCharacters } from '../utils/textUtils.js';
 import {
@@ -44,6 +56,26 @@ import {
 import { debugLogger } from '@google/gemini-cli-core';
 import { keyMatchers, Command } from '../keyMatchers.js';
 import type { Config } from '@google/gemini-cli-core';
+
+// Type definitions for flattened dialog items in alt buffer mode
+type SettingsDialogItem =
+  | { type: 'settings-header' }
+  | {
+      type: 'setting-item';
+      settingKey: string;
+      label: string;
+      settingType: string | undefined;
+      index: number;
+    }
+  | { type: 'scope-header' }
+  | {
+      type: 'scope-item';
+      scope: LoadableSettingScope;
+      label: string;
+      index: number;
+    }
+  | { type: 'help-text' }
+  | { type: 'restart-prompt' };
 
 interface SettingsDialogProps {
   settings: LoadedSettings;
@@ -100,6 +132,25 @@ export function SettingsDialog({
   const [_restartRequiredSettings, setRestartRequiredSettings] = useState<
     Set<string>
   >(new Set());
+
+  // Alternate buffer mode detection and state
+  const isAlternateBuffer = useAlternateBuffer();
+  const scrollableListRef = useRef<ScrollableListRef<SettingsDialogItem>>(null);
+  const containerRef = useRef<DOMElement>(null);
+  const rightColumnRef = useRef<DOMElement>(null);
+
+  // Active scope index for alternate buffer mode (separate from selectedScope)
+  const [activeScopeIndex, setActiveScopeIndex] = useState(0);
+
+  // Scope items with indices for alternate buffer mode
+  const scopeItemsWithIndex = useMemo(
+    () =>
+      getScopeItems().map((item, index) => ({
+        ...item,
+        index,
+      })),
+    [],
+  );
 
   useEffect(() => {
     // Base settings for selected scope
@@ -264,104 +315,109 @@ export function SettingsDialog({
     return () => clearInterval(id);
   }, [editingKey]);
 
-  const startEditing = (key: string, initial?: string) => {
+  const startEditing = useCallback((key: string, initial?: string) => {
     setEditingKey(key);
     const initialValue = initial ?? '';
     setEditBuffer(initialValue);
     setEditCursorPos(cpLen(initialValue)); // Position cursor at end of initial value
-  };
+  }, []);
 
-  const commitEdit = (key: string) => {
-    const definition = getSettingDefinition(key);
-    const type = definition?.type;
+  const commitEdit = useCallback(
+    (key: string) => {
+      const definition = getSettingDefinition(key);
+      const type = definition?.type;
 
-    if (editBuffer.trim() === '' && type === 'number') {
-      // Nothing entered for a number; cancel edit
-      setEditingKey(null);
-      setEditBuffer('');
-      setEditCursorPos(0);
-      return;
-    }
-
-    let parsed: string | number;
-    if (type === 'number') {
-      const numParsed = Number(editBuffer.trim());
-      if (Number.isNaN(numParsed)) {
-        // Invalid number; cancel edit
+      if (editBuffer.trim() === '' && type === 'number') {
+        // Nothing entered for a number; cancel edit
         setEditingKey(null);
         setEditBuffer('');
         setEditCursorPos(0);
         return;
       }
-      parsed = numParsed;
-    } else {
-      // For strings, use the buffer as is.
-      parsed = editBuffer;
-    }
 
-    // Update pending
-    setPendingSettings((prev) => setPendingSettingValueAny(key, parsed, prev));
-
-    if (!requiresRestart(key)) {
-      const immediateSettings = new Set([key]);
-      const currentScopeSettings = settings.forScope(selectedScope).settings;
-      const immediateSettingsObject = setPendingSettingValueAny(
-        key,
-        parsed,
-        currentScopeSettings,
-      );
-      saveModifiedSettings(
-        immediateSettings,
-        immediateSettingsObject,
-        settings,
-        selectedScope,
-      );
-
-      // Remove from modified sets if present
-      setModifiedSettings((prev) => {
-        const updated = new Set(prev);
-        updated.delete(key);
-        return updated;
-      });
-      setRestartRequiredSettings((prev) => {
-        const updated = new Set(prev);
-        updated.delete(key);
-        return updated;
-      });
-
-      // Remove from global pending since it's immediately saved
-      setGlobalPendingChanges((prev) => {
-        if (!prev.has(key)) return prev;
-        const next = new Map(prev);
-        next.delete(key);
-        return next;
-      });
-    } else {
-      // Mark as modified and needing restart
-      setModifiedSettings((prev) => {
-        const updated = new Set(prev).add(key);
-        const needsRestart = hasRestartRequiredSettings(updated);
-        if (needsRestart) {
-          setShowRestartPrompt(true);
-          setRestartRequiredSettings((prevRestart) =>
-            new Set(prevRestart).add(key),
-          );
+      let parsed: string | number;
+      if (type === 'number') {
+        const numParsed = Number(editBuffer.trim());
+        if (Number.isNaN(numParsed)) {
+          // Invalid number; cancel edit
+          setEditingKey(null);
+          setEditBuffer('');
+          setEditCursorPos(0);
+          return;
         }
-        return updated;
-      });
+        parsed = numParsed;
+      } else {
+        // For strings, use the buffer as is.
+        parsed = editBuffer;
+      }
 
-      // Record pending change globally for persistence across scopes
-      setGlobalPendingChanges((prev) => {
-        const next = new Map(prev);
-        next.set(key, parsed as PendingValue);
-        return next;
-      });
-    }
+      // Update pending
+      setPendingSettings((prev) =>
+        setPendingSettingValueAny(key, parsed, prev),
+      );
 
-    setEditingKey(null);
-    setEditBuffer('');
-    setEditCursorPos(0);
-  };
+      if (!requiresRestart(key)) {
+        const immediateSettings = new Set([key]);
+        const currentScopeSettings = settings.forScope(selectedScope).settings;
+        const immediateSettingsObject = setPendingSettingValueAny(
+          key,
+          parsed,
+          currentScopeSettings,
+        );
+        saveModifiedSettings(
+          immediateSettings,
+          immediateSettingsObject,
+          settings,
+          selectedScope,
+        );
+
+        // Remove from modified sets if present
+        setModifiedSettings((prev) => {
+          const updated = new Set(prev);
+          updated.delete(key);
+          return updated;
+        });
+        setRestartRequiredSettings((prev) => {
+          const updated = new Set(prev);
+          updated.delete(key);
+          return updated;
+        });
+
+        // Remove from global pending since it's immediately saved
+        setGlobalPendingChanges((prev) => {
+          if (!prev.has(key)) return prev;
+          const next = new Map(prev);
+          next.delete(key);
+          return next;
+        });
+      } else {
+        // Mark as modified and needing restart
+        setModifiedSettings((prev) => {
+          const updated = new Set(prev).add(key);
+          const needsRestart = hasRestartRequiredSettings(updated);
+          if (needsRestart) {
+            setShowRestartPrompt(true);
+            setRestartRequiredSettings((prevRestart) =>
+              new Set(prevRestart).add(key),
+            );
+          }
+          return updated;
+        });
+
+        // Record pending change globally for persistence across scopes
+        setGlobalPendingChanges((prev) => {
+          const next = new Map(prev);
+          next.set(key, parsed as PendingValue);
+          return next;
+        });
+      }
+
+      setEditingKey(null);
+      setEditBuffer('');
+      setEditCursorPos(0);
+    },
+    [editBuffer, selectedScope, settings],
+  );
 
   // Scope selector items
   const scopeItems = getScopeItems().map((item) => ({
@@ -369,14 +425,639 @@ export function SettingsDialog({
     key: item.value,
   }));
 
-  const handleScopeHighlight = (scope: LoadableSettingScope) => {
+  const handleScopeHighlight = useCallback((scope: LoadableSettingScope) => {
     setSelectedScope(scope);
-  };
+  }, []);
 
-  const handleScopeSelect = (scope: LoadableSettingScope) => {
-    handleScopeHighlight(scope);
-    setFocusSection('settings');
-  };
+  const handleScopeSelect = useCallback(
+    (scope: LoadableSettingScope) => {
+      handleScopeHighlight(scope);
+      setFocusSection('settings');
+    },
+    [handleScopeHighlight],
+  );
+
+  // Build flattened data for left column ScrollableList (alt buffer mode)
+  // Now only contains settings - scope is in a separate sticky right column
+  const leftColumnData = useMemo((): SettingsDialogItem[] => {
+    const data: SettingsDialogItem[] = [
+      { type: 'settings-header' },
+      ...items.map((item, index) => ({
+        type: 'setting-item' as const,
+        settingKey: item.value,
+        label: item.label,
+        settingType: item.type,
+        index,
+      })),
+      { type: 'help-text' },
+    ];
+
+    if (showRestartPrompt) {
+      data.push({ type: 'restart-prompt' });
+    }
+
+    return data;
+  }, [items, showRestartPrompt]);
+
+  // Render item for left column ScrollableList (alt buffer mode)
+  const renderLeftColumnItem = useCallback(
+    ({ item }: { item: SettingsDialogItem }) => {
+      const scopeSettings = settings.forScope(selectedScope).settings;
+      const mergedSettings = settings.merged;
+
+      switch (item.type) {
+        case 'settings-header':
+          return (
+            <Text bold={focusSection === 'settings'} wrap="truncate">
+              {focusSection === 'settings' ? '> ' : '  '}Settings
+            </Text>
+          );
+
+        case 'setting-item': {
+          const isActive =
+            focusSection === 'settings' && activeSettingIndex === item.index;
+
+          let displayValue: string;
+          if (editingKey === item.settingKey) {
+            // Show edit buffer with cursor
+            if (cursorVisible && editCursorPos < cpLen(editBuffer)) {
+              const beforeCursor = cpSlice(editBuffer, 0, editCursorPos);
+              const atCursor = cpSlice(
+                editBuffer,
+                editCursorPos,
+                editCursorPos + 1,
+              );
+              const afterCursor = cpSlice(editBuffer, editCursorPos + 1);
+              displayValue =
+                beforeCursor + chalk.inverse(atCursor) + afterCursor;
+            } else if (cursorVisible && editCursorPos >= cpLen(editBuffer)) {
+              displayValue = editBuffer + chalk.inverse(' ');
+            } else {
+              displayValue = editBuffer;
+            }
+          } else if (
+            item.settingType === 'number' ||
+            item.settingType === 'string'
+          ) {
+            const path = item.settingKey.split('.');
+            const currentValue = getNestedValue(pendingSettings, path);
+            const defaultValue = getDefaultValue(item.settingKey);
+
+            if (currentValue !== undefined && currentValue !== null) {
+              displayValue = String(currentValue);
+            } else {
+              displayValue =
+                defaultValue !== undefined && defaultValue !== null
+                  ? String(defaultValue)
+                  : '';
+            }
+
+            const isModified = modifiedSettings.has(item.settingKey);
+            const effectiveCurrentValue =
+              currentValue !== undefined && currentValue !== null
+                ? currentValue
+                : defaultValue;
+            const isDifferentFromDefault =
+              effectiveCurrentValue !== defaultValue;
+
+            if (isDifferentFromDefault || isModified) {
+              displayValue += '*';
+            }
+          } else {
+            displayValue = getDisplayValue(
+              item.settingKey,
+              scopeSettings,
+              mergedSettings,
+              modifiedSettings,
+              pendingSettings,
+            );
+          }
+
+          const shouldBeGreyedOut = isDefaultValue(
+            item.settingKey,
+            scopeSettings,
+          );
+          const scopeMessage = getScopeMessageForSetting(
+            item.settingKey,
+            selectedScope,
+            settings,
+          );
+
+          return (
+            <Box flexDirection="row" alignItems="center">
+              <Box minWidth={2} flexShrink={0}>
+                <Text
+                  color={isActive ? theme.status.success : theme.text.secondary}
+                >
+                  {isActive ? '●' : ''}
+                </Text>
+              </Box>
+              <Box minWidth={50}>
+                <Text
+                  color={isActive ? theme.status.success : theme.text.primary}
+                >
+                  {item.label}
+                  {scopeMessage && (
+                    <Text color={theme.text.secondary}> {scopeMessage}</Text>
+                  )}
+                </Text>
+              </Box>
+              <Box minWidth={3} />
+              <Text
+                color={
+                  isActive
+                    ? theme.status.success
+                    : shouldBeGreyedOut
+                      ? theme.text.secondary
+                      : theme.text.primary
+                }
+              >
+                {displayValue}
+              </Text>
+            </Box>
+          );
+        }
+
+        case 'scope-header':
+          return (
+            <Box marginTop={1}>
+              <Text bold={focusSection === 'scope'} wrap="truncate">
+                {focusSection === 'scope' ? '> ' : '  '}Apply To
+              </Text>
+            </Box>
+          );
+
+        case 'scope-item': {
+          const isSelected =
+            focusSection === 'scope' && item.index === activeScopeIndex;
+          const titleColor = isSelected
+            ? theme.status.success
+            : theme.text.primary;
+
+          return (
+            <Box flexDirection="row" alignItems="flex-start">
+              <Box minWidth={2} flexShrink={0}>
+                <Text
+                  color={isSelected ? theme.status.success : theme.text.primary}
+                >
+                  {isSelected ? '●' : ' '}
+                </Text>
+              </Box>
+              <Text color={titleColor}>{item.label}</Text>
+            </Box>
+          );
+        }
+
+        case 'help-text':
+          return (
+            <Box marginTop={1}>
+              <Text color={theme.text.secondary} wrap="truncate">
+                (Enter to select, Tab to switch, Esc to close)
+              </Text>
+            </Box>
+          );
+
+        case 'restart-prompt':
+          return (
+            <Box marginTop={1}>
+              <Text color={theme.status.warning} wrap="truncate">
+                To see changes, Gemini CLI must be restarted. Press r to exit
+                and apply changes now.
+              </Text>
+            </Box>
+          );
+
+        default:
+          return <></>;
+      }
+    },
+    [
+      focusSection,
+      activeSettingIndex,
+      activeScopeIndex,
+      editingKey,
+      editBuffer,
+      editCursorPos,
+      cursorVisible,
+      pendingSettings,
+      modifiedSettings,
+      selectedScope,
+      settings,
+    ],
+  );
+
+  // Key extractor for left column ScrollableList
+  const leftColumnKeyExtractor = useCallback(
+    (item: SettingsDialogItem, index: number) => {
+      if (item.type === 'setting-item') {
+        return `setting-${item.settingKey}`;
+      }
+      if (item.type === 'scope-item') {
+        return `scope-${item.scope}`;
+      }
+      return `${item.type}-${index}`;
+    },
+    [],
+  );
+
+  // Mouse click handler for left column (settings) in alternate buffer mode
+  const handleLeftColumnClick = useCallback(
+    (_event: unknown, _relX: number, relY: number) => {
+      const scrollState = scrollableListRef.current?.getScrollState();
+      const scrollTop = scrollState?.scrollTop ?? 0;
+
+      // relY is relative to the left column box (no border/padding to subtract here)
+      const clickedRow = scrollTop + relY;
+      const listRef = scrollableListRef.current;
+      if (!listRef) return;
+
+      const dataIndex = listRef.getItemIndexAtRow(clickedRow);
+      const clickedItem = leftColumnData[dataIndex];
+
+      if (clickedItem?.type === 'setting-item') {
+        const isAlreadySelected =
+          focusSection === 'settings' &&
+          activeSettingIndex === clickedItem.index;
+
+        if (isAlreadySelected) {
+          // Second click on already-selected setting: toggle/edit it
+          const currentItem = items[clickedItem.index];
+          if (currentItem) {
+            if (
+              currentItem.type === 'number' ||
+              currentItem.type === 'string'
+            ) {
+              startEditing(currentItem.value);
+            } else {
+              currentItem.toggle();
+            }
+          }
+        } else {
+          // First click: highlight the setting
+          setFocusSection('settings');
+          setActiveSettingIndex(clickedItem.index);
+        }
+      }
+    },
+    [leftColumnData, focusSection, activeSettingIndex, items, startEditing],
+  );
+
+  // Mouse click handler for bottom section (scope) in alternate buffer mode
+  const handleRightColumnClick = useCallback(
+    (_event: unknown, _relX: number, relY: number) => {
+      // Bottom section layout (vertical):
+      // Row 0: "Apply To" header
+      // Row 1: ● User
+      // Row 2: ● Workspace
+      // Row 3: ● System
+      const HEADER_ROW = 1; // Skip header
+
+      const clickedScopeIndex = relY - HEADER_ROW;
+      if (
+        clickedScopeIndex < 0 ||
+        clickedScopeIndex >= scopeItemsWithIndex.length
+      ) {
+        return;
+      }
+
+      const isAlreadySelected =
+        focusSection === 'scope' && activeScopeIndex === clickedScopeIndex;
+
+      if (isAlreadySelected) {
+        // Second click on already-selected scope: apply it
+        handleScopeSelect(scopeItemsWithIndex[clickedScopeIndex].value);
+      } else {
+        // First click: highlight the scope
+        setFocusSection('scope');
+        setActiveScopeIndex(clickedScopeIndex);
+        // Also update selectedScope to preview scope change
+        setSelectedScope(scopeItemsWithIndex[clickedScopeIndex].value);
+      }
+    },
+    [focusSection, activeScopeIndex, scopeItemsWithIndex, handleScopeSelect],
+  );
+
+  // Register mouse click handlers for alternate buffer mode
+  useMouseClick(containerRef, handleLeftColumnClick, {
+    isActive: isAlternateBuffer,
+  });
+  useMouseClick(rightColumnRef, handleRightColumnClick, {
+    isActive: isAlternateBuffer,
+  });
+
+  // Scroll to keep active setting visible in left column (alt buffer mode)
+  // Scope is now in a separate non-scrolling column
+  useEffect(() => {
+    if (!isAlternateBuffer || focusSection !== 'settings') return;
+    const dataIndex = leftColumnData.findIndex(
+      (item) =>
+        item.type === 'setting-item' && item.index === activeSettingIndex,
+    );
+    if (dataIndex !== -1) {
+      scrollableListRef.current?.scrollToIndex({ index: dataIndex });
+    }
+  }, [activeSettingIndex, focusSection, isAlternateBuffer, leftColumnData]);
+
+  // Save restart-required settings (moved before handleAlternateBufferKeypress)
+  const saveRestartRequiredSettings = useCallback(() => {
+    const restartRequiredSettingsList =
+      getRestartRequiredFromModified(modifiedSettings);
+    const restartRequiredSet = new Set(restartRequiredSettingsList);
+
+    if (restartRequiredSet.size > 0) {
+      saveModifiedSettings(
+        restartRequiredSet,
+        pendingSettings,
+        settings,
+        selectedScope,
+      );
+
+      // Remove saved keys from global pending changes
+      setGlobalPendingChanges((prev) => {
+        if (prev.size === 0) return prev;
+        const next = new Map(prev);
+        for (const key of restartRequiredSet) {
+          next.delete(key);
+        }
+        return next;
+      });
+    }
+  }, [modifiedSettings, pendingSettings, settings, selectedScope]);
+
+  // Helper function to reset setting to default (extracted for reuse)
+  const handleResetToDefault = useCallback(() => {
+    const currentSetting = items[activeSettingIndex];
+    if (!currentSetting) return;
+
+    const defaultValue = getDefaultValue(currentSetting.value);
+    const defType = currentSetting.type;
+
+    if (defType === 'boolean') {
+      const booleanDefaultValue =
+        typeof defaultValue === 'boolean' ? defaultValue : false;
+      setPendingSettings((prev) =>
+        setPendingSettingValue(currentSetting.value, booleanDefaultValue, prev),
+      );
+    } else if (defType === 'number' || defType === 'string') {
+      if (
+        typeof defaultValue === 'number' ||
+        typeof defaultValue === 'string'
+      ) {
+        setPendingSettings((prev) =>
+          setPendingSettingValueAny(currentSetting.value, defaultValue, prev),
+        );
+      }
+    }
+
+    setModifiedSettings((prev) => {
+      const updated = new Set(prev);
+      updated.delete(currentSetting.value);
+      return updated;
+    });
+
+    setRestartRequiredSettings((prev) => {
+      const updated = new Set(prev);
+      updated.delete(currentSetting.value);
+      return updated;
+    });
+
+    if (!requiresRestart(currentSetting.value)) {
+      const immediateSettings = new Set([currentSetting.value]);
+      const toSaveValue =
+        currentSetting.type === 'boolean'
+          ? typeof defaultValue === 'boolean'
+            ? defaultValue
+            : false
+          : typeof defaultValue === 'number' || typeof defaultValue === 'string'
+            ? defaultValue
+            : undefined;
+      const currentScopeSettings = settings.forScope(selectedScope).settings;
+      const immediateSettingsObject =
+        toSaveValue !== undefined
+          ? setPendingSettingValueAny(
+              currentSetting.value,
+              toSaveValue,
+              currentScopeSettings,
+            )
+          : currentScopeSettings;
+
+      saveModifiedSettings(
+        immediateSettings,
+        immediateSettingsObject,
+        settings,
+        selectedScope,
+      );
+
+      setGlobalPendingChanges((prev) => {
+        if (!prev.has(currentSetting.value)) return prev;
+        const next = new Map(prev);
+        next.delete(currentSetting.value);
+        return next;
+      });
+    } else {
+      if (
+        (currentSetting.type === 'boolean' &&
+          typeof defaultValue === 'boolean') ||
+        (currentSetting.type === 'number' &&
+          typeof defaultValue === 'number') ||
+        (currentSetting.type === 'string' && typeof defaultValue === 'string')
+      ) {
+        setGlobalPendingChanges((prev) => {
+          const next = new Map(prev);
+          next.set(
+            currentSetting.value,
+            defaultValue as boolean | number | string,
+          );
+          return next;
+        });
+      }
+    }
+  }, [activeSettingIndex, items, selectedScope, settings]);
+
+  // Keyboard handler for alternate buffer mode
+  const handleAlternateBufferKeypress = useCallback(
+    (key: Key) => {
+      const { name } = key;
+
+      // Tab: toggle focused section
+      if (name === 'tab') {
+        setFocusSection((prev) => (prev === 'settings' ? 'scope' : 'settings'));
+        return;
+      }
+
+      // Handle 'r' for restart prompt
+      if (showRestartPrompt && name === 'r') {
+        saveRestartRequiredSettings();
+        setShowRestartPrompt(false);
+        setRestartRequiredSettings(new Set());
+        if (onRestartRequest) onRestartRequest();
+        return;
+      }
+
+      // Escape: close dialog
+      if (keyMatchers[Command.ESCAPE](key)) {
+        if (editingKey) {
+          commitEdit(editingKey);
+        } else {
+          saveRestartRequiredSettings();
+          onSelect(undefined, selectedScope);
+        }
+        return;
+      }
+
+      if (focusSection === 'settings') {
+        // Handle editing mode
+        if (editingKey) {
+          const definition = getSettingDefinition(editingKey);
+          const type = definition?.type;
+
+          if (key.paste && key.sequence) {
+            let pasted = key.sequence;
+            if (type === 'number') {
+              pasted = key.sequence.replace(/[^0-9\-+.]/g, '');
+            }
+            if (pasted) {
+              setEditBuffer((b) => {
+                const before = cpSlice(b, 0, editCursorPos);
+                const after = cpSlice(b, editCursorPos);
+                return before + pasted + after;
+              });
+              setEditCursorPos((pos) => pos + cpLen(pasted));
+            }
+            return;
+          }
+
+          if (name === 'backspace' || name === 'delete') {
+            if (name === 'backspace' && editCursorPos > 0) {
+              setEditBuffer((b) => {
+                const before = cpSlice(b, 0, editCursorPos - 1);
+                const after = cpSlice(b, editCursorPos);
+                return before + after;
+              });
+              setEditCursorPos((pos) => pos - 1);
+            } else if (name === 'delete' && editCursorPos < cpLen(editBuffer)) {
+              setEditBuffer((b) => {
+                const before = cpSlice(b, 0, editCursorPos);
+                const after = cpSlice(b, editCursorPos + 1);
+                return before + after;
+              });
+            }
+            return;
+          }
+
+          if (keyMatchers[Command.RETURN](key)) {
+            commitEdit(editingKey);
+            return;
+          }
+
+          let ch = key.sequence || '';
+          let isValidChar = false;
+          if (type === 'number') {
+            isValidChar = /[0-9\-+.]/.test(ch);
+          } else {
+            ch = stripUnsafeCharacters(ch);
+            isValidChar = ch.length === 1;
+          }
+
+          if (isValidChar) {
+            setEditBuffer((currentBuffer) => {
+              const beforeCursor = cpSlice(currentBuffer, 0, editCursorPos);
+              const afterCursor = cpSlice(currentBuffer, editCursorPos);
+              return beforeCursor + ch + afterCursor;
+            });
+            setEditCursorPos((pos) => pos + 1);
+            return;
+          }
+
+          // Arrow key navigation within edit buffer
+          if (name === 'left') {
+            setEditCursorPos((pos) => Math.max(0, pos - 1));
+            return;
+          }
+          if (name === 'right') {
+            setEditCursorPos((pos) => Math.min(cpLen(editBuffer), pos + 1));
+            return;
+          }
+          if (keyMatchers[Command.HOME](key)) {
+            setEditCursorPos(0);
+            return;
+          }
+          if (keyMatchers[Command.END](key)) {
+            setEditCursorPos(cpLen(editBuffer));
+            return;
+          }
+          return;
+        }
+
+        // Navigation in settings list
+        if (keyMatchers[Command.DIALOG_NAVIGATION_UP](key)) {
+          setActiveSettingIndex((prev) =>
+            prev > 0 ? prev - 1 : items.length - 1,
+          );
+        } else if (keyMatchers[Command.DIALOG_NAVIGATION_DOWN](key)) {
+          setActiveSettingIndex((prev) =>
+            prev < items.length - 1 ? prev + 1 : 0,
+          );
+        } else if (keyMatchers[Command.RETURN](key) || name === 'space') {
+          const currentItem = items[activeSettingIndex];
+          if (
+            currentItem?.type === 'number' ||
+            currentItem?.type === 'string'
+          ) {
+            startEditing(currentItem.value);
+          } else {
+            currentItem?.toggle();
+          }
+        } else if (/^[0-9]$/.test(key.sequence || '') && !editingKey) {
+          const currentItem = items[activeSettingIndex];
+          if (currentItem?.type === 'number') {
+            startEditing(currentItem.value, key.sequence);
+          }
+        } else if (
+          keyMatchers[Command.CLEAR_INPUT](key) ||
+          keyMatchers[Command.CLEAR_SCREEN](key)
+        ) {
+          // Reset to default
+          handleResetToDefault();
+        }
+      } else {
+        // Scope section navigation
+        if (keyMatchers[Command.DIALOG_NAVIGATION_UP](key)) {
+          setActiveScopeIndex((prev) =>
+            prev > 0 ? prev - 1 : scopeItemsWithIndex.length - 1,
+          );
+        } else if (keyMatchers[Command.DIALOG_NAVIGATION_DOWN](key)) {
+          setActiveScopeIndex((prev) =>
+            prev < scopeItemsWithIndex.length - 1 ? prev + 1 : 0,
+          );
+        } else if (keyMatchers[Command.RETURN](key)) {
+          const selectedScopeItem = scopeItemsWithIndex[activeScopeIndex];
+          if (selectedScopeItem) {
+            handleScopeSelect(selectedScopeItem.value);
+          }
+        }
+      }
+    },
+    [
+      focusSection,
+      activeSettingIndex,
+      activeScopeIndex,
+      items,
+      scopeItemsWithIndex,
+      editingKey,
+      editBuffer,
+      editCursorPos,
+      showRestartPrompt,
+      selectedScope,
+      onSelect,
+      onRestartRequest,
+      commitEdit,
+      handleResetToDefault,
+      handleScopeSelect,
+      saveRestartRequiredSettings,
+      startEditing,
+    ],
+  );
 
   // Height constraint calculations similar to ThemeDialog
   const DIALOG_PADDING = 4;
@@ -465,33 +1146,15 @@ export function SettingsDialog({
   const showScrollUp = items.length > effectiveMaxItemsToShow;
   const showScrollDown = items.length > effectiveMaxItemsToShow;
 
-  const saveRestartRequiredSettings = () => {
-    const restartRequiredSettings =
-      getRestartRequiredFromModified(modifiedSettings);
-    const restartRequiredSet = new Set(restartRequiredSettings);
-
-    if (restartRequiredSet.size > 0) {
-      saveModifiedSettings(
-        restartRequiredSet,
-        pendingSettings,
-        settings,
-        selectedScope,
-      );
-
-      // Remove saved keys from global pending changes
-      setGlobalPendingChanges((prev) => {
-        if (prev.size === 0) return prev;
-        const next = new Map(prev);
-        for (const key of restartRequiredSet) {
-          next.delete(key);
-        }
-        return next;
-      });
-    }
-  };
-
   useKeypress(
     (key) => {
+      // Route to alternate buffer handler when in alternate buffer mode
+      if (isAlternateBuffer) {
+        handleAlternateBufferKeypress(key);
+        return;
+      }
+
+      // Non-alternate buffer mode handling
       const { name } = key;
       if (name === 'tab' && showScopeSelection) {
         setFocusSection((prev) => (prev === 'settings' ? 'scope' : 'settings'));
@@ -758,6 +1421,75 @@ export function SettingsDialog({
     { isActive: true },
   );
 
+  // Alternate buffer mode: vertical layout with fixed bottom section
+  // Top: ScrollableList with settings (takes remaining space)
+  // Bottom: Fixed scope selector (always visible)
+  if (isAlternateBuffer) {
+    return (
+      <Box
+        borderStyle="round"
+        borderColor={theme.border.default}
+        flexDirection="column"
+        padding={1}
+        width="100%"
+        height="100%"
+      >
+        {/* Top Section: Settings (scrollable, takes remaining space) */}
+        <Box
+          ref={containerRef}
+          flexDirection="column"
+          flexGrow={1}
+          width="100%"
+        >
+          <ScrollableList
+            ref={scrollableListRef}
+            hasFocus={focusSection === 'settings'}
+            data={leftColumnData}
+            renderItem={renderLeftColumnItem}
+            estimatedItemHeight={() => 1}
+            keyExtractor={leftColumnKeyExtractor}
+          />
+        </Box>
+
+        {/* Bottom Section: Scope selector (fixed, always visible, vertical layout) */}
+        <Box
+          ref={rightColumnRef}
+          flexDirection="column"
+          flexShrink={0}
+          width="100%"
+          marginTop={1}
+        >
+          <Text bold={focusSection === 'scope'} wrap="truncate">
+            {focusSection === 'scope' ? '> ' : '  '}Apply To
+          </Text>
+          {scopeItemsWithIndex.map((item) => {
+            const isSelected =
+              focusSection === 'scope' && item.index === activeScopeIndex;
+            const titleColor = isSelected
+              ? theme.status.success
+              : theme.text.primary;
+
+            return (
+              <Box key={item.value} flexDirection="row" alignItems="flex-start">
+                <Box minWidth={2} flexShrink={0}>
+                  <Text
+                    color={
+                      isSelected ? theme.status.success : theme.text.primary
+                    }
+                  >
+                    {isSelected ? '●' : ' '}
+                  </Text>
+                </Box>
+                <Text color={titleColor}>{item.label}</Text>
+              </Box>
+            );
+          })}
+        </Box>
+      </Box>
+    );
+  }
+
+  // Non-alternate buffer mode: original UI
   return (
     <Box
       borderStyle="round"

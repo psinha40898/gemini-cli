@@ -5,8 +5,8 @@
  */
 
 import type React from 'react';
-import { useCallback, useState } from 'react';
-import { Box, Text } from 'ink';
+import { useCallback, useState, useMemo, useRef, useEffect } from 'react';
+import { Box, Text, type DOMElement } from 'ink';
 import { theme } from '../semantic-colors.js';
 import { themeManager, DEFAULT_THEME } from '../themes/theme-manager.js';
 import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
@@ -17,10 +17,33 @@ import type {
   LoadedSettings,
 } from '../../config/settings.js';
 import { SettingScope } from '../../config/settings.js';
-import { getScopeMessageForSetting } from '../../utils/dialogScopeUtils.js';
-import { useKeypress } from '../hooks/useKeypress.js';
+import {
+  getScopeMessageForSetting,
+  getScopeItems,
+} from '../../utils/dialogScopeUtils.js';
+import { useKeypress, type Key } from '../hooks/useKeypress.js';
 import { useAlternateBuffer } from '../hooks/useAlternateBuffer.js';
 import { ScopeSelector } from './shared/ScopeSelector.js';
+import {
+  ScrollableList,
+  type ScrollableListRef,
+} from './shared/ScrollableList.js';
+import { keyMatchers, Command } from '../keyMatchers.js';
+import { useMouseClick } from '../hooks/useMouseClick.js';
+
+// Type definitions for flattened dialog items
+type ThemeDialogItem =
+  | { type: 'theme-header' }
+  | { type: 'theme-item'; themeName: string; themeType: string; index: number }
+  | { type: 'scope-header' }
+  | {
+      type: 'scope-item';
+      scope: LoadableSettingScope;
+      label: string;
+      index: number;
+    }
+  | { type: 'help-text' }
+  | { type: 'full-content' };
 import { useUIActions } from '../contexts/UIActionsContext.js';
 
 interface ThemeDialogProps {
@@ -57,33 +80,39 @@ export function ThemeDialog({
     settings.merged.ui?.theme || DEFAULT_THEME.name,
   );
 
-  // Generate theme items filtered by selected scope
-  const customThemes =
-    selectedScope === SettingScope.User
-      ? settings.user.settings.ui?.customThemes || {}
-      : settings.merged.ui?.customThemes || {};
-  const builtInThemes = themeManager
-    .getAvailableThemes()
-    .filter((theme) => theme.type !== 'custom');
-  const customThemeNames = Object.keys(customThemes);
-  const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-  // Generate theme items
-  const themeItems = [
-    ...builtInThemes.map((theme) => ({
-      label: theme.name,
-      value: theme.name,
-      themeNameDisplay: theme.name,
-      themeTypeDisplay: capitalize(theme.type),
-      key: theme.name,
-    })),
-    ...customThemeNames.map((name) => ({
-      label: name,
-      value: name,
-      themeNameDisplay: name,
-      themeTypeDisplay: 'Custom',
-      key: name,
-    })),
-  ];
+  // Generate theme items filtered by selected scope (memoized)
+  const themeItems = useMemo(() => {
+    const customThemes =
+      selectedScope === SettingScope.User
+        ? settings.user.settings.ui?.customThemes || {}
+        : settings.merged.ui?.customThemes || {};
+    const builtInThemes = themeManager
+      .getAvailableThemes()
+      .filter((t) => t.type !== 'custom');
+    const customThemeNames = Object.keys(customThemes);
+    const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+    return [
+      ...builtInThemes.map((t) => ({
+        label: t.name,
+        value: t.name,
+        themeNameDisplay: t.name,
+        themeTypeDisplay: capitalize(t.type),
+        key: t.name,
+      })),
+      ...customThemeNames.map((name) => ({
+        label: name,
+        value: name,
+        themeNameDisplay: name,
+        themeTypeDisplay: 'Custom',
+        key: name,
+      })),
+    ];
+  }, [
+    selectedScope,
+    settings.user.settings.ui?.customThemes,
+    settings.merged.ui?.customThemes,
+  ]);
 
   // Find the index of the selected theme, but only if it exists in the list
   const initialThemeIndex = themeItems.findIndex(
@@ -100,10 +129,13 @@ export function ThemeDialog({
     [onSelect, selectedScope, refreshStatic],
   );
 
-  const handleThemeHighlight = (themeName: string) => {
-    setHighlightedThemeName(themeName);
-    onHighlight(themeName);
-  };
+  const handleThemeHighlight = useCallback(
+    (themeName: string) => {
+      setHighlightedThemeName(themeName);
+      onHighlight(themeName);
+    },
+    [onHighlight],
+  );
 
   const handleScopeHighlight = useCallback((scope: LoadableSettingScope) => {
     setSelectedScope(scope);
@@ -119,13 +151,176 @@ export function ThemeDialog({
 
   const [mode, setMode] = useState<'theme' | 'scope'>('theme');
 
+  // Alternate buffer mode state
+  const [activeThemeIndex, setActiveThemeIndex] = useState(-1); // -1 means use safeInitialThemeIndex
+  const [activeScopeIndex, setActiveScopeIndex] = useState(0);
+  const [focusedSection, setFocusedSection] = useState<'theme' | 'scope'>(
+    'theme',
+  );
+  const scrollableListRef = useRef<ScrollableListRef<ThemeDialogItem>>(null);
+  const containerRef = useRef<DOMElement>(null);
+
+  // Scope items for alternate buffer mode
+  const scopeItems = useMemo(
+    () =>
+      getScopeItems().map((item, index) => ({
+        ...item,
+        index,
+      })),
+    [],
+  );
+
+  // Update highlighted theme when activeThemeIndex changes
+  useEffect(() => {
+    if (!isAlternateBuffer) return;
+    const effectiveIndex =
+      activeThemeIndex === -1 ? safeInitialThemeIndex : activeThemeIndex;
+    if (effectiveIndex >= 0 && effectiveIndex < themeItems.length) {
+      handleThemeHighlight(themeItems[effectiveIndex].value);
+    }
+  }, [
+    activeThemeIndex,
+    safeInitialThemeIndex,
+    isAlternateBuffer,
+    themeItems,
+    handleThemeHighlight,
+  ]);
+
+  // Keyboard handler for alternate buffer mode
+  const handleAlternateBufferKeypress = useCallback(
+    (key: Key) => {
+      if (key.name === 'tab') {
+        setFocusedSection((prev) => (prev === 'theme' ? 'scope' : 'theme'));
+        return;
+      }
+
+      if (keyMatchers[Command.ESCAPE](key)) {
+        onCancel();
+        return;
+      }
+
+      if (focusedSection === 'theme') {
+        if (keyMatchers[Command.DIALOG_NAVIGATION_UP](key)) {
+          setActiveThemeIndex((prev) => {
+            const current = prev === -1 ? safeInitialThemeIndex : prev;
+            return current > 0 ? current - 1 : themeItems.length - 1;
+          });
+        } else if (keyMatchers[Command.DIALOG_NAVIGATION_DOWN](key)) {
+          setActiveThemeIndex((prev) => {
+            const current = prev === -1 ? safeInitialThemeIndex : prev;
+            return current < themeItems.length - 1 ? current + 1 : 0;
+          });
+        } else if (keyMatchers[Command.RETURN](key)) {
+          const effectiveIndex =
+            activeThemeIndex === -1 ? safeInitialThemeIndex : activeThemeIndex;
+          handleThemeSelect(themeItems[effectiveIndex].value);
+        }
+      } else {
+        // scope section
+        if (keyMatchers[Command.DIALOG_NAVIGATION_UP](key)) {
+          setActiveScopeIndex((prev) =>
+            prev > 0 ? prev - 1 : scopeItems.length - 1,
+          );
+        } else if (keyMatchers[Command.DIALOG_NAVIGATION_DOWN](key)) {
+          setActiveScopeIndex((prev) =>
+            prev < scopeItems.length - 1 ? prev + 1 : 0,
+          );
+        } else if (keyMatchers[Command.RETURN](key)) {
+          handleScopeSelect(scopeItems[activeScopeIndex].value);
+        }
+      }
+    },
+    [
+      focusedSection,
+      activeThemeIndex,
+      safeInitialThemeIndex,
+      themeItems,
+      handleThemeSelect,
+      activeScopeIndex,
+      scopeItems,
+      handleScopeSelect,
+      onCancel,
+    ],
+  );
+
+  // Build flattened data for left column ScrollableList
+  const leftColumnData = useMemo(
+    (): ThemeDialogItem[] => [
+      { type: 'theme-header' },
+      ...themeItems.map((item, index) => ({
+        type: 'theme-item' as const,
+        themeName: item.themeNameDisplay,
+        themeType: item.themeTypeDisplay,
+        index,
+      })),
+      { type: 'scope-header' },
+      ...scopeItems.map((item) => ({
+        type: 'scope-item' as const,
+        scope: item.value,
+        label: item.label,
+        index: item.index,
+      })),
+      { type: 'help-text' },
+    ],
+    [themeItems, scopeItems],
+  );
+
+  // Mouse click handler for alternate buffer mode
+  const handleMouseClick = useCallback(
+    (_event: unknown, relX: number, relY: number) => {
+      // Only handle clicks on the left column (approximately first 45%)
+      // For now, calculate which item was clicked based on row position
+      const scrollState = scrollableListRef.current?.getScrollState();
+      const scrollTop = scrollState?.scrollTop ?? 0;
+
+      // relY is relative to the outer dialog container, which has
+      // a border (1 row) + padding (1 row) at the top.
+      const BORDER_PADDING_OFFSET = 2;
+
+      // Translate to row within the ScrollableList content.
+      const contentRelY = relY - BORDER_PADDING_OFFSET;
+      if (contentRelY < 0) {
+        // Clicked on border/padding area; ignore.
+        return;
+      }
+
+      const clickedRow = scrollTop + contentRelY;
+      const listRef = scrollableListRef.current;
+      if (!listRef) {
+        return;
+      }
+
+      const dataIndex = listRef.getItemIndexAtRow(clickedRow);
+      const item = leftColumnData[dataIndex];
+
+      if (item?.type === 'theme-item') {
+        setFocusedSection('theme');
+        setActiveThemeIndex(item.index);
+      } else if (item?.type === 'scope-item') {
+        setFocusedSection('scope');
+        setActiveScopeIndex(item.index);
+      }
+    },
+    [leftColumnData],
+  );
+
+  // Register mouse click handler
+  useMouseClick(containerRef, handleMouseClick, {
+    isActive: isAlternateBuffer,
+  });
+
+  // Non-alternate buffer mode keyboard handler
   useKeypress(
     (key) => {
-      if (key.name === 'tab') {
-        setMode((prev) => (prev === 'theme' ? 'scope' : 'theme'));
-      }
-      if (key.name === 'escape') {
-        onCancel();
+      if (isAlternateBuffer) {
+        handleAlternateBufferKeypress(key);
+      } else {
+        if (key.name === 'tab') {
+          setMode((prev) => (prev === 'theme' ? 'scope' : 'theme'));
+        }
+        if (key.name === 'escape') {
+          onCancel();
+        }
       }
     },
     { isActive: true },
@@ -195,6 +390,216 @@ export function ThemeDialog({
   // The code block is slightly longer than the diff, so give it more space.
   const codeBlockHeight = Math.ceil(availableHeightForPanes * 0.6);
   const diffHeight = Math.floor(availableHeightForPanes * 0.4);
+
+  // Get the preview theme for rendering
+  const previewTheme =
+    themeManager.getTheme(highlightedThemeName || DEFAULT_THEME.name) ||
+    DEFAULT_THEME;
+
+  // Render item for left column ScrollableList
+  const renderLeftColumnItem = useCallback(
+    ({ item }: { item: ThemeDialogItem }) => {
+      const effectiveThemeIndex =
+        activeThemeIndex === -1 ? safeInitialThemeIndex : activeThemeIndex;
+
+      switch (item.type) {
+        case 'theme-header':
+          return (
+            <Text bold={focusedSection === 'theme'} wrap="truncate">
+              {focusedSection === 'theme' ? '> ' : '  '}Select Theme{' '}
+              <Text color={theme.text.secondary}>
+                {getScopeMessageForSetting('ui.theme', selectedScope, settings)}
+              </Text>
+            </Text>
+          );
+
+        case 'theme-item': {
+          const isSelected =
+            focusedSection === 'theme' && item.index === effectiveThemeIndex;
+          const titleColor = isSelected
+            ? theme.status.success
+            : theme.text.primary;
+
+          return (
+            <Box flexDirection="row" alignItems="flex-start">
+              <Box minWidth={2} flexShrink={0}>
+                <Text
+                  color={isSelected ? theme.status.success : theme.text.primary}
+                >
+                  {isSelected ? '●' : ' '}
+                </Text>
+              </Box>
+              <Text color={titleColor} wrap="truncate">
+                {item.themeName}{' '}
+                <Text color={theme.text.secondary}>{item.themeType}</Text>
+              </Text>
+            </Box>
+          );
+        }
+
+        case 'scope-header':
+          return (
+            <Box marginTop={1}>
+              <Text bold={focusedSection === 'scope'} wrap="truncate">
+                {focusedSection === 'scope' ? '> ' : '  '}Apply To
+              </Text>
+            </Box>
+          );
+
+        case 'scope-item': {
+          const isSelected =
+            focusedSection === 'scope' && item.index === activeScopeIndex;
+          const titleColor = isSelected
+            ? theme.status.success
+            : theme.text.primary;
+
+          return (
+            <Box flexDirection="row" alignItems="flex-start">
+              <Box minWidth={2} flexShrink={0}>
+                <Text
+                  color={isSelected ? theme.status.success : theme.text.primary}
+                >
+                  {isSelected ? '●' : ' '}
+                </Text>
+              </Box>
+              <Text color={titleColor}>{item.label}</Text>
+            </Box>
+          );
+        }
+
+        case 'help-text':
+          return (
+            <Box marginTop={1}>
+              <Text color={theme.text.secondary} wrap="truncate">
+                (Enter to select, Tab to switch, Esc to close)
+              </Text>
+            </Box>
+          );
+
+        default:
+          return <></>;
+      }
+    },
+    [
+      activeThemeIndex,
+      safeInitialThemeIndex,
+      activeScopeIndex,
+      focusedSection,
+      selectedScope,
+      settings,
+    ],
+  );
+
+  // Key extractor for left column
+  const leftColumnKeyExtractor = useCallback(
+    (item: ThemeDialogItem, index: number) => {
+      if (item.type === 'theme-item') {
+        return `theme-${item.themeName}`;
+      }
+      if (item.type === 'scope-item') {
+        return `scope-${item.scope}`;
+      }
+      return `${item.type}-${index}`;
+    },
+    [],
+  );
+
+  // Scroll to keep active item visible in left column
+  useEffect(() => {
+    if (!isAlternateBuffer) return;
+    let dataIndex: number;
+    if (focusedSection === 'theme') {
+      const effectiveIndex =
+        activeThemeIndex === -1 ? safeInitialThemeIndex : activeThemeIndex;
+      dataIndex = leftColumnData.findIndex(
+        (item) => item.type === 'theme-item' && item.index === effectiveIndex,
+      );
+    } else {
+      dataIndex = leftColumnData.findIndex(
+        (item) => item.type === 'scope-item' && item.index === activeScopeIndex,
+      );
+    }
+    if (dataIndex !== -1) {
+      scrollableListRef.current?.scrollToIndex({ index: dataIndex });
+    }
+  }, [
+    activeThemeIndex,
+    activeScopeIndex,
+    focusedSection,
+    safeInitialThemeIndex,
+    isAlternateBuffer,
+    leftColumnData,
+  ]);
+
+  // Alternate buffer mode: two columns - left scrolls, right is sticky preview
+  if (isAlternateBuffer) {
+    return (
+      <Box
+        ref={containerRef}
+        borderStyle="round"
+        borderColor={theme.border.default}
+        flexDirection="row"
+        padding={1}
+        width="100%"
+        height="100%"
+      >
+        {/* Left Column: ScrollableList with themes and scope */}
+        <Box flexDirection="column" width="45%" height="100%" paddingRight={2}>
+          <ScrollableList
+            ref={scrollableListRef}
+            hasFocus={true}
+            data={leftColumnData}
+            renderItem={renderLeftColumnItem}
+            estimatedItemHeight={() => 1}
+            keyExtractor={leftColumnKeyExtractor}
+          />
+        </Box>
+
+        {/* Right Column: Preview (sticky - doesn't scroll with left) */}
+        <Box flexDirection="column" width="55%" height="100%" paddingLeft={2}>
+          <Text bold color={theme.text.primary}>
+            Preview
+          </Text>
+          <Box
+            borderStyle="single"
+            borderColor={theme.border.default}
+            paddingTop={1}
+            paddingBottom={1}
+            paddingLeft={1}
+            paddingRight={1}
+            flexDirection="column"
+            flexGrow={1}
+            overflow="hidden"
+          >
+            {colorizeCode({
+              code: `# function
+def fibonacci(n):
+    a, b = 0, 1
+    for _ in range(n):
+        a, b = b, a + b
+    return a`,
+              language: 'python',
+              maxWidth: colorizeCodeWidth,
+              settings,
+            })}
+            <Box marginTop={1} />
+            <DiffRenderer
+              diffContent={`--- a/util.py
++++ b/util.py
+@@ -1,2 +1,2 @@
+- print("Hello, " + name)
++ print(f"Hello, {name}!")
+`}
+              terminalWidth={colorizeCodeWidth}
+              theme={previewTheme}
+            />
+          </Box>
+        </Box>
+      </Box>
+    );
+  }
+
+  // Non-alternate buffer mode: original UI
   return (
     <Box
       borderStyle="round"
@@ -233,52 +638,40 @@ export function ThemeDialog({
             <Text bold color={theme.text.primary}>
               Preview
             </Text>
-            {/* Get the Theme object for the highlighted theme, fall back to default if not found */}
-            {(() => {
-              const previewTheme =
-                themeManager.getTheme(
-                  highlightedThemeName || DEFAULT_THEME.name,
-                ) || DEFAULT_THEME;
-              return (
-                <Box
-                  borderStyle="single"
-                  borderColor={theme.border.default}
-                  paddingTop={includePadding ? 1 : 0}
-                  paddingBottom={includePadding ? 1 : 0}
-                  paddingLeft={1}
-                  paddingRight={1}
-                  flexDirection="column"
-                >
-                  {colorizeCode({
-                    code: `# function
+            <Box
+              borderStyle="single"
+              borderColor={theme.border.default}
+              paddingTop={includePadding ? 1 : 0}
+              paddingBottom={includePadding ? 1 : 0}
+              paddingLeft={1}
+              paddingRight={1}
+              flexDirection="column"
+            >
+              {colorizeCode({
+                code: `# function
 def fibonacci(n):
     a, b = 0, 1
     for _ in range(n):
         a, b = b, a + b
     return a`,
-                    language: 'python',
-                    availableHeight:
-                      isAlternateBuffer === false ? codeBlockHeight : undefined,
-                    maxWidth: colorizeCodeWidth,
-                    settings,
-                  })}
-                  <Box marginTop={1} />
-                  <DiffRenderer
-                    diffContent={`--- a/util.py
+                language: 'python',
+                availableHeight: codeBlockHeight,
+                maxWidth: colorizeCodeWidth,
+                settings,
+              })}
+              <Box marginTop={1} />
+              <DiffRenderer
+                diffContent={`--- a/util.py
 +++ b/util.py
 @@ -1,2 +1,2 @@
 - print("Hello, " + name)
 + print(f"Hello, {name}!")
 `}
-                    availableTerminalHeight={
-                      isAlternateBuffer === false ? diffHeight : undefined
-                    }
-                    terminalWidth={colorizeCodeWidth}
-                    theme={previewTheme}
-                  />
-                </Box>
-              );
-            })()}
+                availableTerminalHeight={diffHeight}
+                terminalWidth={colorizeCodeWidth}
+                theme={previewTheme}
+              />
+            </Box>
           </Box>
         </Box>
       ) : (

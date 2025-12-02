@@ -52,6 +52,7 @@ export type VirtualizedListRef<T> = {
     scrollHeight: number;
     innerHeight: number;
   };
+  getItemIndexAtRow: (row: number) => number;
 };
 
 function findLastIndex<T>(
@@ -457,6 +458,16 @@ function VirtualizedList<T>(
         scrollHeight: totalHeight,
         innerHeight: containerHeight,
       }),
+      getItemIndexAtRow: (row: number) => {
+        if (row <= 0) {
+          return 0;
+        }
+        const index = findLastIndex(offsets, (offset) => offset <= row);
+        if (index === -1) {
+          return 0;
+        }
+        return Math.min(index, dataRef.current.length - 1);
+      },
     }),
     [
       offsets,
