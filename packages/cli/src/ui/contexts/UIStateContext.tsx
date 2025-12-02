@@ -135,6 +135,7 @@ export interface UIState {
     warningText: string;
   };
   bannerVisible: boolean;
+  bannerHeight: number;
   customDialog: React.ReactNode | null;
   focusedZone: FocusedZone;
 }

@@ -47,7 +47,8 @@ export const DialogManager = ({
 
   const uiState = useUIState();
   const uiActions = useUIActions();
-  const { terminalHeight, staticExtraHeight, mainAreaWidth } = uiState;
+  const { terminalHeight, staticExtraHeight, mainAreaWidth, bannerHeight } =
+    uiState;
 
   if (uiState.showIdeRestartPrompt) {
     return <IdeTrustChangeDialog reason={uiState.ideTrustRestartReason} />;
@@ -141,7 +142,9 @@ export const DialogManager = ({
             await runExitCleanup();
             process.exit(RELAUNCH_EXIT_CODE);
           }}
-          availableTerminalHeight={terminalHeight - staticExtraHeight}
+          availableTerminalHeight={
+            terminalHeight - staticExtraHeight - bannerHeight
+          }
           config={config}
         />
       </Box>

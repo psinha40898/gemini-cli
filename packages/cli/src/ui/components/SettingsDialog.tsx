@@ -97,7 +97,7 @@ export function SettingsDialog({
 }: SettingsDialogProps): React.JSX.Element {
   // Get vim mode context to sync vim mode changes
   const { vimEnabled, toggleVimEnabled } = useVimMode();
-  const { focusedZone } = useUIState();
+  const { focusedZone, terminalWidth } = useUIState();
   const isDialogActive = focusedZone === 'dialog';
 
   // Focus state: 'settings' or 'scope'
@@ -633,6 +633,9 @@ export function SettingsDialog({
             settings,
           );
 
+          // Responsive layout for label
+          const labelWidth = Math.min(50, Math.max(20, terminalWidth - 30));
+
           return (
             <Box flexDirection="row" alignItems="center">
               <Box minWidth={2} flexShrink={0}>
@@ -642,9 +645,10 @@ export function SettingsDialog({
                   {isActive ? '●' : ''}
                 </Text>
               </Box>
-              <Box minWidth={50}>
+              <Box width={labelWidth} flexShrink={0}>
                 <Text
                   color={isActive ? theme.status.success : theme.text.primary}
+                  wrap="truncate"
                 >
                   {item.label}
                   {scopeMessage && (
@@ -652,18 +656,21 @@ export function SettingsDialog({
                   )}
                 </Text>
               </Box>
-              <Box minWidth={3} />
-              <Text
-                color={
-                  isActive
-                    ? theme.status.success
-                    : shouldBeGreyedOut
-                      ? theme.text.secondary
-                      : theme.text.primary
-                }
-              >
-                {displayValue}
-              </Text>
+              <Box minWidth={2} />
+              <Box flexGrow={1}>
+                <Text
+                  color={
+                    isActive
+                      ? theme.status.success
+                      : shouldBeGreyedOut
+                        ? theme.text.secondary
+                        : theme.text.primary
+                  }
+                  wrap="truncate"
+                >
+                  {displayValue}
+                </Text>
+              </Box>
             </Box>
           );
         }
@@ -733,6 +740,7 @@ export function SettingsDialog({
       modifiedSettings,
       selectedScope,
       settings,
+      terminalWidth,
     ],
   );
 
@@ -1438,7 +1446,7 @@ export function SettingsDialog({
         flexDirection="column"
         padding={1}
         width="100%"
-        height="100%"
+        height={currentAvailableTerminalHeight}
       >
         {/* Top Section: Settings (scrollable, takes remaining space) */}
         <Box
@@ -1588,6 +1596,9 @@ export function SettingsDialog({
             settings,
           );
 
+          // Responsive layout for label
+          const labelWidth = Math.min(50, Math.max(20, terminalWidth - 30));
+
           return (
             <React.Fragment key={item.value}>
               <Box flexDirection="row" alignItems="center">
@@ -1600,9 +1611,10 @@ export function SettingsDialog({
                     {isActive ? '●' : ''}
                   </Text>
                 </Box>
-                <Box minWidth={50}>
+                <Box width={labelWidth} flexShrink={0}>
                   <Text
                     color={isActive ? theme.status.success : theme.text.primary}
+                    wrap="truncate"
                   >
                     {item.label}
                     {scopeMessage && (
@@ -1610,18 +1622,21 @@ export function SettingsDialog({
                     )}
                   </Text>
                 </Box>
-                <Box minWidth={3} />
-                <Text
-                  color={
-                    isActive
-                      ? theme.status.success
-                      : shouldBeGreyedOut
-                        ? theme.text.secondary
-                        : theme.text.primary
-                  }
-                >
-                  {displayValue}
-                </Text>
+                <Box minWidth={2} />
+                <Box flexGrow={1}>
+                  <Text
+                    color={
+                      isActive
+                        ? theme.status.success
+                        : shouldBeGreyedOut
+                          ? theme.text.secondary
+                          : theme.text.primary
+                    }
+                    wrap="truncate"
+                  >
+                    {displayValue}
+                  </Text>
+                </Box>
               </Box>
               <Box height={1} />
             </React.Fragment>

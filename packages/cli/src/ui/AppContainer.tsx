@@ -129,6 +129,12 @@ import { enableBracketedPaste } from './utils/bracketedPaste.js';
 const WARNING_PROMPT_DURATION_MS = 1000;
 const QUEUE_ERROR_DISPLAY_DURATION_MS = 3000;
 
+/**
+ * Estimated height of the banner component when visible.
+ * Accounts for border (2 lines) + typical banner content (~4 lines).
+ */
+const BANNER_HEIGHT_ESTIMATE = 6;
+
 function isToolExecuting(pendingHistoryItems: HistoryItemWithoutId[]) {
   return pendingHistoryItems.some((item) => {
     if (item && item.type === 'tool_group') {
@@ -1514,6 +1520,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
         warningText: warningBannerText,
       },
       bannerVisible,
+      bannerHeight: bannerVisible ? BANNER_HEIGHT_ESTIMATE : 0,
       focusedZone,
     }),
     [
