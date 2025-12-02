@@ -46,6 +46,7 @@ type ThemeDialogItem =
   | { type: 'help-text' }
   | { type: 'full-content' };
 import { useUIActions } from '../contexts/UIActionsContext.js';
+import { useAdaptiveDialogHeight } from '../hooks/useAdaptiveDialogHeight.js';
 
 interface ThemeDialogProps {
   /** Callback function when a theme is selected */
@@ -535,20 +536,85 @@ export function ThemeDialog({
     leftColumnData,
   ]);
 
-  // Calculate dialog height for alternate buffer mode
-  // Use similar logic to AuthDialog: max 20 rows or 60% of terminal height
-  const dialogHeight = useMemo(() => {
-    if (!availableTerminalHeight) return '100%';
-    // We use availableTerminalHeight here which is passed from DialogManager
-    // Note: availableTerminalHeight in props is actually terminalHeight from DialogManager
-    // but the prop name in ThemeDialog is availableTerminalHeight.
-    // Let's use a safe fallback if it's somehow missing or huge.
-    const height = Math.min(20, Math.floor(availableTerminalHeight * 0.6));
-    return height;
-  }, [availableTerminalHeight]);
+  // Calculate natural content height for adaptive sizing
+  // Left column: themes + scope + headers + help text
+  // Right column: preview pane (fixed elements)
+  const naturalContentHeight = useMemo(() => {
+    // Left column: theme-header(1) + themes(n) + scope-header(2) + scopes(2) + help(2)
+    const leftColumnRows = 1 + themeItems.length + 2 + scopeItems.length + 2;
+    // Right column: preview title(1) + code block(~8) + diff(~5) + borders(4)
+    const rightColumnRows = 18;
+    // Take the max of both columns
+    // Add a safety buffer of 4 rows
+    return Math.max(leftColumnRows, rightColumnRows) + 4;
+  }, [themeItems.length, scopeItems.length]);
+
+  // Use adaptive height: undefined = intrinsic, number = constrained
+  const dialogHeight = useAdaptiveDialogHeight({
+    terminalHeight: availableTerminalHeight ?? Number.MAX_SAFE_INTEGER,
+    naturalContentHeight,
+    minScrollableHeight: 12,
+    chromeHeight: 4, // border (2) + padding (2)
+  });
+
+  // Shared preview pane component for alternate buffer mode
+  const previewPane = (
+    <Box flexDirection="column" width="55%" paddingLeft={2}>
+      <Text bold color={theme.text.primary}>
+        Preview
+      </Text>
+      <Box
+        borderStyle="single"
+        borderColor={theme.border.default}
+        paddingTop={1}
+        paddingBottom={1}
+        paddingLeft={1}
+        paddingRight={1}
+        flexDirection="column"
+        flexGrow={1}
+        overflow="hidden"
+      >
+        {colorizeCode({
+          code: `# function
+def fibonacci(n):
+    a, b = 0, 1
+    for _ in range(n):
+        a, b = b, a + b
+    return a`,
+          language: 'python',
+          maxWidth: colorizeCodeWidth,
+          settings,
+        })}
+        <Box marginTop={1} />
+        <DiffRenderer
+          diffContent={`--- a/util.py
++++ b/util.py
+@@ -1,2 +1,2 @@
+- print("Hello, " + name)
++ print(f"Hello, {name}!")
+`}
+          terminalWidth={colorizeCodeWidth}
+          theme={previewTheme}
+        />
+      </Box>
+    </Box>
+  );
 
   // Alternate buffer mode: two columns - left scrolls, right is sticky preview
   if (isAlternateBuffer) {
+    // When dialogHeight is undefined, terminal is large enough for intrinsic sizing
+    // Render content directly without ScrollableList for natural height behavior
+    // If dialogHeight is undefined (intrinsic), allow the box to be as tall as the content.
+    // ScrollableList will fill this height and render everything without scrolling.
+    // We also cap the intrinsic height at availableTerminalHeight to prevent overflow.
+    const targetHeight =
+      dialogHeight ??
+      Math.min(
+        naturalContentHeight,
+        availableTerminalHeight ?? Number.MAX_SAFE_INTEGER,
+      );
+
+    // Constrained: use ScrollableList for scrolling
     return (
       <Box
         ref={containerRef}
@@ -557,7 +623,7 @@ export function ThemeDialog({
         flexDirection="row"
         padding={1}
         width="100%"
-        height={dialogHeight}
+        height={targetHeight}
       >
         {/* Left Column: ScrollableList with themes and scope */}
         <Box flexDirection="column" width="45%" height="100%" paddingRight={2}>
@@ -570,47 +636,7 @@ export function ThemeDialog({
             keyExtractor={leftColumnKeyExtractor}
           />
         </Box>
-
-        {/* Right Column: Preview (sticky - doesn't scroll with left) */}
-        <Box flexDirection="column" width="55%" height="100%" paddingLeft={2}>
-          <Text bold color={theme.text.primary}>
-            Preview
-          </Text>
-          <Box
-            borderStyle="single"
-            borderColor={theme.border.default}
-            paddingTop={1}
-            paddingBottom={1}
-            paddingLeft={1}
-            paddingRight={1}
-            flexDirection="column"
-            flexGrow={1}
-            overflow="hidden"
-          >
-            {colorizeCode({
-              code: `# function
-def fibonacci(n):
-    a, b = 0, 1
-    for _ in range(n):
-        a, b = b, a + b
-    return a`,
-              language: 'python',
-              maxWidth: colorizeCodeWidth,
-              settings,
-            })}
-            <Box marginTop={1} />
-            <DiffRenderer
-              diffContent={`--- a/util.py
-+++ b/util.py
-@@ -1,2 +1,2 @@
-- print("Hello, " + name)
-+ print(f"Hello, {name}!")
-`}
-              terminalWidth={colorizeCodeWidth}
-              theme={previewTheme}
-            />
-          </Box>
-        </Box>
+        {previewPane}
       </Box>
     );
   }

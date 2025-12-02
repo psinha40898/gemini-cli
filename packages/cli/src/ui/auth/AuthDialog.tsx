@@ -32,6 +32,7 @@ import { runExitCleanup } from '../../utils/cleanup.js';
 import { validateAuthMethodWithSettings } from './useAuth.js';
 import { RELAUNCH_EXIT_CODE } from '../../utils/processUtils.js';
 import { useUIState } from '../contexts/UIStateContext.js';
+import { useAdaptiveDialogHeight } from '../hooks/useAdaptiveDialogHeight.js';
 
 interface AuthDialogProps {
   config: Config;
@@ -39,7 +40,7 @@ interface AuthDialogProps {
   setAuthState: (state: AuthState) => void;
   authError: string | null;
   onAuthError: (error: string | null) => void;
-  terminalHeight: number;
+  availableTerminalHeight: number;
 }
 
 // Type definitions for flattened dialog items
@@ -58,7 +59,7 @@ export function AuthDialog({
   setAuthState,
   authError,
   onAuthError,
-  terminalHeight,
+  availableTerminalHeight,
 }: AuthDialogProps): React.JSX.Element {
   const isAlternateBuffer = useAlternateBuffer();
   const { focusedZone } = useUIState();
@@ -435,6 +436,30 @@ export function AuthDialog({
     isActive: isAlternateBuffer,
   });
 
+  // Calculate natural content height for adaptive sizing
+  // Each item in flattenedData renders as ~2 lines (content + margin)
+  // title(1) + question(2) + authMethods(items.length) + error?(2) + help(2) + terms(2) + link(2)
+  const naturalContentHeight = useMemo(() => {
+    // Base content: title, question, help, terms title, terms link = 5 items
+    // Plus marginTop spacing on several items adds ~4 extra rows
+    // Auth methods: items.length
+    // Error: adds 2 if present
+    const baseRows = 5 + 4; // 5 content items + 4 margin rows
+    const authMethodRows = items.length;
+    const errorRows = authError ? 2 : 0;
+    // Add a safety buffer of 4 rows to account for text wrapping and potential margin nuances.
+    // This prevents the dialog from feeling "cramped" or triggering scroll unnecessarily.
+    return baseRows + authMethodRows + errorRows + 4;
+  }, [items.length, authError]);
+
+  // Use adaptive height: undefined = intrinsic, number = constrained
+  const dialogHeight = useAdaptiveDialogHeight({
+    terminalHeight: availableTerminalHeight,
+    naturalContentHeight,
+    minScrollableHeight: 10,
+    chromeHeight: 4, // border (2) + padding (2)
+  });
+
   if (exiting) {
     return (
       <Box
@@ -452,9 +477,18 @@ export function AuthDialog({
     );
   }
 
-  // Alternate buffer mode: use ScrollableList for full dialog
+  // Alternate buffer mode: use ScrollableList always
   if (isAlternateBuffer) {
-    const dialogHeight = Math.min(20, Math.floor(terminalHeight * 0.6));
+    // If dialogHeight is undefined (intrinsic), allow the box to be as tall as the content.
+    // ScrollableList will fill this height and render everything without scrolling.
+    // If dialogHeight is defined (constrained), the box will be fixed height and trigger scrolling.
+    // Note: We multiply estimatedItemHeight (2) by naturalContentHeight for a rough pixel height equivalent if needed,
+    // but here we are dealing with rows. ScrollableList takes parent height.
+    // To make "intrinsic" work with VirtualizedList, we need to give it a concrete height.
+    // We also cap the intrinsic height at availableTerminalHeight to prevent overflow.
+    const targetHeight =
+      dialogHeight ?? Math.min(naturalContentHeight, availableTerminalHeight);
+
     return (
       <Box
         ref={containerRef}
@@ -463,7 +497,7 @@ export function AuthDialog({
         flexDirection="column"
         padding={1}
         width="100%"
-        height={dialogHeight}
+        height={targetHeight}
       >
         <ScrollableList
           ref={scrollableListRef}
