@@ -267,9 +267,14 @@ export const AppContainer = (props: AppContainerProps) => {
     if (!config.getDebugMode()) {
       return;
     }
-    debugLogger.debug(
-      `[DEBUG] Terminal size changed: ${terminalWidth}x${terminalHeight}`,
-    );
+    const message = `[DEBUG] Terminal size changed: ${terminalWidth}x${terminalHeight}`;
+    debugLogger.debug(message);
+    try {
+      const timestamped = `${new Date().toISOString()} ${message}\n`;
+      fs.appendFileSync('/tmp/gemini-terminal-size.log', timestamped);
+    } catch (error) {
+      debugLogger.warn('Failed to record terminal size log:', error);
+    }
   }, [config, terminalWidth, terminalHeight]);
 
   // Additional hooks moved from App.tsx
