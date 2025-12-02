@@ -72,6 +72,7 @@ describe('AuthDialog', () => {
     setAuthState: (state: AuthState) => void;
     authError: string | null;
     onAuthError: (error: string | null) => void;
+    terminalHeight: number;
   };
   const originalEnv = { ...process.env };
 
@@ -94,6 +95,7 @@ describe('AuthDialog', () => {
       setAuthState: vi.fn(),
       authError: null,
       onAuthError: vi.fn(),
+      terminalHeight: 24,
     };
   });
 

@@ -38,6 +38,7 @@ interface AuthDialogProps {
   setAuthState: (state: AuthState) => void;
   authError: string | null;
   onAuthError: (error: string | null) => void;
+  terminalHeight: number;
 }
 
 // Type definitions for flattened dialog items
@@ -56,6 +57,7 @@ export function AuthDialog({
   setAuthState,
   authError,
   onAuthError,
+  terminalHeight,
 }: AuthDialogProps): React.JSX.Element {
   const isAlternateBuffer = useAlternateBuffer();
   const [exiting, setExiting] = useState(false);
@@ -448,6 +450,7 @@ export function AuthDialog({
 
   // Alternate buffer mode: use ScrollableList for full dialog
   if (isAlternateBuffer) {
+    const dialogHeight = Math.min(20, Math.floor(terminalHeight * 0.6));
     return (
       <Box
         ref={containerRef}
@@ -456,7 +459,7 @@ export function AuthDialog({
         flexDirection="column"
         padding={1}
         width="100%"
-        height="100%"
+        height={dialogHeight}
       >
         <ScrollableList
           ref={scrollableListRef}
