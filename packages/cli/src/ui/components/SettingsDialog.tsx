@@ -125,6 +125,7 @@ export function SettingsDialog({
 
   // Search state
   const [isSearching, setIsSearching] = useState(false);
+  const isSearchingRef = useRef(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredKeys, setFilteredKeys] = useState<string[]>(() =>
     getDialogSettingKeys(),
@@ -597,7 +598,6 @@ export function SettingsDialog({
   // Now only contains settings - scope is in a separate sticky right column
   const leftColumnData = useMemo((): SettingsDialogItem[] => {
     const data: SettingsDialogItem[] = [
-      { type: 'settings-header' },
       ...items.map((item, index) => ({
         type: 'setting-item' as const,
         settingKey: item.value,
@@ -622,22 +622,6 @@ export function SettingsDialog({
       const mergedSettings = settings.merged;
 
       switch (item.type) {
-        case 'settings-header':
-          if (isSearching || searchQuery) {
-            return (
-              <Text bold color={theme.text.accent} wrap="truncate">
-                {isSearching ? '> ' : '  '}Search: {searchQuery}
-                {isSearching ? '_' : ''}
-              </Text>
-            );
-          }
-          return (
-            <Text bold={focusSection === 'settings'} wrap="truncate">
-              {focusSection === 'settings' ? '> ' : '  '}Settings{' '}
-              <Text color={theme.text.secondary}>(press / to search)</Text>
-            </Text>
-          );
-
         case 'setting-item': {
           const isActive =
             focusSection === 'settings' && activeSettingIndex === item.index;
@@ -816,8 +800,6 @@ export function SettingsDialog({
       selectedScope,
       settings,
       terminalWidth,
-      isSearching,
-      searchQuery,
     ],
   );
 
@@ -1055,14 +1037,16 @@ export function SettingsDialog({
       const { name } = key;
 
       // Handle Search Mode
-      if (isSearching) {
+      if (isSearching || isSearchingRef.current) {
         if (keyMatchers[Command.ESCAPE](key)) {
           setIsSearching(false);
+          isSearchingRef.current = false;
           setSearchQuery('');
           return;
         }
         if (keyMatchers[Command.RETURN](key)) {
           setIsSearching(false);
+          isSearchingRef.current = false;
           return;
         }
         if (name === 'backspace') {
@@ -1082,6 +1066,7 @@ export function SettingsDialog({
         }
       } else if (!editingKey && key.sequence === '/') {
         setIsSearching(true);
+        isSearchingRef.current = true;
         setSearchQuery('');
         return;
       }
@@ -1283,14 +1268,16 @@ export function SettingsDialog({
       // Non-alternate buffer mode handling
       const { name } = key;
 
-      if (isSearching) {
+      if (isSearching || isSearchingRef.current) {
         if (keyMatchers[Command.ESCAPE](key)) {
           setIsSearching(false);
+          isSearchingRef.current = false;
           setSearchQuery('');
           return;
         }
         if (keyMatchers[Command.RETURN](key)) {
           setIsSearching(false);
+          isSearchingRef.current = false;
           return;
         }
         if (name === 'backspace') {
@@ -1310,6 +1297,7 @@ export function SettingsDialog({
         }
       } else if (!editingKey && key.sequence === '/') {
         setIsSearching(true);
+        isSearchingRef.current = true;
         setSearchQuery('');
         return;
       }
@@ -1592,6 +1580,21 @@ export function SettingsDialog({
         width="100%"
         height={currentAvailableTerminalHeight}
       >
+        {/* Sticky Header */}
+        <Box paddingBottom={1} key={searchQuery}>
+          {isSearching || searchQuery ? (
+            <Text bold color={theme.text.accent} wrap="truncate">
+              {isSearching ? '> ' : '  '}Search: {searchQuery}
+              {isSearching ? '_' : ''}
+            </Text>
+          ) : (
+            <Text bold={focusSection === 'settings'} wrap="truncate">
+              {focusSection === 'settings' ? '> ' : '  '}Settings{' '}
+              <Text color={theme.text.secondary}>(press / to search)</Text>
+            </Text>
+          )}
+        </Box>
+
         {/* Top Section: Settings (scrollable, takes remaining space) */}
         <Box
           ref={containerRef}
