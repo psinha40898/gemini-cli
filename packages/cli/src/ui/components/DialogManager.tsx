@@ -183,9 +183,7 @@ export const DialogManager = ({
           setAuthState={uiActions.setAuthState}
           authError={uiState.authError}
           onAuthError={uiActions.onAuthError}
-          availableTerminalHeight={
-            terminalHeight - staticExtraHeight - bannerHeight
-          }
+          availableTerminalHeight={terminalHeight - bannerHeight}
         />
       </Box>
     );

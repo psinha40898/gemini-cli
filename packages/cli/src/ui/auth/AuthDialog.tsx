@@ -447,9 +447,9 @@ export function AuthDialog({
     const baseRows = 5 + 4; // 5 content items + 4 margin rows
     const authMethodRows = items.length;
     const errorRows = authError ? 2 : 0;
-    // Add a safety buffer of 4 rows to account for text wrapping and potential margin nuances.
+    // Add a safety buffer of 1 row to account for text wrapping and potential margin nuances.
     // This prevents the dialog from feeling "cramped" or triggering scroll unnecessarily.
-    return baseRows + authMethodRows + errorRows + 4;
+    return baseRows + authMethodRows + errorRows + 1;
   }, [items.length, authError]);
 
   // Use adaptive height: undefined = intrinsic, number = constrained
@@ -486,8 +486,10 @@ export function AuthDialog({
     // but here we are dealing with rows. ScrollableList takes parent height.
     // To make "intrinsic" work with VirtualizedList, we need to give it a concrete height.
     // We also cap the intrinsic height at availableTerminalHeight to prevent overflow.
+    const CHROME_HEIGHT = 4; // border (2) + padding (2)
     const targetHeight =
-      dialogHeight ?? Math.min(naturalContentHeight, availableTerminalHeight);
+      dialogHeight ??
+      Math.min(naturalContentHeight + CHROME_HEIGHT, availableTerminalHeight);
 
     return (
       <Box
