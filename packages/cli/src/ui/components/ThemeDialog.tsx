@@ -24,29 +24,17 @@ import {
 import { useKeypress, type Key } from '../hooks/useKeypress.js';
 import { useAlternateBuffer } from '../hooks/useAlternateBuffer.js';
 import { ScopeSelector } from './shared/ScopeSelector.js';
-import {
-  ScrollableList,
-  type ScrollableListRef,
-} from './shared/ScrollableList.js';
+import { Scrollable, type ScrollableApi } from './shared/Scrollable.js';
 import { keyMatchers, Command } from '../keyMatchers.js';
 import { useMouseClick } from '../hooks/useMouseClick.js';
 import { useUIState } from '../contexts/UIStateContext.js';
 
-// Type definitions for flattened dialog items
-type ThemeDialogItem =
-  | { type: 'theme-header' }
-  | { type: 'theme-item'; themeName: string; themeType: string; index: number }
-  | { type: 'scope-header' }
-  | {
-      type: 'scope-item';
-      scope: LoadableSettingScope;
-      label: string;
-      index: number;
-    }
-  | { type: 'help-text' }
-  | { type: 'full-content' };
+const BORDER_PADDING_OFFSET = 2; // border + padding around left column
+const THEME_HEADER_ROWS = 1;
+const SCOPE_HEADER_ROWS = 1;
+const ROWS_PER_THEME_ITEM = 2; // item row + margin spacing
+const ROWS_PER_SCOPE_ITEM = 2;
 import { useUIActions } from '../contexts/UIActionsContext.js';
-import { useAdaptiveDialogHeight } from '../hooks/useAdaptiveDialogHeight.js';
 
 interface ThemeDialogProps {
   /** Callback function when a theme is selected */
@@ -75,6 +63,7 @@ export function ThemeDialog({
   const { refreshStatic } = useUIActions();
   const { focusedZone } = useUIState();
   const isDialogActive = focusedZone === 'dialog';
+  const rawAvailableHeight = availableTerminalHeight ?? Number.MAX_SAFE_INTEGER;
 
   const [selectedScope, setSelectedScope] = useState<LoadableSettingScope>(
     SettingScope.User,
@@ -162,7 +151,7 @@ export function ThemeDialog({
   const [focusedSection, setFocusedSection] = useState<'theme' | 'scope'>(
     'theme',
   );
-  const scrollableListRef = useRef<ScrollableListRef<ThemeDialogItem>>(null);
+  const scrollableApiRef = useRef<ScrollableApi | null>(null);
   const containerRef = useRef<DOMElement>(null);
 
   // Scope items for alternate buffer mode
@@ -248,65 +237,125 @@ export function ThemeDialog({
     ],
   );
 
-  // Build flattened data for left column ScrollableList
-  const leftColumnData = useMemo(
-    (): ThemeDialogItem[] => [
-      { type: 'theme-header' },
-      ...themeItems.map((item, index) => ({
-        type: 'theme-item' as const,
-        themeName: item.themeNameDisplay,
-        themeType: item.themeTypeDisplay,
-        index,
-      })),
-      { type: 'scope-header' },
-      ...scopeItems.map((item) => ({
-        type: 'scope-item' as const,
-        scope: item.value,
-        label: item.label,
-        index: item.index,
-      })),
-      { type: 'help-text' },
-    ],
-    [themeItems, scopeItems],
+  const handleRegisterScrollable = useCallback((api: ScrollableApi | null) => {
+    scrollableApiRef.current = api;
+  }, []);
+
+  const getThemeRowRange = useCallback((index: number) => {
+    const start = THEME_HEADER_ROWS + index * ROWS_PER_THEME_ITEM;
+    const end = start + ROWS_PER_THEME_ITEM - 1;
+    return { start, end };
+  }, []);
+
+  const getScopeRowRange = useCallback(
+    (index: number) => {
+      const themeSectionRows =
+        THEME_HEADER_ROWS + themeItems.length * ROWS_PER_THEME_ITEM;
+      const scopeHeaderOffset = themeSectionRows + SCOPE_HEADER_ROWS;
+      const start = scopeHeaderOffset + index * ROWS_PER_SCOPE_ITEM;
+      const end = start + ROWS_PER_SCOPE_ITEM - 1;
+      return { start, end };
+    },
+    [themeItems.length],
   );
+
+  const ensureLeftSelectionVisible = useCallback(() => {
+    if (!isAlternateBuffer) {
+      return;
+    }
+    const api = scrollableApiRef.current;
+    if (!api) {
+      return;
+    }
+    let range: { start: number; end: number } | null = null;
+    if (focusedSection === 'theme') {
+      const effectiveIndex =
+        activeThemeIndex === -1 ? safeInitialThemeIndex : activeThemeIndex;
+      if (effectiveIndex >= 0 && effectiveIndex < themeItems.length) {
+        range = getThemeRowRange(effectiveIndex);
+      }
+    } else {
+      if (activeScopeIndex >= 0 && activeScopeIndex < scopeItems.length) {
+        range = getScopeRowRange(activeScopeIndex);
+      }
+    }
+    if (!range) {
+      return;
+    }
+    const { scrollTop, innerHeight } = api.getScrollState();
+    if (range.start < scrollTop) {
+      api.scrollBy(range.start - scrollTop);
+    } else if (range.end >= scrollTop + innerHeight) {
+      api.scrollBy(range.end - (scrollTop + innerHeight) + 1);
+    }
+  }, [
+    activeThemeIndex,
+    safeInitialThemeIndex,
+    themeItems.length,
+    focusedSection,
+    scopeItems.length,
+    activeScopeIndex,
+    isAlternateBuffer,
+    getThemeRowRange,
+    getScopeRowRange,
+  ]);
+
+  useEffect(() => {
+    ensureLeftSelectionVisible();
+  }, [ensureLeftSelectionVisible]);
 
   // Mouse click handler for alternate buffer mode
   const handleMouseClick = useCallback(
     (_event: unknown, relX: number, relY: number) => {
-      // Only handle clicks on the left column (approximately first 45%)
-      // For now, calculate which item was clicked based on row position
-      const scrollState = scrollableListRef.current?.getScrollState();
-      const scrollTop = scrollState?.scrollTop ?? 0;
-
-      // relY is relative to the outer dialog container, which has
-      // a border (1 row) + padding (1 row) at the top.
-      const BORDER_PADDING_OFFSET = 2;
-
-      // Translate to row within the ScrollableList content.
+      if (!isAlternateBuffer) {
+        return;
+      }
+      const api = scrollableApiRef.current;
+      if (!api) {
+        return;
+      }
+      const { scrollTop } = api.getScrollState();
       const contentRelY = relY - BORDER_PADDING_OFFSET;
       if (contentRelY < 0) {
-        // Clicked on border/padding area; ignore.
         return;
       }
-
       const clickedRow = scrollTop + contentRelY;
-      const listRef = scrollableListRef.current;
-      if (!listRef) {
+      if (clickedRow < THEME_HEADER_ROWS) {
+        setFocusedSection('theme');
         return;
       }
-
-      const dataIndex = listRef.getItemIndexAtRow(clickedRow);
-      const item = leftColumnData[dataIndex];
-
-      if (item?.type === 'theme-item') {
-        setFocusedSection('theme');
-        setActiveThemeIndex(item.index);
-      } else if (item?.type === 'scope-item') {
+      const themeSectionEnd =
+        THEME_HEADER_ROWS + themeItems.length * ROWS_PER_THEME_ITEM;
+      if (clickedRow < themeSectionEnd) {
+        const index = Math.floor(
+          (clickedRow - THEME_HEADER_ROWS) / ROWS_PER_THEME_ITEM,
+        );
+        if (index >= 0 && index < themeItems.length) {
+          setFocusedSection('theme');
+          setActiveThemeIndex(index);
+        }
+        return;
+      }
+      const scopeHeaderStart = themeSectionEnd;
+      const scopeItemsStart = scopeHeaderStart + SCOPE_HEADER_ROWS;
+      if (clickedRow < scopeItemsStart) {
         setFocusedSection('scope');
-        setActiveScopeIndex(item.index);
+        return;
+      }
+      const scopeSectionEnd =
+        scopeItemsStart + scopeItems.length * ROWS_PER_SCOPE_ITEM;
+      if (clickedRow < scopeSectionEnd) {
+        const index = Math.floor(
+          (clickedRow - scopeItemsStart) / ROWS_PER_SCOPE_ITEM,
+        );
+        if (index >= 0 && index < scopeItems.length) {
+          setFocusedSection('scope');
+          setActiveScopeIndex(index);
+        }
+        return;
       }
     },
-    [leftColumnData],
+    [isAlternateBuffer, themeItems.length, scopeItems.length],
   );
 
   // Register mouse click handler
@@ -401,162 +450,6 @@ export function ThemeDialog({
     themeManager.getTheme(highlightedThemeName || DEFAULT_THEME.name) ||
     DEFAULT_THEME;
 
-  // Render item for left column ScrollableList
-  const renderLeftColumnItem = useCallback(
-    ({ item }: { item: ThemeDialogItem }) => {
-      const effectiveThemeIndex =
-        activeThemeIndex === -1 ? safeInitialThemeIndex : activeThemeIndex;
-
-      switch (item.type) {
-        case 'theme-header':
-          return (
-            <Text bold={focusedSection === 'theme'} wrap="truncate">
-              {focusedSection === 'theme' ? '> ' : '  '}Select Theme{' '}
-              <Text color={theme.text.secondary}>
-                {getScopeMessageForSetting('ui.theme', selectedScope, settings)}
-              </Text>
-            </Text>
-          );
-
-        case 'theme-item': {
-          const isSelected =
-            focusedSection === 'theme' && item.index === effectiveThemeIndex;
-          const titleColor = isSelected
-            ? theme.status.success
-            : theme.text.primary;
-
-          return (
-            <Box flexDirection="row" alignItems="flex-start">
-              <Box minWidth={2} flexShrink={0}>
-                <Text
-                  color={isSelected ? theme.status.success : theme.text.primary}
-                >
-                  {isSelected ? '●' : ' '}
-                </Text>
-              </Box>
-              <Text color={titleColor} wrap="truncate">
-                {item.themeName}{' '}
-                <Text color={theme.text.secondary}>{item.themeType}</Text>
-              </Text>
-            </Box>
-          );
-        }
-
-        case 'scope-header':
-          return (
-            <Box marginTop={1}>
-              <Text bold={focusedSection === 'scope'} wrap="truncate">
-                {focusedSection === 'scope' ? '> ' : '  '}Apply To
-              </Text>
-            </Box>
-          );
-
-        case 'scope-item': {
-          const isSelected =
-            focusedSection === 'scope' && item.index === activeScopeIndex;
-          const titleColor = isSelected
-            ? theme.status.success
-            : theme.text.primary;
-
-          return (
-            <Box flexDirection="row" alignItems="flex-start">
-              <Box minWidth={2} flexShrink={0}>
-                <Text
-                  color={isSelected ? theme.status.success : theme.text.primary}
-                >
-                  {isSelected ? '●' : ' '}
-                </Text>
-              </Box>
-              <Text color={titleColor}>{item.label}</Text>
-            </Box>
-          );
-        }
-
-        case 'help-text':
-          return (
-            <Box marginTop={1}>
-              <Text color={theme.text.secondary} wrap="truncate">
-                (Enter to select, Tab to switch, Esc to close)
-              </Text>
-            </Box>
-          );
-
-        default:
-          return <></>;
-      }
-    },
-    [
-      activeThemeIndex,
-      safeInitialThemeIndex,
-      activeScopeIndex,
-      focusedSection,
-      selectedScope,
-      settings,
-    ],
-  );
-
-  // Key extractor for left column
-  const leftColumnKeyExtractor = useCallback(
-    (item: ThemeDialogItem, index: number) => {
-      if (item.type === 'theme-item') {
-        return `theme-${item.themeName}`;
-      }
-      if (item.type === 'scope-item') {
-        return `scope-${item.scope}`;
-      }
-      return `${item.type}-${index}`;
-    },
-    [],
-  );
-
-  // Scroll to keep active item visible in left column
-  useEffect(() => {
-    if (!isAlternateBuffer) return;
-    let dataIndex: number;
-    if (focusedSection === 'theme') {
-      const effectiveIndex =
-        activeThemeIndex === -1 ? safeInitialThemeIndex : activeThemeIndex;
-      dataIndex = leftColumnData.findIndex(
-        (item) => item.type === 'theme-item' && item.index === effectiveIndex,
-      );
-    } else {
-      dataIndex = leftColumnData.findIndex(
-        (item) => item.type === 'scope-item' && item.index === activeScopeIndex,
-      );
-    }
-    if (dataIndex !== -1) {
-      scrollableListRef.current?.scrollToIndex({ index: dataIndex });
-    }
-  }, [
-    activeThemeIndex,
-    activeScopeIndex,
-    focusedSection,
-    safeInitialThemeIndex,
-    isAlternateBuffer,
-    leftColumnData,
-  ]);
-
-  // Calculate natural content height for adaptive sizing
-  // Left column: themes + scope + headers + help text
-  // Right column: preview pane (fixed elements)
-  const naturalContentHeight = useMemo(() => {
-    // Left column: theme-header(1) + themes(n) + scope-header(2) + scopes(2) + help(2)
-    const leftColumnRows = 1 + themeItems.length + 2 + scopeItems.length + 2;
-    // Right column: preview title(1) + code block(~8) + diff(~5) + borders(4)
-    const rightColumnRows = 18;
-    // Take the max of both columns
-    // Add a safety buffer of 4 rows
-    return Math.max(leftColumnRows, rightColumnRows) + 4;
-  }, [themeItems.length, scopeItems.length]);
-
-  // Use adaptive height: undefined = intrinsic, number = constrained
-  const dialogHeight = useAdaptiveDialogHeight({
-    terminalHeight: availableTerminalHeight ?? Number.MAX_SAFE_INTEGER,
-    naturalContentHeight,
-    minScrollableHeight: 12,
-    chromeHeight: 4, // border (2) + padding (2)
-  });
-
   // Shared preview pane component for alternate buffer mode
   const previewPane = (
     <Box flexDirection="column" width="55%" paddingLeft={2}>
@@ -571,7 +464,6 @@ export function ThemeDialog({
         paddingLeft={1}
         paddingRight={1}
         flexDirection="column"
-        flexGrow={1}
         overflow="hidden"
       >
         {colorizeCode({
@@ -602,19 +494,18 @@ def fibonacci(n):
 
   // Alternate buffer mode: two columns - left scrolls, right is sticky preview
   if (isAlternateBuffer) {
-    // When dialogHeight is undefined, terminal is large enough for intrinsic sizing
-    // Render content directly without ScrollableList for natural height behavior
-    // If dialogHeight is undefined (intrinsic), allow the box to be as tall as the content.
-    // ScrollableList will fill this height and render everything without scrolling.
-    // We also cap the intrinsic height at availableTerminalHeight to prevent overflow.
-    const targetHeight =
-      dialogHeight ??
-      Math.min(
-        naturalContentHeight,
-        availableTerminalHeight ?? Number.MAX_SAFE_INTEGER,
-      );
+    // Use explicit height constraint to force space sharing with MainContent.
+    // Cap at 60% of available height or 20 rows, whichever is smaller.
+    // This ensures MainContent remains visible above the dialog.
+    const chromeHeight = 4; // border (2) + padding (2)
+    const maxDialogRows = 20;
+    const dialogHeight = Math.min(
+      rawAvailableHeight,
+      Math.floor(rawAvailableHeight * 0.6),
+      maxDialogRows + chromeHeight,
+    );
+    const scrollableHeight = Math.max(dialogHeight - chromeHeight, 0);
 
-    // Constrained: use ScrollableList for scrolling
     return (
       <Box
         ref={containerRef}
@@ -623,18 +514,97 @@ def fibonacci(n):
         flexDirection="row"
         padding={1}
         width="100%"
-        height={targetHeight}
+        height={dialogHeight}
       >
-        {/* Left Column: ScrollableList with themes and scope */}
-        <Box flexDirection="column" width="45%" height="100%" paddingRight={2}>
-          <ScrollableList
-            ref={scrollableListRef}
+        {/* Left Column: Scrollable with themes and scope */}
+        <Box flexDirection="column" width="45%" paddingRight={2}>
+          <Scrollable
+            maxHeight={scrollableHeight}
             hasFocus={isDialogActive}
-            data={leftColumnData}
-            renderItem={renderLeftColumnItem}
-            estimatedItemHeight={() => 1}
-            keyExtractor={leftColumnKeyExtractor}
-          />
+            onRegisterApi={handleRegisterScrollable}
+          >
+            <Text bold={focusedSection === 'theme'} wrap="truncate">
+              {focusedSection === 'theme' ? '> ' : '  '}Select Theme{' '}
+              <Text color={theme.text.secondary}>
+                {getScopeMessageForSetting('ui.theme', selectedScope, settings)}
+              </Text>
+            </Text>
+            <Box marginTop={1} flexDirection="column">
+              {themeItems.map((item, index) => {
+                const effectiveIndex =
+                  activeThemeIndex === -1
+                    ? safeInitialThemeIndex
+                    : activeThemeIndex;
+                const isSelected =
+                  focusedSection === 'theme' && index === effectiveIndex;
+                const titleColor = isSelected
+                  ? theme.status.success
+                  : theme.text.primary;
+                return (
+                  <Box
+                    key={item.key}
+                    flexDirection="row"
+                    alignItems="flex-start"
+                    marginTop={index === 0 ? 0 : 1}
+                  >
+                    <Box minWidth={2} flexShrink={0}>
+                      <Text
+                        color={
+                          isSelected ? theme.status.success : theme.text.primary
+                        }
+                      >
+                        {isSelected ? '●' : ' '}
+                      </Text>
+                    </Box>
+                    <Text color={titleColor} wrap="truncate">
+                      {item.themeNameDisplay}{' '}
+                      <Text color={theme.text.secondary}>
+                        {item.themeTypeDisplay}
+                      </Text>
+                    </Text>
+                  </Box>
+                );
+              })}
+            </Box>
+            <Box marginTop={1}>
+              <Text bold={focusedSection === 'scope'} wrap="truncate">
+                {focusedSection === 'scope' ? '> ' : '  '}Apply To
+              </Text>
+            </Box>
+            <Box marginTop={1} flexDirection="column">
+              {scopeItems.map((item) => {
+                const isSelected =
+                  focusedSection === 'scope' && item.index === activeScopeIndex;
+                const titleColor = isSelected
+                  ? theme.status.success
+                  : theme.text.primary;
+                return (
+                  <Box
+                    key={item.value}
+                    flexDirection="row"
+                    alignItems="flex-start"
+                    marginTop={item.index === 0 ? 0 : 1}
+                  >
+                    <Box minWidth={2} flexShrink={0}>
+                      <Text
+                        color={
+                          isSelected ? theme.status.success : theme.text.primary
+                        }
+                      >
+                        {isSelected ? '●' : ' '}
+                      </Text>
+                    </Box>
+                    <Text color={titleColor}>{item.label}</Text>
+                  </Box>
+                );
+              })}
+            </Box>
+            <Box marginTop={1}>
+              <Text color={theme.text.secondary} wrap="truncate">
+                (Enter to select, Tab to switch, Esc to close)
+              </Text>
+            </Box>
+          </Scrollable>
         </Box>
         {previewPane}
       </Box>

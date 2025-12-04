@@ -11,9 +11,9 @@ import { theme } from '../semantic-colors.js';
 import { RadioButtonSelect } from '../components/shared/RadioButtonSelect.js';
 import { useAlternateBuffer } from '../hooks/useAlternateBuffer.js';
 import {
-  ScrollableList,
-  type ScrollableListRef,
-} from '../components/shared/ScrollableList.js';
+  Scrollable,
+  type ScrollableApi,
+} from '../components/shared/Scrollable.js';
 import { keyMatchers, Command } from '../keyMatchers.js';
 import type {
   LoadableSettingScope,
@@ -32,7 +32,6 @@ import { runExitCleanup } from '../../utils/cleanup.js';
 import { validateAuthMethodWithSettings } from './useAuth.js';
 import { RELAUNCH_EXIT_CODE } from '../../utils/processUtils.js';
 import { useUIState } from '../contexts/UIStateContext.js';
-import { useAdaptiveDialogHeight } from '../hooks/useAdaptiveDialogHeight.js';
 
 interface AuthDialogProps {
   config: Config;
@@ -43,15 +42,9 @@ interface AuthDialogProps {
   availableTerminalHeight: number;
 }
 
-// Type definitions for flattened dialog items
-type AuthDialogItem =
-  | { type: 'title' }
-  | { type: 'question' }
-  | { type: 'auth-method'; method: AuthType; label: string; index: number }
-  | { type: 'error'; message: string }
-  | { type: 'help-text' }
-  | { type: 'terms-title' }
-  | { type: 'terms-link' };
+const BORDER_PADDING_OFFSET = 2; // border (1) + padding (1)
+const HEADER_ROWS = 4; // title + spacing + question
+const ROWS_PER_AUTH_ITEM = 2; // bullet row + spacing
 
 export function AuthDialog({
   config,
@@ -67,7 +60,7 @@ export function AuthDialog({
 
   const [exiting, setExiting] = useState(false);
   const [activeAuthIndex, setActiveAuthIndex] = useState(-1); // -1 means use initialAuthIndex
-  const scrollableListRef = useRef<ScrollableListRef<AuthDialogItem>>(null);
+  const scrollableApiRef = useRef<ScrollableApi | null>(null);
   const containerRef = useRef<DOMElement>(null);
 
   // Memoize items to prevent re-creation on every render
@@ -267,197 +260,66 @@ export function AuthDialog({
     { isActive: !isAlternateBuffer || isDialogActive },
   );
 
-  // Build flattened data for ScrollableList
-  const flattenedData = useMemo((): AuthDialogItem[] => {
-    const data: AuthDialogItem[] = [
-      { type: 'title' },
-      { type: 'question' },
-      ...items.map((item, index) => ({
-        type: 'auth-method' as const,
-        method: item.value,
-        label: item.label,
-        index,
-      })),
-    ];
+  const handleRegisterScrollable = useCallback((api: ScrollableApi | null) => {
+    scrollableApiRef.current = api;
+  }, []);
 
-    if (authError) {
-      data.push({ type: 'error', message: authError });
-    }
-
-    data.push(
-      { type: 'help-text' },
-      { type: 'terms-title' },
-      { type: 'terms-link' },
-    );
-
-    return data;
-  }, [items, authError]);
-
-  // Scroll to keep active auth method visible
+  // Keep active auth method visible when navigating
   useEffect(() => {
-    if (!isAlternateBuffer) return;
+    if (!isAlternateBuffer) {
+      return;
+    }
+    const api = scrollableApiRef.current;
+    if (!api) {
+      return;
+    }
     const effectiveIndex =
       activeAuthIndex === -1 ? initialAuthIndex : activeAuthIndex;
-    // Find the index in flattenedData for this auth method
-    const dataIndex = flattenedData.findIndex(
-      (item) => item.type === 'auth-method' && item.index === effectiveIndex,
-    );
-    if (dataIndex !== -1) {
-      scrollableListRef.current?.scrollToIndex({ index: dataIndex });
+    if (effectiveIndex < 0) {
+      return;
     }
-  }, [activeAuthIndex, initialAuthIndex, isAlternateBuffer, flattenedData]);
+    const { scrollTop, innerHeight } = api.getScrollState();
+    const itemStart = HEADER_ROWS + effectiveIndex * ROWS_PER_AUTH_ITEM;
+    const itemEnd = itemStart + ROWS_PER_AUTH_ITEM - 1;
 
-  // Render function for ScrollableList items
-  const renderItem = useCallback(
-    ({ item }: { item: AuthDialogItem }) => {
-      const effectiveActiveIndex =
-        activeAuthIndex === -1 ? initialAuthIndex : activeAuthIndex;
-
-      switch (item.type) {
-        case 'title':
-          return (
-            <Box flexDirection="row">
-              <Text color={theme.text.accent}>? </Text>
-              <Text bold color={theme.text.primary}>
-                Get started
-              </Text>
-            </Box>
-          );
-
-        case 'question':
-          return (
-            <Box marginTop={1}>
-              <Text color={theme.text.primary}>
-                How would you like to authenticate for this project?
-              </Text>
-            </Box>
-          );
-
-        case 'auth-method': {
-          const isSelected = item.index === effectiveActiveIndex;
-          const titleColor = isSelected
-            ? theme.status.success
-            : theme.text.primary;
-
-          return (
-            <Box flexDirection="row" alignItems="flex-start">
-              <Box minWidth={2} flexShrink={0}>
-                <Text
-                  color={isSelected ? theme.status.success : theme.text.primary}
-                >
-                  {isSelected ? '●' : ' '}
-                </Text>
-              </Box>
-              <Text color={titleColor}>{item.label}</Text>
-            </Box>
-          );
-        }
-
-        case 'error':
-          return (
-            <Box marginTop={1}>
-              <Text color={theme.status.error}>{item.message}</Text>
-            </Box>
-          );
-
-        case 'help-text':
-          return (
-            <Box marginTop={1}>
-              <Text color={theme.text.secondary}>(Use Enter to select)</Text>
-            </Box>
-          );
-
-        case 'terms-title':
-          return (
-            <Box marginTop={1}>
-              <Text color={theme.text.primary}>
-                Terms of Services and Privacy Notice for Gemini CLI
-              </Text>
-            </Box>
-          );
-
-        case 'terms-link':
-          return (
-            <Box marginTop={1}>
-              <Text color={theme.text.link}>
-                {
-                  'https://github.com/google-gemini/gemini-cli/blob/main/docs/tos-privacy.md'
-                }
-              </Text>
-            </Box>
-          );
-
-        default:
-          return <></>; // Should never happen, but satisfies type checker
-      }
-    },
-    [activeAuthIndex, initialAuthIndex],
-  );
-
-  const keyExtractor = useCallback((item: AuthDialogItem, index: number) => {
-    if (item.type === 'auth-method') {
-      return `auth-method-${item.method}`;
+    if (itemStart < scrollTop) {
+      api.scrollBy(itemStart - scrollTop);
+    } else if (itemEnd >= scrollTop + innerHeight) {
+      api.scrollBy(itemEnd - (scrollTop + innerHeight) + 1);
     }
-    return `${item.type}-${index}`;
-  }, []);
+  }, [activeAuthIndex, initialAuthIndex, isAlternateBuffer]);
 
   // Mouse click handler for alternate buffer mode
   const handleMouseClick = useCallback(
     (_event: unknown, _relX: number, relY: number) => {
-      const BORDER_PADDING_OFFSET = 2; // border + padding surrounding ScrollableList
-
-      const listRef = scrollableListRef.current;
-      if (!listRef) {
+      if (!isAlternateBuffer) {
         return;
       }
-
-      const scrollState = listRef.getScrollState();
-      const scrollTop = scrollState?.scrollTop ?? 0;
-
+      const api = scrollableApiRef.current;
+      if (!api) {
+        return;
+      }
+      const { scrollTop } = api.getScrollState();
       const contentRelY = relY - BORDER_PADDING_OFFSET;
-      if (contentRelY < 0) {
-        // Clicked on border/padding, ignore.
+      if (contentRelY < HEADER_ROWS) {
         return;
       }
-
-      const clickedRow = scrollTop + contentRelY;
-      const dataIndex = listRef.getItemIndexAtRow(clickedRow);
-      const clickedItem = flattenedData[dataIndex];
-      if (clickedItem?.type === 'auth-method') {
-        setActiveAuthIndex(clickedItem.index);
+      const clickedRow = scrollTop + (contentRelY - HEADER_ROWS);
+      if (clickedRow < 0) {
+        return;
+      }
+      const clickedIndex = Math.floor(clickedRow / ROWS_PER_AUTH_ITEM);
+      if (clickedIndex >= 0 && clickedIndex < items.length) {
+        setActiveAuthIndex(clickedIndex);
         onAuthError(null);
       }
     },
-    [flattenedData, onAuthError],
+    [isAlternateBuffer, items.length, onAuthError],
   );
 
   // Register mouse click handler for alternate buffer mode
   useMouseClick(containerRef, handleMouseClick, {
     isActive: isAlternateBuffer,
-  });
-
-  // Calculate natural content height for adaptive sizing
-  // Each item in flattenedData renders as ~2 lines (content + margin)
-  // title(1) + question(2) + authMethods(items.length) + error?(2) + help(2) + terms(2) + link(2)
-  const naturalContentHeight = useMemo(() => {
-    // Base content: title, question, help, terms title, terms link = 5 items
-    // Plus marginTop spacing on several items adds ~4 extra rows
-    // Auth methods: items.length
-    // Error: adds 2 if present
-    const baseRows = 5 + 4; // 5 content items + 4 margin rows
-    const authMethodRows = items.length;
-    const errorRows = authError ? 2 : 0;
-    // Add a safety buffer of 1 row to account for text wrapping and potential margin nuances.
-    // This prevents the dialog from feeling "cramped" or triggering scroll unnecessarily.
-    return baseRows + authMethodRows + errorRows + 1;
-  }, [items.length, authError]);
-
-  // Use adaptive height: undefined = intrinsic, number = constrained
-  const dialogHeight = useAdaptiveDialogHeight({
-    terminalHeight: availableTerminalHeight,
-    naturalContentHeight,
-    minScrollableHeight: 10,
-    chromeHeight: 4, // border (2) + padding (2)
   });
 
   if (exiting) {
@@ -477,19 +339,17 @@ export function AuthDialog({
     );
   }
 
-  // Alternate buffer mode: use ScrollableList always
+  // Alternate buffer mode: Scrollable content with intrinsic layout
   if (isAlternateBuffer) {
-    // If dialogHeight is undefined (intrinsic), allow the box to be as tall as the content.
-    // ScrollableList will fill this height and render everything without scrolling.
-    // If dialogHeight is defined (constrained), the box will be fixed height and trigger scrolling.
-    // Note: We multiply estimatedItemHeight (2) by naturalContentHeight for a rough pixel height equivalent if needed,
-    // but here we are dealing with rows. ScrollableList takes parent height.
-    // To make "intrinsic" work with VirtualizedList, we need to give it a concrete height.
-    // We also cap the intrinsic height at availableTerminalHeight to prevent overflow.
-    const CHROME_HEIGHT = 4; // border (2) + padding (2)
-    const targetHeight =
-      dialogHeight ??
-      Math.min(naturalContentHeight + CHROME_HEIGHT, availableTerminalHeight);
+    const effectiveActiveIndex =
+      activeAuthIndex === -1 ? initialAuthIndex : activeAuthIndex;
+    // Use maxHeight to cap the dialog, but let it use intrinsic height otherwise.
+    // This allows the dialog to share space with MainContent naturally.
+    const chromeHeight = 4; // border (2) + padding (2)
+    const maxScrollableHeight = Math.max(
+      availableTerminalHeight - chromeHeight,
+      0,
+    );
 
     return (
       <Box
@@ -499,16 +359,72 @@ export function AuthDialog({
         flexDirection="column"
         padding={1}
         width="100%"
-        height={targetHeight}
+        maxHeight={availableTerminalHeight}
       >
-        <ScrollableList
-          ref={scrollableListRef}
+        <Scrollable
+          maxHeight={maxScrollableHeight}
           hasFocus={isDialogActive}
-          data={flattenedData}
-          renderItem={renderItem}
-          estimatedItemHeight={() => 2}
-          keyExtractor={keyExtractor}
-        />
+          onRegisterApi={handleRegisterScrollable}
+        >
+          <Box flexDirection="row">
+            <Text color={theme.text.accent}>? </Text>
+            <Text bold color={theme.text.primary}>
+              Get started
+            </Text>
+          </Box>
+          <Box marginTop={1}>
+            <Text color={theme.text.primary}>
+              How would you like to authenticate for this project?
+            </Text>
+          </Box>
+          <Box marginTop={1} flexDirection="column">
+            {items.map((item, index) => {
+              const isSelected = index === effectiveActiveIndex;
+              const titleColor = isSelected
+                ? theme.status.success
+                : theme.text.primary;
+              return (
+                <Box
+                  key={item.key}
+                  flexDirection="row"
+                  alignItems="flex-start"
+                  marginTop={index === 0 ? 0 : 1}
+                >
+                  <Box minWidth={2} flexShrink={0}>
+                    <Text
+                      color={
+                        isSelected ? theme.status.success : theme.text.primary
+                      }
+                    >
+                      {isSelected ? '●' : ' '}
+                    </Text>
+                  </Box>
+                  <Text color={titleColor}>{item.label}</Text>
+                </Box>
+              );
+            })}
+          </Box>
+          {authError && (
+            <Box marginTop={1}>
+              <Text color={theme.status.error}>{authError}</Text>
+            </Box>
+          )}
+          <Box marginTop={1}>
+            <Text color={theme.text.secondary}>(Use Enter to select)</Text>
+          </Box>
+          <Box marginTop={1}>
+            <Text color={theme.text.primary}>
+              Terms of Services and Privacy Notice for Gemini CLI
+            </Text>
+          </Box>
+          <Box marginTop={1}>
+            <Text color={theme.text.link}>
+              {
+                'https://github.com/google-gemini/gemini-cli/blob/main/docs/tos-privacy.md'
+              }
+            </Text>
+          </Box>
+        </Scrollable>
       </Box>
     );
   }

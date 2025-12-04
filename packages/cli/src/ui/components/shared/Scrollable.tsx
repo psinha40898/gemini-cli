@@ -18,6 +18,15 @@ import { useScrollable } from '../../contexts/ScrollProvider.js';
 import { useAnimatedScrollbar } from '../../hooks/useAnimatedScrollbar.js';
 import { useBatchedScroll } from '../../hooks/useBatchedScroll.js';
 
+export interface ScrollableApi {
+  getScrollState: () => {
+    scrollTop: number;
+    scrollHeight: number;
+    innerHeight: number;
+  };
+  scrollBy: (delta: number) => void;
+}
+
 interface ScrollableProps {
   children?: React.ReactNode;
   width?: number;
@@ -27,6 +36,7 @@ interface ScrollableProps {
   hasFocus: boolean;
   scrollToBottom?: boolean;
   flexGrow?: number;
+  onRegisterApi?: (api: ScrollableApi | null) => void;
 }
 
 export const Scrollable: React.FC<ScrollableProps> = ({
@@ -38,6 +48,7 @@ export const Scrollable: React.FC<ScrollableProps> = ({
   hasFocus,
   scrollToBottom,
   flexGrow,
+  onRegisterApi,
 }) => {
   const [scrollTop, setScrollTop] = useState(0);
   const ref = useRef<DOMElement>(null);
@@ -138,6 +149,20 @@ export const Scrollable: React.FC<ScrollableProps> = ({
   );
 
   useScrollable(scrollableEntry, hasFocus && ref.current !== null);
+
+  useEffect(() => {
+    if (!onRegisterApi) {
+      return;
+    }
+    const api: ScrollableApi = {
+      getScrollState,
+      scrollBy,
+    };
+    onRegisterApi(api);
+    return () => {
+      onRegisterApi(null);
+    };
+  }, [onRegisterApi, getScrollState, scrollBy]);
 
   return (
     <Box
