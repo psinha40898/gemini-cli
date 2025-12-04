@@ -79,6 +79,9 @@ type SettingsDialogItem =
   | { type: 'help-text' }
   | { type: 'restart-prompt' };
 
+import { useTextBuffer } from './shared/text-buffer.js';
+import { TextInput } from './shared/TextInput.js';
+
 interface FzfResult {
   item: string;
   start: number;
@@ -106,7 +109,7 @@ export function SettingsDialog({
 }: SettingsDialogProps): React.JSX.Element {
   // Get vim mode context to sync vim mode changes
   const { vimEnabled, toggleVimEnabled } = useVimMode();
-  const { focusedZone, terminalWidth } = useUIState();
+  const { focusedZone, terminalWidth, mainAreaWidth } = useUIState();
   const isDialogActive = focusedZone === 'dialog';
 
   // Focus state: 'settings' or 'scope'
@@ -123,13 +126,25 @@ export function SettingsDialog({
   const [scrollOffset, setScrollOffset] = useState(0);
   const [showRestartPrompt, setShowRestartPrompt] = useState(false);
 
-  // Search state
-  const [isSearching, setIsSearching] = useState(false);
-  const isSearchingRef = useRef(false);
+  // Search state (driven by TextInput buffer)
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredKeys, setFilteredKeys] = useState<string[]>(() =>
     getDialogSettingKeys(),
   );
+
+  // TextInput buffer for search (used in both alt and non-alt modes)
+  const viewportWidth = mainAreaWidth - 8;
+  const buffer = useTextBuffer({
+    initialText: '',
+    initialCursorOffset: 0,
+    viewport: {
+      width: viewportWidth,
+      height: 1,
+    },
+    isValidPath: () => false,
+    singleLine: true,
+    onChange: (text) => setSearchQuery(text),
+  });
   const { fzfInstance, searchMap } = useMemo(() => {
     const keys = getDialogSettingKeys();
     const map = new Map<string, string>();
@@ -247,8 +262,9 @@ export function SettingsDialog({
   }, [selectedScope, settings, globalPendingChanges]);
 
   const generateSettingsItems = () => {
-    const settingKeys =
-      isSearching || searchQuery ? filteredKeys : getDialogSettingKeys();
+    const settingKeys = searchQuery.trim()
+      ? filteredKeys
+      : getDialogSettingKeys();
 
     return settingKeys.map((key: string) => {
       const definition = getSettingDefinition(key);
@@ -1036,40 +1052,7 @@ export function SettingsDialog({
     (key: Key) => {
       const { name } = key;
 
-      // Handle Search Mode
-      if (isSearching || isSearchingRef.current) {
-        if (keyMatchers[Command.ESCAPE](key)) {
-          setIsSearching(false);
-          isSearchingRef.current = false;
-          setSearchQuery('');
-          return;
-        }
-        if (keyMatchers[Command.RETURN](key)) {
-          setIsSearching(false);
-          isSearchingRef.current = false;
-          return;
-        }
-        if (name === 'backspace') {
-          setSearchQuery((prev) => prev.slice(0, -1));
-          return;
-        }
-        if (
-          key.sequence &&
-          key.sequence.length === 1 &&
-          !key.ctrl &&
-          !key.meta &&
-          !keyMatchers[Command.DIALOG_NAVIGATION_UP](key) &&
-          !keyMatchers[Command.DIALOG_NAVIGATION_DOWN](key)
-        ) {
-          setSearchQuery((prev) => prev + key.sequence);
-          return;
-        }
-      } else if (!editingKey && key.sequence === '/') {
-        setIsSearching(true);
-        isSearchingRef.current = true;
-        setSearchQuery('');
-        return;
-      }
+      // TextInput handles search input, so we skip search-mode handling here
 
       // Tab: toggle focused section
       if (name === 'tab' && showScopeSelection) {
@@ -1249,9 +1232,6 @@ export function SettingsDialog({
       saveRestartRequiredSettings,
       startEditing,
       showScopeSelection,
-      isSearching,
-      setIsSearching,
-      setSearchQuery,
     ],
   );
 
@@ -1266,41 +1246,8 @@ export function SettingsDialog({
       }
 
       // Non-alternate buffer mode handling
+      // TextInput handles search input, so we skip search-mode handling here
       const { name } = key;
-
-      if (isSearching || isSearchingRef.current) {
-        if (keyMatchers[Command.ESCAPE](key)) {
-          setIsSearching(false);
-          isSearchingRef.current = false;
-          setSearchQuery('');
-          return;
-        }
-        if (keyMatchers[Command.RETURN](key)) {
-          setIsSearching(false);
-          isSearchingRef.current = false;
-          return;
-        }
-        if (name === 'backspace') {
-          setSearchQuery((prev) => prev.slice(0, -1));
-          return;
-        }
-        if (
-          key.sequence &&
-          key.sequence.length === 1 &&
-          !key.ctrl &&
-          !key.meta &&
-          !keyMatchers[Command.DIALOG_NAVIGATION_UP](key) &&
-          !keyMatchers[Command.DIALOG_NAVIGATION_DOWN](key)
-        ) {
-          setSearchQuery((prev) => prev + key.sequence);
-          return;
-        }
-      } else if (!editingKey && key.sequence === '/') {
-        setIsSearching(true);
-        isSearchingRef.current = true;
-        setSearchQuery('');
-        return;
-      }
 
       if (name === 'tab' && showScopeSelection) {
         setFocusSection((prev) => (prev === 'settings' ? 'scope' : 'settings'));
@@ -1580,19 +1527,28 @@ export function SettingsDialog({
         width="100%"
         height={currentAvailableTerminalHeight}
       >
-        {/* Sticky Header */}
-        <Box paddingBottom={1} key={searchQuery}>
-          {isSearching || searchQuery ? (
-            <Text bold color={theme.text.accent} wrap="truncate">
-              {isSearching ? '> ' : '  '}Search: {searchQuery}
-              {isSearching ? '_' : ''}
-            </Text>
-          ) : (
-            <Text bold={focusSection === 'settings'} wrap="truncate">
-              {focusSection === 'settings' ? '> ' : '  '}Settings{' '}
-              <Text color={theme.text.secondary}>(press / to search)</Text>
-            </Text>
-          )}
+        {/* Sticky Header: Settings title + Search input */}
+        <Box marginBottom={1}>
+          <Text bold wrap="truncate">
+            {focusSection === 'settings' ? '> ' : '  '}Settings
+          </Text>
+        </Box>
+        <Box
+          borderStyle="round"
+          borderColor={
+            focusSection === 'settings' && !editingKey
+              ? theme.border.focused
+              : theme.border.default
+          }
+          paddingX={1}
+          height={3}
+          marginBottom={1}
+        >
+          <TextInput
+            focus={focusSection === 'settings' && !editingKey}
+            buffer={buffer}
+            placeholder="Search to filter"
+          />
         </Box>
 
         {/* Top Section: Settings (scrollable, takes remaining space) */}
@@ -1662,25 +1618,45 @@ export function SettingsDialog({
       height="100%"
     >
       <Box flexDirection="column" flexGrow={1}>
-        {isSearching || searchQuery ? (
-          <Text bold color={theme.text.accent} wrap="truncate">
-            {isSearching ? '> ' : '  '}Search: {searchQuery}
-            {isSearching ? '_' : ''}
-          </Text>
-        ) : (
-          <Text bold={focusSection === 'settings'} wrap="truncate">
+        <Box marginX={1}>
+          <Text
+            bold={focusSection === 'settings' && !editingKey}
+            wrap="truncate"
+          >
             {focusSection === 'settings' ? '> ' : '  '}Settings{' '}
-            <Text color={theme.text.secondary}>(press / to search)</Text>
           </Text>
-        )}
+        </Box>
+        <Box
+          borderStyle="round"
+          borderColor={
+            editingKey
+              ? theme.border.default
+              : focusSection === 'settings'
+                ? theme.border.focused
+                : theme.border.default
+          }
+          paddingX={1}
+          height={3}
+          marginTop={1}
+        >
+          <TextInput
+            focus={focusSection === 'settings' && !editingKey}
+            buffer={buffer}
+            placeholder="Search to filter"
+          />
+        </Box>
         <Box height={1} />
-        {isSearching && visibleItems.length === 0 ? (
-          <Box height={1} flexDirection="column">
+        {searchQuery.trim() && visibleItems.length === 0 ? (
+          <Box marginX={1} height={1} flexDirection="column">
             <Text color={theme.text.secondary}>No matches found.</Text>
           </Box>
         ) : (
           <>
-            {showScrollUp && <Text color={theme.text.secondary}>▲</Text>}
+            {showScrollUp && (
+              <Box marginX={1}>
+                <Text color={theme.text.secondary}>▲</Text>
+              </Box>
+            )}
             {visibleItems.map((item, idx) => {
               const isActive =
                 focusSection === 'settings' &&
@@ -1768,7 +1744,7 @@ export function SettingsDialog({
 
               return (
                 <React.Fragment key={item.value}>
-                  <Box flexDirection="row" alignItems="center">
+                  <Box marginX={1} flexDirection="row" alignItems="center">
                     <Box minWidth={2} flexShrink={0}>
                       <Text
                         color={
@@ -1814,7 +1790,11 @@ export function SettingsDialog({
                 </React.Fragment>
               );
             })}
-            {showScrollDown && <Text color={theme.text.secondary}>▼</Text>}
+            {showScrollDown && (
+              <Box marginX={1}>
+                <Text color={theme.text.secondary}>▼</Text>
+              </Box>
+            )}
           </>
         )}
 
@@ -1822,7 +1802,7 @@ export function SettingsDialog({
 
         {/* Scope Selection - conditionally visible based on height constraints */}
         {showScopeSelection && (
-          <Box marginTop={1} flexDirection="column">
+          <Box marginX={1} flexDirection="column">
             <Text bold={focusSection === 'scope'} wrap="truncate">
               {focusSection === 'scope' ? '> ' : '  '}Apply To
             </Text>
@@ -1840,15 +1820,19 @@ export function SettingsDialog({
         )}
 
         <Box height={1} />
-        <Text color={theme.text.secondary}>
-          (Use Enter to select
-          {showScopeSelection ? ', Tab to change focus' : ''}, Esc to close)
-        </Text>
-        {showRestartPrompt && (
-          <Text color={theme.status.warning}>
-            To see changes, Gemini CLI must be restarted. Press r to exit and
-            apply changes now.
+        <Box marginX={1}>
+          <Text color={theme.text.secondary}>
+            (Use Enter to select
+            {showScopeSelection ? ', Tab to change focus' : ''}, Esc to close)
           </Text>
+        </Box>
+        {showRestartPrompt && (
+          <Box marginX={1}>
+            <Text color={theme.status.warning}>
+              To see changes, Gemini CLI must be restarted. Press r to exit and
+              apply changes now.
+            </Text>
+          </Box>
         )}
       </Box>
     </Box>
