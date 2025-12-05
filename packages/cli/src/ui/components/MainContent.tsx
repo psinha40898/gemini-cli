@@ -120,6 +120,11 @@ export const MainContent = () => {
   );
 
   if (isAlternateBuffer) {
+    // SettingsDialog is full-page in alt-buffer, replaces MainContent
+    if (uiState.isSettingsDialogOpen) {
+      return null;
+    }
+
     return (
       <ScrollableList
         hasFocus={!uiState.isEditorDialogOpen}

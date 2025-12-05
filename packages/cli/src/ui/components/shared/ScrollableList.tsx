@@ -66,6 +66,8 @@ function ScrollableList<T>(
           scrollHeight: 0,
           innerHeight: 0,
         },
+      getItemIndexAtRow: (row: number) =>
+        virtualizedListRef.current?.getItemIndexAtRow(row) ?? 0,
     }),
     [],
   );
