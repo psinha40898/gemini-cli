@@ -109,8 +109,7 @@ export function SettingsDialog({
 }: SettingsDialogProps): React.JSX.Element {
   // Get vim mode context to sync vim mode changes
   const { vimEnabled, toggleVimEnabled } = useVimMode();
-  const { focusedZone, terminalWidth, mainAreaWidth } = useUIState();
-  const isDialogActive = focusedZone === 'dialog';
+  const { terminalWidth, mainAreaWidth } = useUIState();
 
   // Focus state: 'settings' or 'scope'
   const [focusSection, setFocusSection] = useState<'settings' | 'scope'>(
@@ -1511,7 +1510,7 @@ export function SettingsDialog({
         }
       }
     },
-    { isActive: !isAlternateBuffer || isDialogActive },
+    { isActive: true },
   );
 
   // Alternate buffer mode: vertical layout with fixed bottom section
@@ -1534,15 +1533,14 @@ export function SettingsDialog({
           </Text>
         </Box>
         <Box
-          borderStyle="round"
+          borderStyle="single"
           borderColor={
             focusSection === 'settings' && !editingKey
               ? theme.border.focused
               : theme.border.default
           }
           paddingX={1}
-          height={3}
-          marginBottom={1}
+          minHeight={3}
         >
           <TextInput
             focus={focusSection === 'settings' && !editingKey}
@@ -1550,6 +1548,7 @@ export function SettingsDialog({
             placeholder="Search to filter"
           />
         </Box>
+        <Box height={1} />
 
         {/* Top Section: Settings (scrollable, takes remaining space) */}
         <Box
@@ -1561,7 +1560,7 @@ export function SettingsDialog({
         >
           <ScrollableList
             ref={scrollableListRef}
-            hasFocus={isDialogActive}
+            hasFocus={true}
             data={leftColumnData}
             renderItem={renderLeftColumnItem}
             estimatedItemHeight={() => 1}

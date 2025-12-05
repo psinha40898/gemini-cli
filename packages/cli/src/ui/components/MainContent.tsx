@@ -119,6 +119,12 @@ export const MainContent = () => {
     ],
   );
 
+  // In alternate buffer mode, SettingsDialog is a full-page dialog that
+  // replaces MainContent entirely (unlike Auth/Theme which share space).
+  if (isAlternateBuffer && uiState.isSettingsDialogOpen) {
+    return null;
+  }
+
   if (isAlternateBuffer) {
     return (
       <ScrollableList
