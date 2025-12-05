@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Box, Text } from 'ink';
 import { AsyncFzf } from 'fzf';
 import { theme } from '../semantic-colors.js';
@@ -338,97 +338,102 @@ export function SettingsDialog({
     setEditCursorPos(cpLen(initialValue)); // Position cursor at end of initial value
   };
 
-  const commitEdit = (key: string) => {
-    const definition = getSettingDefinition(key);
-    const type = definition?.type;
+  const commitEdit = useCallback(
+    (key: string) => {
+      const definition = getSettingDefinition(key);
+      const type = definition?.type;
 
-    if (editBuffer.trim() === '' && type === 'number') {
-      // Nothing entered for a number; cancel edit
-      setEditingKey(null);
-      setEditBuffer('');
-      setEditCursorPos(0);
-      return;
-    }
-
-    let parsed: string | number;
-    if (type === 'number') {
-      const numParsed = Number(editBuffer.trim());
-      if (Number.isNaN(numParsed)) {
-        // Invalid number; cancel edit
+      if (editBuffer.trim() === '' && type === 'number') {
+        // Nothing entered for a number; cancel edit
         setEditingKey(null);
         setEditBuffer('');
         setEditCursorPos(0);
         return;
       }
-      parsed = numParsed;
-    } else {
-      // For strings, use the buffer as is.
-      parsed = editBuffer;
-    }
 
-    // Update pending
-    setPendingSettings((prev) => setPendingSettingValueAny(key, parsed, prev));
-
-    if (!requiresRestart(key)) {
-      const immediateSettings = new Set([key]);
-      const currentScopeSettings = settings.forScope(selectedScope).settings;
-      const immediateSettingsObject = setPendingSettingValueAny(
-        key,
-        parsed,
-        currentScopeSettings,
-      );
-      saveModifiedSettings(
-        immediateSettings,
-        immediateSettingsObject,
-        settings,
-        selectedScope,
-      );
-
-      // Remove from modified sets if present
-      setModifiedSettings((prev) => {
-        const updated = new Set(prev);
-        updated.delete(key);
-        return updated;
-      });
-      setRestartRequiredSettings((prev) => {
-        const updated = new Set(prev);
-        updated.delete(key);
-        return updated;
-      });
-
-      // Remove from global pending since it's immediately saved
-      setGlobalPendingChanges((prev) => {
-        if (!prev.has(key)) return prev;
-        const next = new Map(prev);
-        next.delete(key);
-        return next;
-      });
-    } else {
-      // Mark as modified and needing restart
-      setModifiedSettings((prev) => {
-        const updated = new Set(prev).add(key);
-        const needsRestart = hasRestartRequiredSettings(updated);
-        if (needsRestart) {
-          setShowRestartPrompt(true);
-          setRestartRequiredSettings((prevRestart) =>
-            new Set(prevRestart).add(key),
-          );
+      let parsed: string | number;
+      if (type === 'number') {
+        const numParsed = Number(editBuffer.trim());
+        if (Number.isNaN(numParsed)) {
+          // Invalid number; cancel edit
+          setEditingKey(null);
+          setEditBuffer('');
+          setEditCursorPos(0);
+          return;
         }
-        return updated;
-      });
+        parsed = numParsed;
+      } else {
+        // For strings, use the buffer as is.
+        parsed = editBuffer;
+      }
 
-      // Record pending change globally for persistence across scopes
-      setGlobalPendingChanges((prev) => {
-        const next = new Map(prev);
-        next.set(key, parsed as PendingValue);
-        return next;
-      });
-    }
+      // Update pending
+      setPendingSettings((prev) =>
+        setPendingSettingValueAny(key, parsed, prev),
+      );
 
-    setEditingKey(null);
-    setEditBuffer('');
-    setEditCursorPos(0);
-  };
+      if (!requiresRestart(key)) {
+        const immediateSettings = new Set([key]);
+        const currentScopeSettings = settings.forScope(selectedScope).settings;
+        const immediateSettingsObject = setPendingSettingValueAny(
+          key,
+          parsed,
+          currentScopeSettings,
+        );
+        saveModifiedSettings(
+          immediateSettings,
+          immediateSettingsObject,
+          settings,
+          selectedScope,
+        );
+
+        // Remove from modified sets if present
+        setModifiedSettings((prev) => {
+          const updated = new Set(prev);
+          updated.delete(key);
+          return updated;
+        });
+        setRestartRequiredSettings((prev) => {
+          const updated = new Set(prev);
+          updated.delete(key);
+          return updated;
+        });
+
+        // Remove from global pending since it's immediately saved
+        setGlobalPendingChanges((prev) => {
+          if (!prev.has(key)) return prev;
+          const next = new Map(prev);
+          next.delete(key);
+          return next;
+        });
+      } else {
+        // Mark as modified and needing restart
+        setModifiedSettings((prev) => {
+          const updated = new Set(prev).add(key);
+          const needsRestart = hasRestartRequiredSettings(updated);
+          if (needsRestart) {
+            setShowRestartPrompt(true);
+            setRestartRequiredSettings((prevRestart) =>
+              new Set(prevRestart).add(key),
+            );
+          }
+          return updated;
+        });
+
+        // Record pending change globally for persistence across scopes
+        setGlobalPendingChanges((prev) => {
+          const next = new Map(prev);
+          next.set(key, parsed as PendingValue);
+          return next;
+        });
+      }
+
+      setEditingKey(null);
+      setEditBuffer('');
+      setEditCursorPos(0);
+    },
+    [editBuffer, selectedScope, settings],
+  );
 
   // Scope selector items
   const scopeItems = getScopeItems().map((item) => ({
