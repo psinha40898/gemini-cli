@@ -1570,39 +1570,45 @@ export function SettingsDialog({
         </Box>
 
         {/* Bottom Section: Scope selector (fixed, always visible, vertical layout) */}
-        <Box
-          ref={rightColumnRef}
-          flexDirection="column"
-          flexShrink={0}
-          width="100%"
-          marginTop={1}
-        >
-          <Text bold={focusSection === 'scope'} wrap="truncate">
-            {focusSection === 'scope' ? '> ' : '  '}Apply To
-          </Text>
-          {scopeItemsWithIndex.map((item) => {
-            const isSelected =
-              focusSection === 'scope' && item.index === activeScopeIndex;
-            const titleColor = isSelected
-              ? theme.status.success
-              : theme.text.primary;
+        {showScopeSelection && (
+          <Box
+            ref={rightColumnRef}
+            flexDirection="column"
+            flexShrink={0}
+            width="100%"
+            marginTop={1}
+          >
+            <Text bold={focusSection === 'scope'} wrap="truncate">
+              {focusSection === 'scope' ? '> ' : '  '}Apply To
+            </Text>
+            {scopeItemsWithIndex.map((item) => {
+              const isSelected =
+                focusSection === 'scope' && item.index === activeScopeIndex;
+              const titleColor = isSelected
+                ? theme.status.success
+                : theme.text.primary;
 
-            return (
-              <Box key={item.value} flexDirection="row" alignItems="flex-start">
-                <Box minWidth={2} flexShrink={0}>
-                  <Text
-                    color={
-                      isSelected ? theme.status.success : theme.text.primary
-                    }
-                  >
-                    {isSelected ? '●' : ' '}
-                  </Text>
+              return (
+                <Box
+                  key={item.value}
+                  flexDirection="row"
+                  alignItems="flex-start"
+                >
+                  <Box minWidth={2} flexShrink={0}>
+                    <Text
+                      color={
+                        isSelected ? theme.status.success : theme.text.primary
+                      }
+                    >
+                      {isSelected ? '●' : ' '}
+                    </Text>
+                  </Box>
+                  <Text color={titleColor}>{item.label}</Text>
                 </Box>
-                <Text color={titleColor}>{item.label}</Text>
-              </Box>
-            );
-          })}
-        </Box>
+              );
+            })}
+          </Box>
+        )}
       </Box>
     );
   }
