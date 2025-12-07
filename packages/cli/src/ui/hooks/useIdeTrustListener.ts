@@ -28,7 +28,7 @@ export type RestartReason = 'NONE' | 'CONNECTION_CHANGE' | 'TRUST_CHANGE';
  * is needed because the trust state has changed.
  */
 export function useIdeTrustListener() {
-  const settings = useSettings();
+  const { settings } = useSettings();
   const [connectionStatus, setConnectionStatus] = useState<IDEConnectionStatus>(
     IDEConnectionStatus.Disconnected,
   );

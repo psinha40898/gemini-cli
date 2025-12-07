@@ -59,7 +59,7 @@ export const usePermissionsModifyTrust = (
   addItem: UseHistoryManagerReturn['addItem'],
   targetDirectory: string,
 ) => {
-  const settings = useSettings();
+  const { settings } = useSettings();
   const cwd = targetDirectory;
   // Normalize paths for case-insensitive file systems (macOS/Windows) to ensure
   // accurate comparison between targetDirectory and process.cwd().

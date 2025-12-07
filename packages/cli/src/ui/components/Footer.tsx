@@ -23,7 +23,7 @@ import { useVimMode } from '../contexts/VimModeContext.js';
 export const Footer: React.FC = () => {
   const uiState = useUIState();
   const config = useConfig();
-  const settings = useSettings();
+  const { settings } = useSettings();
   const { vimEnabled, vimMode } = useVimMode();
 
   const {

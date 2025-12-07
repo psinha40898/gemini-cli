@@ -8,10 +8,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Text } from 'ink';
 import { AsyncFzf } from 'fzf';
 import { theme } from '../semantic-colors.js';
-import type {
-  LoadableSettingScope,
-  LoadedSettings,
-} from '../../config/settings.js';
+import type { LoadableSettingScope } from '../../config/settings.js';
 import { SettingScope } from '../../config/settings.js';
 import {
   getScopeItems,
@@ -43,6 +40,7 @@ import { debugLogger } from '@google/gemini-cli-core';
 import { keyMatchers, Command } from '../keyMatchers.js';
 import type { Config } from '@google/gemini-cli-core';
 import { useUIState } from '../contexts/UIStateContext.js';
+import { useSettings } from '../contexts/SettingsContext.js';
 import { useTextBuffer } from './shared/text-buffer.js';
 import { TextInput } from './shared/TextInput.js';
 
@@ -55,7 +53,6 @@ interface FzfResult {
 }
 
 interface SettingsDialogProps {
-  settings: LoadedSettings;
   onSelect: (settingName: string | undefined, scope: SettingScope) => void;
   onRestartRequest?: () => void;
   availableTerminalHeight?: number;
@@ -65,12 +62,13 @@ interface SettingsDialogProps {
 const maxItemsToShow = 8;
 
 export function SettingsDialog({
-  settings,
   onSelect,
   onRestartRequest,
   availableTerminalHeight,
   config,
 }: SettingsDialogProps): React.JSX.Element {
+  // Get settings from context (provides settings object, update method, and version for re-render tracking)
+  const { settings, updateSetting, version } = useSettings();
   // Get vim mode context to sync vim mode changes
   const { vimEnabled, toggleVimEnabled } = useVimMode();
 
@@ -148,8 +146,7 @@ export function SettingsDialog({
   const [globalPendingChanges, setGlobalPendingChanges] = useState<
     Map<string, PendingValue>
   >(new Map());
-  // Version tracker to force re-renders when settings object is mutated in-place
-  const [settingsVersion, setSettingsVersion] = useState(0);
+  // Note: 'version' from useSettings() triggers re-renders when settings change
 
   // Derive all display state from the single source of truth (globalPendingChanges)
   const {
@@ -158,8 +155,8 @@ export function SettingsDialog({
     restartRequiredSettings,
     showRestartPrompt,
   } = useMemo(() => {
-    // Force re-calculation when version changes (fixes mutable settings updates)
-    void settingsVersion;
+    // Force re-calculation when version changes (version from context triggers re-renders)
+    void version;
 
     // Base settings for selected scope
     let updated = structuredClone(settings.forScope(selectedScope).settings);
@@ -189,7 +186,7 @@ export function SettingsDialog({
       restartRequiredSettings: newRestartRequired,
       showRestartPrompt: newRestartRequired.size > 0,
     };
-  }, [settings, selectedScope, globalPendingChanges, settingsVersion]);
+  }, [settings, selectedScope, globalPendingChanges, version]);
 
   const generateSettingsItems = () => {
     const settingKeys = searchQuery ? filteredKeys : getDialogSettingKeys();
@@ -222,25 +219,12 @@ export function SettingsDialog({
           }
 
           if (!requiresRestart(key)) {
-            // Save immediately - no need to track in globalPendingChanges
-            const currentScopeSettings =
-              settings.forScope(selectedScope).settings;
-            const immediateSettingsObject = setPendingSettingValueAny(
-              key,
-              newValue,
-              currentScopeSettings,
-            );
+            // Save immediately via context's updateSetting (handles persistence + re-render)
             debugLogger.log(
               `[DEBUG SettingsDialog] Saving ${key} immediately with value:`,
               newValue,
             );
-            saveModifiedSettings(
-              new Set([key]),
-              immediateSettingsObject,
-              settings,
-              selectedScope,
-            );
-            setSettingsVersion((v) => v + 1);
+            updateSetting(selectedScope, key, newValue);
 
             // Special handling for vim mode to sync with VimModeContext
             if (key === 'general.vimMode' && newValue !== vimEnabled) {
@@ -330,20 +314,8 @@ export function SettingsDialog({
     }
 
     if (!requiresRestart(key)) {
-      // Save immediately - no need to track in globalPendingChanges
-      const currentScopeSettings = settings.forScope(selectedScope).settings;
-      const immediateSettingsObject = setPendingSettingValueAny(
-        key,
-        parsed,
-        currentScopeSettings,
-      );
-      saveModifiedSettings(
-        new Set([key]),
-        immediateSettingsObject,
-        settings,
-        selectedScope,
-      );
-      setSettingsVersion((v) => v + 1);
+      // Save immediately via context's updateSetting (handles persistence + re-render)
+      updateSetting(selectedScope, key, parsed);
 
       // Remove from globalPendingChanges if present (useMemo will derive the rest)
       setGlobalPendingChanges((prev) => {
@@ -653,21 +625,8 @@ export function SettingsDialog({
           if (!isValidDefault) return;
 
           if (!requiresRestart(currentSetting.value)) {
-            // Save default immediately
-            const currentScopeSettings =
-              settings.forScope(selectedScope).settings;
-            const immediateSettingsObject = setPendingSettingValueAny(
-              currentSetting.value,
-              defaultValue,
-              currentScopeSettings,
-            );
-            saveModifiedSettings(
-              new Set([currentSetting.value]),
-              immediateSettingsObject,
-              settings,
-              selectedScope,
-            );
-            setSettingsVersion((v) => v + 1);
+            // Save default immediately via context's updateSetting (handles persistence + re-render)
+            updateSetting(selectedScope, currentSetting.value, defaultValue);
 
             // Remove from globalPendingChanges (useMemo will derive the rest)
             setGlobalPendingChanges((prev) => {

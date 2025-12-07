@@ -35,7 +35,7 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
   terminalWidth,
   renderMarkdown = true,
 }) => {
-  const settings = useSettings();
+  const { settings } = useSettings();
   const isAlternateBuffer = useAlternateBuffer();
   const responseColor = theme.text.response ?? theme.text.primary;
 
@@ -331,7 +331,7 @@ const RenderCodeBlockInternal: React.FC<RenderCodeBlockProps> = ({
   availableTerminalHeight,
   terminalWidth,
 }) => {
-  const settings = useSettings();
+  const { settings } = useSettings();
   const isAlternateBuffer = useAlternateBuffer();
   const MIN_LINES_FOR_MESSAGE = 1; // Minimum lines to show before the "generating more" message
   const RESERVED_LINES = 2; // Lines reserved for the message itself and potential padding

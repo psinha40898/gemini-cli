@@ -32,7 +32,7 @@ import { TodoTray } from './messages/Todo.js';
 
 export const Composer = () => {
   const config = useConfig();
-  const settings = useSettings();
+  const { settings } = useSettings();
   const isScreenReaderEnabled = useIsScreenReaderEnabled();
   const uiState = useUIState();
   const uiActions = useUIActions();

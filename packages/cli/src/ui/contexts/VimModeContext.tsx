@@ -11,8 +11,8 @@ import {
   useEffect,
   useState,
 } from 'react';
-import type { LoadedSettings } from '../../config/settings.js';
 import { SettingScope } from '../../config/settings.js';
+import { useSettings } from './SettingsContext.js';
 
 export type VimMode = 'NORMAL' | 'INSERT';
 
@@ -27,11 +27,12 @@ const VimModeContext = createContext<VimModeContextType | undefined>(undefined);
 
 export const VimModeProvider = ({
   children,
-  settings,
 }: {
   children: React.ReactNode;
-  settings: LoadedSettings;
 }) => {
+  // Get settings from context - VimModeProvider must be inside SettingsProvider
+  const { settings, updateSetting } = useSettings();
+
   const initialVimEnabled = settings.merged.general?.vimMode ?? false;
   const [vimEnabled, setVimEnabled] = useState(initialVimEnabled);
   const [vimMode, setVimMode] = useState<VimMode>(
@@ -55,9 +56,10 @@ export const VimModeProvider = ({
     if (newValue) {
       setVimMode('NORMAL');
     }
-    await settings.setValue(SettingScope.User, 'general.vimMode', newValue);
+    // Use updateSetting from context instead of direct mutation
+    updateSetting(SettingScope.User, 'general.vimMode', newValue);
     return newValue;
-  }, [vimEnabled, settings]);
+  }, [vimEnabled, updateSetting]);
 
   const value = {
     vimEnabled,

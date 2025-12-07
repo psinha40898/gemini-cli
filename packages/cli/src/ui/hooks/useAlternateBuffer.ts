@@ -11,6 +11,6 @@ export const isAlternateBufferEnabled = (settings: LoadedSettings): boolean =>
   settings.merged.ui?.useAlternateBuffer === true;
 
 export const useAlternateBuffer = (): boolean => {
-  const settings = useSettings();
+  const { settings } = useSettings();
   return isAlternateBufferEnabled(settings);
 };

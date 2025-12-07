@@ -101,7 +101,7 @@ export const DiffRenderer: React.FC<DiffRendererProps> = ({
   terminalWidth,
   theme,
 }) => {
-  const settings = useSettings();
+  const { settings } = useSettings();
   const isAlternateBuffer = useAlternateBuffer();
 
   const screenReaderEnabled = useIsScreenReaderEnabled();

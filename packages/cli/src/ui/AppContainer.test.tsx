@@ -19,7 +19,10 @@ import { waitFor } from '../test-utils/async.js';
 import { cleanup } from 'ink-testing-library';
 import { act, useContext } from 'react';
 import { AppContainer } from './AppContainer.js';
-import { SettingsContext } from './contexts/SettingsContext.js';
+import {
+  SettingsContext,
+  type SettingsContextValue,
+} from './contexts/SettingsContext.js';
 import {
   type Config,
   makeFakeConfig,
@@ -196,7 +199,15 @@ describe('AppContainer State Management', () => {
     startupWarnings?: string[];
     resumedSessionData?: ResumedSessionData;
   } = {}) => (
-    <SettingsContext.Provider value={settings}>
+    <SettingsContext.Provider
+      value={
+        {
+          settings,
+          updateSetting: vi.fn(),
+          version: 0,
+        } satisfies SettingsContextValue
+      }
+    >
       <AppContainer
         config={config}
         version={version}

@@ -18,7 +18,7 @@ interface AppHeaderProps {
 }
 
 export const AppHeader = ({ version }: AppHeaderProps) => {
-  const settings = useSettings();
+  const { settings } = useSettings();
   const config = useConfig();
   const { nightly, mainAreaWidth, bannerData, bannerVisible } = useUIState();
 

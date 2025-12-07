@@ -79,7 +79,7 @@ import { handleAutoUpdate } from './utils/handleAutoUpdate.js';
 import { appEvents, AppEvent } from './utils/events.js';
 import { SessionSelector } from './utils/sessionUtils.js';
 import { computeWindowTitle } from './utils/windowTitle.js';
-import { SettingsContext } from './ui/contexts/SettingsContext.js';
+import { SettingsProvider } from './ui/contexts/SettingsContext.js';
 import { MouseProvider } from './ui/contexts/MouseContext.js';
 
 import { SessionStatsProvider } from './ui/contexts/SessionContext.js';
@@ -214,7 +214,7 @@ export async function startInteractiveUI(
   const AppWrapper = () => {
     useKittyKeyboardProtocol();
     return (
-      <SettingsContext.Provider value={settings}>
+      <SettingsProvider initialSettings={settings}>
         <KeypressProvider
           config={config}
           debugKeystrokeLogging={settings.merged.general?.debugKeystrokeLogging}
@@ -227,7 +227,7 @@ export async function startInteractiveUI(
           >
             <ScrollProvider>
               <SessionStatsProvider>
-                <VimModeProvider settings={settings}>
+                <VimModeProvider>
                   <AppContainer
                     config={config}
                     startupWarnings={startupWarnings}
@@ -240,7 +240,7 @@ export async function startInteractiveUI(
             </ScrollProvider>
           </MouseProvider>
         </KeypressProvider>
-      </SettingsContext.Provider>
+      </SettingsProvider>
     );
   };
 

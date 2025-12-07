@@ -11,7 +11,10 @@ import { vi } from 'vitest';
 import { act, useState } from 'react';
 import { LoadedSettings, type Settings } from '../config/settings.js';
 import { KeypressProvider } from '../ui/contexts/KeypressContext.js';
-import { SettingsContext } from '../ui/contexts/SettingsContext.js';
+import {
+  SettingsContext,
+  type SettingsContextValue,
+} from '../ui/contexts/SettingsContext.js';
 import { ShellFocusContext } from '../ui/contexts/ShellFocusContext.js';
 import { UIStateContext, type UIState } from '../ui/contexts/UIStateContext.js';
 import { StreamingState } from '../ui/types.js';
@@ -235,9 +238,17 @@ export const renderWithProviders = (
 
   const renderResult = render(
     <ConfigContext.Provider value={config}>
-      <SettingsContext.Provider value={finalSettings}>
+      <SettingsContext.Provider
+        value={
+          {
+            settings: finalSettings,
+            updateSetting: vi.fn(),
+            version: 0,
+          } satisfies SettingsContextValue
+        }
+      >
         <UIStateContext.Provider value={finalUiState}>
-          <VimModeProvider settings={finalSettings}>
+          <VimModeProvider>
             <ShellFocusContext.Provider value={shellFocus}>
               <StreamingContext.Provider value={finalUiState.streamingState}>
                 <UIActionsContext.Provider value={finalUIActions}>

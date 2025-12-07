@@ -43,7 +43,7 @@ export const DialogManager = ({
   terminalWidth,
 }: DialogManagerProps) => {
   const config = useConfig();
-  const settings = useSettings();
+  const { settings } = useSettings();
 
   const uiState = useUIState();
   const uiActions = useUIActions();
@@ -138,7 +138,6 @@ export const DialogManager = ({
     return (
       <Box flexDirection="column">
         <SettingsDialog
-          settings={settings}
           onSelect={() => uiActions.closeSettingsDialog()}
           onRestartRequest={async () => {
             await runExitCleanup();
