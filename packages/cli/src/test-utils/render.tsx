@@ -11,7 +11,7 @@ import { vi } from 'vitest';
 import { act, useState } from 'react';
 import { LoadedSettings, type Settings } from '../config/settings.js';
 import { KeypressProvider } from '../ui/contexts/KeypressContext.js';
-import { SettingsContext } from '../ui/contexts/SettingsContext.js';
+import { SettingsProvider } from '../ui/contexts/SettingsContext.js';
 import { ShellFocusContext } from '../ui/contexts/ShellFocusContext.js';
 import { UIStateContext, type UIState } from '../ui/contexts/UIStateContext.js';
 import { StreamingState } from '../ui/types.js';
@@ -235,9 +235,9 @@ export const renderWithProviders = (
 
   const renderResult = render(
     <ConfigContext.Provider value={config}>
-      <SettingsContext.Provider value={finalSettings}>
+      <SettingsProvider initialSettings={finalSettings}>
         <UIStateContext.Provider value={finalUiState}>
-          <VimModeProvider settings={finalSettings}>
+          <VimModeProvider>
             <ShellFocusContext.Provider value={shellFocus}>
               <StreamingContext.Provider value={finalUiState.streamingState}>
                 <UIActionsContext.Provider value={finalUIActions}>
@@ -260,7 +260,7 @@ export const renderWithProviders = (
             </ShellFocusContext.Provider>
           </VimModeProvider>
         </UIStateContext.Provider>
-      </SettingsContext.Provider>
+      </SettingsProvider>
     </ConfigContext.Provider>,
     terminalWidth,
   );

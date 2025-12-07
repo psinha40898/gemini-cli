@@ -26,6 +26,7 @@ import { waitFor } from '../../test-utils/async.js';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SettingsDialog } from './SettingsDialog.js';
 import { LoadedSettings, SettingScope } from '../../config/settings.js';
+import { SettingsProvider } from '../contexts/SettingsContext.js';
 import { VimModeProvider } from '../contexts/VimModeContext.js';
 import { KeypressProvider } from '../contexts/KeypressContext.js';
 import { act } from 'react';
@@ -241,14 +242,15 @@ const renderDialog = (
   },
 ) =>
   render(
-    <KeypressProvider>
-      <SettingsDialog
-        settings={settings}
-        onSelect={onSelect}
-        onRestartRequest={options?.onRestartRequest}
-        availableTerminalHeight={options?.availableTerminalHeight}
-      />
-    </KeypressProvider>,
+    <SettingsProvider initialSettings={settings}>
+      <KeypressProvider>
+        <SettingsDialog
+          onSelect={onSelect}
+          onRestartRequest={options?.onRestartRequest}
+          availableTerminalHeight={options?.availableTerminalHeight}
+        />
+      </KeypressProvider>
+    </SettingsProvider>,
   );
 
 describe('SettingsDialog', () => {
@@ -671,11 +673,13 @@ describe('SettingsDialog', () => {
       const onSelect = vi.fn();
 
       const { stdin, unmount } = render(
-        <VimModeProvider settings={settings}>
-          <KeypressProvider>
-            <SettingsDialog settings={settings} onSelect={onSelect} />
-          </KeypressProvider>
-        </VimModeProvider>,
+        <SettingsProvider initialSettings={settings}>
+          <VimModeProvider>
+            <KeypressProvider>
+              <SettingsDialog onSelect={onSelect} />
+            </KeypressProvider>
+          </VimModeProvider>
+        </SettingsProvider>,
       );
 
       // Navigate to and toggle vim mode setting
@@ -1055,9 +1059,11 @@ describe('SettingsDialog', () => {
       const onSelect = vi.fn();
 
       const { stdin, unmount, rerender } = render(
-        <KeypressProvider>
-          <SettingsDialog settings={settings} onSelect={onSelect} />
-        </KeypressProvider>,
+        <SettingsProvider initialSettings={settings}>
+          <KeypressProvider>
+            <SettingsDialog onSelect={onSelect} />
+          </KeypressProvider>
+        </SettingsProvider>,
       );
 
       // Navigate to the last setting
@@ -1080,9 +1086,11 @@ describe('SettingsDialog', () => {
         {},
       );
       rerender(
-        <KeypressProvider>
-          <SettingsDialog settings={settings} onSelect={onSelect} />
-        </KeypressProvider>,
+        <SettingsProvider initialSettings={settings}>
+          <KeypressProvider>
+            <SettingsDialog onSelect={onSelect} />
+          </KeypressProvider>
+        </SettingsProvider>,
       );
 
       // Press Escape to exit

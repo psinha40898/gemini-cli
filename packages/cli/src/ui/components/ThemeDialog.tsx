@@ -12,16 +12,14 @@ import { themeManager, DEFAULT_THEME } from '../themes/theme-manager.js';
 import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
 import { DiffRenderer } from './messages/DiffRenderer.js';
 import { colorizeCode } from '../utils/CodeColorizer.js';
-import type {
-  LoadableSettingScope,
-  LoadedSettings,
-} from '../../config/settings.js';
+import type { LoadableSettingScope } from '../../config/settings.js';
 import { SettingScope } from '../../config/settings.js';
 import { getScopeMessageForSetting } from '../../utils/dialogScopeUtils.js';
 import { useKeypress } from '../hooks/useKeypress.js';
 import { useAlternateBuffer } from '../hooks/useAlternateBuffer.js';
 import { ScopeSelector } from './shared/ScopeSelector.js';
 import { useUIActions } from '../contexts/UIActionsContext.js';
+import { useSettings } from '../contexts/SettingsContext.js';
 
 interface ThemeDialogProps {
   /** Callback function when a theme is selected */
@@ -32,8 +30,6 @@ interface ThemeDialogProps {
 
   /** Callback function when a theme is highlighted */
   onHighlight: (themeName: string | undefined) => void;
-  /** The settings object */
-  settings: LoadedSettings;
   availableTerminalHeight?: number;
   terminalWidth: number;
 }
@@ -42,10 +38,10 @@ export function ThemeDialog({
   onSelect,
   onCancel,
   onHighlight,
-  settings,
   availableTerminalHeight,
   terminalWidth,
 }: ThemeDialogProps): React.JSX.Element {
+  const { merged, raw } = useSettings();
   const isAlternateBuffer = useAlternateBuffer();
   const { refreshStatic } = useUIActions();
   const [selectedScope, setSelectedScope] = useState<LoadableSettingScope>(
@@ -54,14 +50,14 @@ export function ThemeDialog({
 
   // Track the currently highlighted theme name
   const [highlightedThemeName, setHighlightedThemeName] = useState<string>(
-    settings.merged.ui?.theme || DEFAULT_THEME.name,
+    merged.ui?.theme || DEFAULT_THEME.name,
   );
 
   // Generate theme items filtered by selected scope
   const customThemes =
     selectedScope === SettingScope.User
-      ? settings.user.settings.ui?.customThemes || {}
-      : settings.merged.ui?.customThemes || {};
+      ? raw.user.settings.ui?.customThemes || {}
+      : merged.ui?.customThemes || {};
   const builtInThemes = themeManager
     .getAvailableThemes()
     .filter((theme) => theme.type !== 'custom');
@@ -135,7 +131,7 @@ export function ThemeDialog({
   const otherScopeModifiedMessage = getScopeMessageForSetting(
     'ui.theme',
     selectedScope,
-    settings,
+    raw,
   );
 
   // Constants for calculating preview pane layout.
@@ -260,7 +256,7 @@ def fibonacci(n):
                     availableHeight:
                       isAlternateBuffer === false ? codeBlockHeight : undefined,
                     maxWidth: colorizeCodeWidth,
-                    settings,
+                    settings: raw,
                   })}
                   <Box marginTop={1} />
                   <DiffRenderer

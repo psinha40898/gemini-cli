@@ -53,10 +53,6 @@ interface FzfResult {
 }
 
 interface SettingsDialogProps {
-  /**
-   * @deprecated Settings are now sourced from SettingsContext.
-   */
-  settings?: never;
   onSelect: (settingName: string | undefined, scope: SettingScope) => void;
   onRestartRequest?: () => void;
   availableTerminalHeight?: number;
