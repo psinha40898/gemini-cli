@@ -74,10 +74,9 @@ describe('ThemeDialog Snapshots', () => {
 
   it('should render correctly in theme selection mode', () => {
     const settings = createMockSettings();
-    const { lastFrame } = renderWithProviders(
-      <ThemeDialog {...baseProps} settings={settings} />,
-      { settings },
-    );
+    const { lastFrame } = renderWithProviders(<ThemeDialog {...baseProps} />, {
+      settings,
+    });
 
     expect(lastFrame()).toMatchSnapshot();
   });
@@ -85,7 +84,7 @@ describe('ThemeDialog Snapshots', () => {
   it('should render correctly in scope selector mode', async () => {
     const settings = createMockSettings();
     const { lastFrame, stdin } = renderWithProviders(
-      <ThemeDialog {...baseProps} settings={settings} />,
+      <ThemeDialog {...baseProps} />,
       { settings },
     );
 
@@ -104,11 +103,7 @@ describe('ThemeDialog Snapshots', () => {
     const mockOnCancel = vi.fn();
     const settings = createMockSettings();
     const { stdin } = renderWithProviders(
-      <ThemeDialog
-        {...baseProps}
-        onCancel={mockOnCancel}
-        settings={settings}
-      />,
+      <ThemeDialog {...baseProps} onCancel={mockOnCancel} />,
       { settings },
     );
 
@@ -124,13 +119,10 @@ describe('ThemeDialog Snapshots', () => {
   it('should call refreshStatic when a theme is selected', async () => {
     const mockRefreshStatic = vi.fn();
     const settings = createMockSettings();
-    const { stdin } = renderWithProviders(
-      <ThemeDialog {...baseProps} settings={settings} />,
-      {
-        settings,
-        uiActions: { refreshStatic: mockRefreshStatic },
-      },
-    );
+    const { stdin } = renderWithProviders(<ThemeDialog {...baseProps} />, {
+      settings,
+      uiActions: { refreshStatic: mockRefreshStatic },
+    });
 
     // Press Enter to select the theme
     act(() => {

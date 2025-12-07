@@ -12,5 +12,5 @@ export const isAlternateBufferEnabled = (settings: LoadedSettings): boolean =>
 
 export const useAlternateBuffer = (): boolean => {
   const settings = useSettings();
-  return isAlternateBufferEnabled(settings);
+  return isAlternateBufferEnabled(settings.raw);
 };

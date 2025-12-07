@@ -19,7 +19,7 @@ import { waitFor } from '../test-utils/async.js';
 import { cleanup } from 'ink-testing-library';
 import { act, useContext } from 'react';
 import { AppContainer } from './AppContainer.js';
-import { SettingsContext } from './contexts/SettingsContext.js';
+import { SettingsProvider } from './contexts/SettingsContext.js';
 import {
   type Config,
   makeFakeConfig,
@@ -196,7 +196,7 @@ describe('AppContainer State Management', () => {
     startupWarnings?: string[];
     resumedSessionData?: ResumedSessionData;
   } = {}) => (
-    <SettingsContext.Provider value={settings}>
+    <SettingsProvider initialSettings={settings}>
       <AppContainer
         config={config}
         version={version}
@@ -204,7 +204,7 @@ describe('AppContainer State Management', () => {
         startupWarnings={startupWarnings}
         resumedSessionData={resumedSessionData}
       />
-    </SettingsContext.Provider>
+    </SettingsProvider>
   );
 
   // Helper to render the AppContainer

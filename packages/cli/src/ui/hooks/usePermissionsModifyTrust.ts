@@ -68,7 +68,7 @@ export const usePermissionsModifyTrust = (
     path.resolve(process.cwd()).toLowerCase();
 
   const [initialState] = useState(() =>
-    getInitialTrustState(settings, cwd, isCurrentWorkspace),
+    getInitialTrustState(settings.raw, cwd, isCurrentWorkspace),
   );
 
   const [currentTrustLevel] = useState<TrustLevel | undefined>(

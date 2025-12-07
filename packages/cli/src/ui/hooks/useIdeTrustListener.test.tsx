@@ -66,7 +66,12 @@ describe('useIdeTrustListener', () => {
       },
     } as LoadedSettings;
 
-    vi.mocked(useSettings).mockReturnValue(mockSettings);
+    vi.mocked(useSettings).mockReturnValue({
+      merged: mockSettings.merged,
+      raw: mockSettings,
+      updateSetting: vi.fn(),
+      updateSettingsBatch: vi.fn(),
+    });
 
     vi.mocked(mockIdeClient.addTrustChangeListener).mockImplementation((cb) => {
       trustChangeCallback = cb;

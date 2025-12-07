@@ -356,7 +356,7 @@ export const AppContainer = (props: AppContainerProps) => {
   const { consoleMessages, clearConsoleMessages: clearConsoleMessagesState } =
     useConsoleMessages();
 
-  const mainAreaWidth = calculateMainAreaWidth(terminalWidth, settings);
+  const mainAreaWidth = calculateMainAreaWidth(terminalWidth, settings.raw);
   // Derive widths for InputPrompt using shared helper
   const { inputWidth, suggestionsWidth } = useMemo(() => {
     const { inputWidth, suggestionsWidth } =
@@ -438,7 +438,7 @@ export const AppContainer = (props: AppContainerProps) => {
     handleThemeSelect,
     handleThemeHighlight,
   } = useThemeCommand(
-    settings,
+    settings.raw,
     setThemeError,
     historyManager.addItem,
     initializationResult.themeError,
@@ -451,7 +451,7 @@ export const AppContainer = (props: AppContainerProps) => {
     onAuthError,
     apiKeyDefaultValue,
     reloadApiKey,
-  } = useAuthCommand(settings, config);
+  } = useAuthCommand(settings.raw, config);
 
   const { proQuotaRequest, handleProQuotaChoice } = useQuotaAndFallback({
     config,
@@ -496,7 +496,7 @@ export const AppContainer = (props: AppContainerProps) => {
     async (authType: AuthType | undefined, scope: LoadableSettingScope) => {
       if (authType) {
         await clearCachedCredentialFile();
-        settings.setValue(scope, 'security.auth.selectedType', authType);
+        settings.updateSetting(scope, 'security.auth.selectedType', authType);
 
         try {
           await config.refreshAuth(authType);
@@ -598,7 +598,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
     openEditorDialog,
     handleEditorSelect,
     exitEditorDialog,
-  } = useEditorSettings(settings, setEditorError, historyManager.addItem);
+  } = useEditorSettings(settings.raw, setEditorError, historyManager.addItem);
 
   const { isSettingsDialogOpen, openSettingsDialog, closeSettingsDialog } =
     useSettingsCommand();
@@ -658,7 +658,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
     confirmationRequest,
   } = useSlashCommandProcessor(
     config,
-    settings,
+    settings.raw,
     historyManager.addItem,
     historyManager.clearItems,
     historyManager.loadHistory,
@@ -768,7 +768,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
     historyManager.history,
     historyManager.addItem,
     config,
-    settings,
+    settings.raw,
     setDebugMessage,
     handleSlashCommand,
     shellModeActive,
@@ -1013,7 +1013,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
 
   const { isFolderTrustDialogOpen, handleFolderTrustSelect, isRestarting } =
-    useFolderTrust(settings, setIsTrustedFolder, historyManager.addItem);
+    useFolderTrust(settings.raw, setIsTrustedFolder, historyManager.addItem);
   const {
     needsRestart: ideNeedsRestart,
     restartReason: ideTrustRestartReason,
@@ -1150,13 +1150,13 @@ Logging in with Google... Restarting Gemini CLI to continue.
       if (result.userSelection === 'yes') {
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         handleSlashCommand('/ide install');
-        settings.setValue(
+        settings.updateSetting(
           SettingScope.User,
           'hasSeenIdeIntegrationNudge',
           true,
         );
       } else if (result.userSelection === 'dismiss') {
-        settings.setValue(
+        settings.updateSetting(
           SettingScope.User,
           'hasSeenIdeIntegrationNudge',
           true,

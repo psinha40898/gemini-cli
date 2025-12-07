@@ -13,7 +13,7 @@ import { UIStateContext, type UIState } from './contexts/UIStateContext.js';
 import { StreamingState } from './types.js';
 import { ConfigContext } from './contexts/ConfigContext.js';
 import { AppContext, type AppState } from './contexts/AppContext.js';
-import { SettingsContext } from './contexts/SettingsContext.js';
+import { SettingsProvider } from './contexts/SettingsContext.js';
 import {
   type SettingScope,
   LoadedSettings,
@@ -104,11 +104,13 @@ describe('App', () => {
     render(
       <AppContext.Provider value={mockAppState}>
         <ConfigContext.Provider value={mockConfig}>
-          <SettingsContext.Provider value={mockLoadedSettings}>
-            <UIStateContext.Provider value={state}>
-              {ui}
-            </UIStateContext.Provider>
-          </SettingsContext.Provider>
+          <SettingsProvider initialSettings={mockLoadedSettings}>
+            <SettingsProvider initialSettings={mockLoadedSettings}>
+              <UIStateContext.Provider value={state}>
+                {ui}
+              </UIStateContext.Provider>
+            </SettingsProvider>
+          </SettingsProvider>
         </ConfigContext.Provider>
       </AppContext.Provider>,
     );
