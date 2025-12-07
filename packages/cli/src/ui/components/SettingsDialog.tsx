@@ -148,6 +148,8 @@ export function SettingsDialog({
   const [globalPendingChanges, setGlobalPendingChanges] = useState<
     Map<string, PendingValue>
   >(new Map());
+  // Version tracker to force re-renders when settings object is mutated in-place
+  const [settingsVersion, setSettingsVersion] = useState(0);
 
   // Derive all display state from the single source of truth (globalPendingChanges)
   const {
@@ -156,7 +158,10 @@ export function SettingsDialog({
     restartRequiredSettings,
     showRestartPrompt,
   } = useMemo(() => {
-    // Start with base settings for current scope
+    // Force re-calculation when version changes (fixes mutable settings updates)
+    void settingsVersion;
+
+    // Base settings for selected scope
     let updated = structuredClone(settings.forScope(selectedScope).settings);
     const newModified = new Set<string>();
     const newRestartRequired = new Set<string>();
@@ -184,7 +189,7 @@ export function SettingsDialog({
       restartRequiredSettings: newRestartRequired,
       showRestartPrompt: newRestartRequired.size > 0,
     };
-  }, [settings, selectedScope, globalPendingChanges]);
+  }, [settings, selectedScope, globalPendingChanges, settingsVersion]);
 
   const generateSettingsItems = () => {
     const settingKeys = searchQuery ? filteredKeys : getDialogSettingKeys();
@@ -235,6 +240,7 @@ export function SettingsDialog({
               settings,
               selectedScope,
             );
+            setSettingsVersion((v) => v + 1);
 
             // Special handling for vim mode to sync with VimModeContext
             if (key === 'general.vimMode' && newValue !== vimEnabled) {
@@ -337,6 +343,7 @@ export function SettingsDialog({
         settings,
         selectedScope,
       );
+      setSettingsVersion((v) => v + 1);
 
       // Remove from globalPendingChanges if present (useMemo will derive the rest)
       setGlobalPendingChanges((prev) => {
@@ -660,6 +667,7 @@ export function SettingsDialog({
               settings,
               selectedScope,
             );
+            setSettingsVersion((v) => v + 1);
 
             // Remove from globalPendingChanges (useMemo will derive the rest)
             setGlobalPendingChanges((prev) => {
