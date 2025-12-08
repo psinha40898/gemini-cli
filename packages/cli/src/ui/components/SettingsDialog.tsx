@@ -4,12 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useReducer, useEffect, useMemo } from 'react';
 import { Box, Text } from 'ink';
 import { AsyncFzf } from 'fzf';
 import { theme } from '../semantic-colors.js';
-import type { LoadableSettingScope } from '../../config/settings.js';
-import { SettingScope } from '../../config/settings.js';
+import type { LoadableSettingScope , SettingScope } from '../../config/settings.js';
 import {
   getScopeItems,
   getScopeMessageForSetting,
@@ -43,6 +42,12 @@ import { useUIState } from '../contexts/UIStateContext.js';
 import { useTextBuffer } from './shared/text-buffer.js';
 import { TextInput } from './shared/TextInput.js';
 import { useSettings } from '../contexts/SettingsContext.js';
+import { useInlineEdit } from '../hooks/useInlineEdit.js';
+import {
+  settingsDialogReducer,
+  createInitialState,
+  type PendingValue,
+} from './settingsDialogReducer.js';
 
 interface FzfResult {
   item: string;
@@ -72,24 +77,42 @@ export function SettingsDialog({
   const settingsContext = useSettings();
   const { merged, raw, updateSetting } = settingsContext;
 
-  // Focus state: 'settings' or 'scope'
-  const [focusSection, setFocusSection] = useState<'settings' | 'scope'>(
-    'settings',
+  // ============================================================================
+  // State Management via useReducer (Phase 2)
+  // ============================================================================
+  const [state, dispatch] = useReducer(
+    settingsDialogReducer,
+    undefined,
+    createInitialState,
   );
-  // Scope selector state (User by default)
-  const [selectedScope, setSelectedScope] = useState<LoadableSettingScope>(
-    SettingScope.User,
-  );
-  // Active indices
-  const [activeSettingIndex, setActiveSettingIndex] = useState(0);
-  // Scroll offset for settings
-  const [scrollOffset, setScrollOffset] = useState(0);
 
-  // Search state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filteredKeys, setFilteredKeys] = useState<string[]>(() =>
-    getDialogSettingKeys(),
-  );
+  // Destructure for convenience (Phase 3: renamed from globalPendingChanges)
+  const {
+    focusSection,
+    selectedScope,
+    activeSettingIndex,
+    scrollOffset,
+    searchQuery,
+    filteredKeys,
+    unsavedRestartChanges,
+  } = state;
+
+  // ============================================================================
+  // Inline Edit State (Phase 1: extracted to hook)
+  // ============================================================================
+  const { editState, startEdit, updateBuffer, moveCursor, clearEdit } =
+    useInlineEdit();
+
+  const {
+    key: editingKey,
+    buffer: editBuffer,
+    cursorPos: editCursorPos,
+    cursorVisible,
+  } = editState;
+
+  // ============================================================================
+  // Search Setup
+  // ============================================================================
   const { fzfInstance, searchMap } = useMemo(() => {
     const keys = getDialogSettingKeys();
     const map = new Map<string, string>();
@@ -114,7 +137,7 @@ export function SettingsDialog({
   useEffect(() => {
     let active = true;
     if (!searchQuery.trim() || !fzfInstance) {
-      setFilteredKeys(getDialogSettingKeys());
+      dispatch({ type: 'SET_FILTERED_KEYS', keys: getDialogSettingKeys() });
       return;
     }
 
@@ -128,9 +151,7 @@ export function SettingsDialog({
         const key = searchMap.get(res.item.toLowerCase());
         if (key) matchedKeys.add(key);
       });
-      setFilteredKeys(Array.from(matchedKeys));
-      setActiveSettingIndex(0); // Reset cursor
-      setScrollOffset(0);
+      dispatch({ type: 'SET_FILTERED_KEYS', keys: Array.from(matchedKeys) });
     };
 
     // eslint-disable-next-line @typescript-eslint/no-floating-promises
@@ -141,27 +162,29 @@ export function SettingsDialog({
     };
   }, [searchQuery, fzfInstance, searchMap]);
 
-  // Preserve pending changes across scope switches - SINGLE SOURCE OF TRUTH
-  type PendingValue = boolean | number | string;
-  const [globalPendingChanges, setGlobalPendingChanges] = useState<
-    Map<string, PendingValue>
-  >(new Map());
-  // Derive all display state from the single source of truth (globalPendingChanges)
+  // ============================================================================
+  // Derived State (Phase 3: renamed variables for clarity)
+  // Derive display state from the single source of truth (unsavedRestartChanges)
+  // - previewSettings: What settings will look like with pending changes applied
+  // - pendingKeys: Keys that have unsaved changes
+  // - restartRequiredKeys: Subset of pendingKeys that require restart
+  // - showRestartPrompt: Whether to show the restart prompt
+  // ============================================================================
   const {
-    pendingSettings,
-    modifiedSettings,
-    restartRequiredSettings,
+    previewSettings,
+    pendingKeys,
+    restartRequiredKeys,
     showRestartPrompt,
   } = useMemo(() => {
     // Base settings for selected scope
     let updated = structuredClone(
       settingsContext.raw.forScope(selectedScope).settings,
     );
-    const newModified = new Set<string>();
-    const newRestartRequired = new Set<string>();
+    const newPendingKeys = new Set<string>();
+    const newRestartRequiredKeys = new Set<string>();
 
-    // Apply all pending changes
-    for (const [key, value] of globalPendingChanges.entries()) {
+    // Apply all unsaved restart-required changes
+    for (const [key, value] of unsavedRestartChanges.entries()) {
       const def = getSettingDefinition(key);
       if (def?.type === 'boolean' && typeof value === 'boolean') {
         updated = setPendingSettingValue(key, value, updated);
@@ -171,19 +194,19 @@ export function SettingsDialog({
       ) {
         updated = setPendingSettingValueAny(key, value, updated);
       }
-      newModified.add(key);
+      newPendingKeys.add(key);
       if (requiresRestart(key)) {
-        newRestartRequired.add(key);
+        newRestartRequiredKeys.add(key);
       }
     }
 
     return {
-      pendingSettings: updated,
-      modifiedSettings: newModified,
-      restartRequiredSettings: newRestartRequired,
-      showRestartPrompt: newRestartRequired.size > 0,
+      previewSettings: updated,
+      pendingKeys: newPendingKeys,
+      restartRequiredKeys: newRestartRequiredKeys,
+      showRestartPrompt: newRestartRequiredKeys.size > 0,
     };
-  }, [settingsContext, selectedScope, globalPendingChanges]);
+  }, [settingsContext, selectedScope, unsavedRestartChanges]);
 
   const generateSettingsItems = () => {
     const settingKeys = searchQuery ? filteredKeys : getDialogSettingKeys();
@@ -199,7 +222,7 @@ export function SettingsDialog({
           if (!TOGGLE_TYPES.has(definition?.type)) {
             return;
           }
-          const currentValue = getEffectiveValue(key, pendingSettings, {});
+          const currentValue = getEffectiveValue(key, previewSettings, {});
           let newValue: SettingsValue;
           if (definition?.type === 'boolean') {
             newValue = !(currentValue as boolean);
@@ -233,23 +256,18 @@ export function SettingsDialog({
               config?.setPreviewFeatures(newValue as boolean);
             }
 
-            // Remove from globalPendingChanges if it was there (useMemo will derive the rest)
-            setGlobalPendingChanges((prev) => {
-              if (!prev.has(key)) return prev;
-              const next = new Map(prev);
-              next.delete(key);
-              return next;
-            });
+            // Remove from unsavedRestartChanges if it was there (useMemo will derive the rest)
+            dispatch({ type: 'REMOVE_PENDING_CHANGE', key });
           } else {
-            // Track in globalPendingChanges - useMemo will derive modifiedSettings, showRestartPrompt, etc.
+            // Track in unsavedRestartChanges - useMemo will derive pendingKeys, showRestartPrompt, etc.
             debugLogger.log(
               `[DEBUG SettingsDialog] Tracking ${key} as pending change with value:`,
               newValue,
             );
-            setGlobalPendingChanges((prev) => {
-              const next = new Map(prev);
-              next.set(key, newValue as PendingValue);
-              return next;
+            dispatch({
+              type: 'ADD_PENDING_CHANGE',
+              key,
+              value: newValue as PendingValue,
             });
           }
         },
@@ -259,37 +277,14 @@ export function SettingsDialog({
 
   const items = generateSettingsItems();
 
-  // Generic edit state
-  const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [editBuffer, setEditBuffer] = useState<string>('');
-  const [editCursorPos, setEditCursorPos] = useState<number>(0); // Cursor position within edit buffer
-  const [cursorVisible, setCursorVisible] = useState<boolean>(true);
-
-  useEffect(() => {
-    if (!editingKey) {
-      setCursorVisible(true);
-      return;
-    }
-    const id = setInterval(() => setCursorVisible((v) => !v), 500);
-    return () => clearInterval(id);
-  }, [editingKey]);
-
-  const startEditing = (key: string, initial?: string) => {
-    setEditingKey(key);
-    const initialValue = initial ?? '';
-    setEditBuffer(initialValue);
-    setEditCursorPos(cpLen(initialValue)); // Position cursor at end of initial value
-  };
-
+  // commitEdit uses the inline edit hook's state and clearEdit
   const commitEdit = (key: string) => {
     const definition = getSettingDefinition(key);
     const type = definition?.type;
 
     if (editBuffer.trim() === '' && type === 'number') {
       // Nothing entered for a number; cancel edit
-      setEditingKey(null);
-      setEditBuffer('');
-      setEditCursorPos(0);
+      clearEdit();
       return;
     }
 
@@ -298,9 +293,7 @@ export function SettingsDialog({
       const numParsed = Number(editBuffer.trim());
       if (Number.isNaN(numParsed)) {
         // Invalid number; cancel edit
-        setEditingKey(null);
-        setEditBuffer('');
-        setEditCursorPos(0);
+        clearEdit();
         return;
       }
       parsed = numParsed;
@@ -310,28 +303,21 @@ export function SettingsDialog({
     }
 
     if (!requiresRestart(key)) {
-      // Save immediately - no need to track in globalPendingChanges
+      // Save immediately - no need to track in unsavedRestartChanges
       updateSetting(selectedScope, key, parsed);
 
-      // Remove from globalPendingChanges if present (useMemo will derive the rest)
-      setGlobalPendingChanges((prev) => {
-        if (!prev.has(key)) return prev;
-        const next = new Map(prev);
-        next.delete(key);
-        return next;
-      });
+      // Remove from unsavedRestartChanges if present (useMemo will derive the rest)
+      dispatch({ type: 'REMOVE_PENDING_CHANGE', key });
     } else {
-      // Track in globalPendingChanges - useMemo will derive modifiedSettings, showRestartPrompt, etc.
-      setGlobalPendingChanges((prev) => {
-        const next = new Map(prev);
-        next.set(key, parsed as PendingValue);
-        return next;
+      // Track in unsavedRestartChanges - useMemo will derive pendingKeys, showRestartPrompt, etc.
+      dispatch({
+        type: 'ADD_PENDING_CHANGE',
+        key,
+        value: parsed as PendingValue,
       });
     }
 
-    setEditingKey(null);
-    setEditBuffer('');
-    setEditCursorPos(0);
+    clearEdit();
   };
 
   // Scope selector items
@@ -341,12 +327,12 @@ export function SettingsDialog({
   }));
 
   const handleScopeHighlight = (scope: LoadableSettingScope) => {
-    setSelectedScope(scope);
+    dispatch({ type: 'SET_SCOPE', scope });
   };
 
   const handleScopeSelect = (scope: LoadableSettingScope) => {
     handleScopeHighlight(scope);
-    setFocusSection('settings');
+    dispatch({ type: 'SET_FOCUS', section: 'settings' });
   };
 
   // Height constraint calculations similar to ThemeDialog
@@ -423,7 +409,7 @@ export function SettingsDialog({
   // Ensure focus stays on settings when scope selection is hidden
   React.useEffect(() => {
     if (!showScopeSelection && focusSection === 'scope') {
-      setFocusSection('settings');
+      dispatch({ type: 'SET_FOCUS', section: 'settings' });
     }
   }, [showScopeSelection, focusSection]);
 
@@ -437,24 +423,17 @@ export function SettingsDialog({
   const showScrollDown = items.length > effectiveMaxItemsToShow;
 
   const saveRestartRequiredSettings = () => {
-    // restartRequiredSettings is now derived from useMemo
-    if (restartRequiredSettings.size > 0) {
+    // restartRequiredKeys is now derived from useMemo
+    if (restartRequiredKeys.size > 0) {
       saveModifiedSettings(
-        restartRequiredSettings,
-        pendingSettings,
+        restartRequiredKeys,
+        previewSettings,
         raw,
         selectedScope,
       );
 
-      // Remove saved keys from global pending changes
-      setGlobalPendingChanges((prev) => {
-        if (prev.size === 0) return prev;
-        const next = new Map(prev);
-        for (const key of restartRequiredSettings) {
-          next.delete(key);
-        }
-        return next;
-      });
+      // Remove saved keys from unsaved restart changes
+      dispatch({ type: 'SAVE_AND_CLEAR_KEYS', keys: restartRequiredKeys });
     }
   };
 
@@ -463,7 +442,7 @@ export function SettingsDialog({
       const { name } = key;
 
       if (name === 'tab' && showScopeSelection) {
-        setFocusSection((prev) => (prev === 'settings' ? 'scope' : 'settings'));
+        dispatch({ type: 'TOGGLE_FOCUS' });
       }
       if (focusSection === 'settings') {
         // If editing, capture input and control keys
@@ -477,30 +456,24 @@ export function SettingsDialog({
               pasted = key.sequence.replace(/[^0-9\-+.]/g, '');
             }
             if (pasted) {
-              setEditBuffer((b) => {
-                const before = cpSlice(b, 0, editCursorPos);
-                const after = cpSlice(b, editCursorPos);
-                return before + pasted + after;
-              });
-              setEditCursorPos((pos) => pos + cpLen(pasted));
+              const before = cpSlice(editBuffer, 0, editCursorPos);
+              const after = cpSlice(editBuffer, editCursorPos);
+              updateBuffer(
+                before + pasted + after,
+                editCursorPos + cpLen(pasted),
+              );
             }
             return;
           }
           if (name === 'backspace' || name === 'delete') {
             if (name === 'backspace' && editCursorPos > 0) {
-              setEditBuffer((b) => {
-                const before = cpSlice(b, 0, editCursorPos - 1);
-                const after = cpSlice(b, editCursorPos);
-                return before + after;
-              });
-              setEditCursorPos((pos) => pos - 1);
+              const before = cpSlice(editBuffer, 0, editCursorPos - 1);
+              const after = cpSlice(editBuffer, editCursorPos);
+              updateBuffer(before + after, editCursorPos - 1);
             } else if (name === 'delete' && editCursorPos < cpLen(editBuffer)) {
-              setEditBuffer((b) => {
-                const before = cpSlice(b, 0, editCursorPos);
-                const after = cpSlice(b, editCursorPos + 1);
-                return before + after;
-              });
-              // Cursor position stays the same for delete
+              const before = cpSlice(editBuffer, 0, editCursorPos);
+              const after = cpSlice(editBuffer, editCursorPos + 1);
+              updateBuffer(before + after, editCursorPos);
             }
             return;
           }
@@ -526,31 +499,28 @@ export function SettingsDialog({
           }
 
           if (isValidChar) {
-            setEditBuffer((currentBuffer) => {
-              const beforeCursor = cpSlice(currentBuffer, 0, editCursorPos);
-              const afterCursor = cpSlice(currentBuffer, editCursorPos);
-              return beforeCursor + ch + afterCursor;
-            });
-            setEditCursorPos((pos) => pos + 1);
+            const beforeCursor = cpSlice(editBuffer, 0, editCursorPos);
+            const afterCursor = cpSlice(editBuffer, editCursorPos);
+            updateBuffer(beforeCursor + ch + afterCursor, editCursorPos + 1);
             return;
           }
 
           // Arrow key navigation
           if (name === 'left') {
-            setEditCursorPos((pos) => Math.max(0, pos - 1));
+            moveCursor(Math.max(0, editCursorPos - 1));
             return;
           }
           if (name === 'right') {
-            setEditCursorPos((pos) => Math.min(cpLen(editBuffer), pos + 1));
+            moveCursor(Math.min(cpLen(editBuffer), editCursorPos + 1));
             return;
           }
           // Home and End keys
           if (keyMatchers[Command.HOME](key)) {
-            setEditCursorPos(0);
+            moveCursor(0);
             return;
           }
           if (keyMatchers[Command.END](key)) {
-            setEditCursorPos(cpLen(editBuffer));
+            moveCursor(cpLen(editBuffer));
             return;
           }
           // Block other keys while editing
@@ -561,45 +531,37 @@ export function SettingsDialog({
           if (editingKey) {
             commitEdit(editingKey);
           }
-          const newIndex =
-            activeSettingIndex > 0 ? activeSettingIndex - 1 : items.length - 1;
-          setActiveSettingIndex(newIndex);
-          // Adjust scroll offset for wrap-around
-          if (newIndex === items.length - 1) {
-            setScrollOffset(
-              Math.max(0, items.length - effectiveMaxItemsToShow),
-            );
-          } else if (newIndex < scrollOffset) {
-            setScrollOffset(newIndex);
-          }
+          dispatch({
+            type: 'NAVIGATE',
+            direction: 'up',
+            itemCount: items.length,
+            maxVisible: effectiveMaxItemsToShow,
+          });
         } else if (keyMatchers[Command.DIALOG_NAVIGATION_DOWN](key)) {
           // If editing, commit first
           if (editingKey) {
             commitEdit(editingKey);
           }
-          const newIndex =
-            activeSettingIndex < items.length - 1 ? activeSettingIndex + 1 : 0;
-          setActiveSettingIndex(newIndex);
-          // Adjust scroll offset for wrap-around
-          if (newIndex === 0) {
-            setScrollOffset(0);
-          } else if (newIndex >= scrollOffset + effectiveMaxItemsToShow) {
-            setScrollOffset(newIndex - effectiveMaxItemsToShow + 1);
-          }
+          dispatch({
+            type: 'NAVIGATE',
+            direction: 'down',
+            itemCount: items.length,
+            maxVisible: effectiveMaxItemsToShow,
+          });
         } else if (keyMatchers[Command.RETURN](key)) {
           const currentItem = items[activeSettingIndex];
           if (
             currentItem?.type === 'number' ||
             currentItem?.type === 'string'
           ) {
-            startEditing(currentItem.value);
+            startEdit(currentItem.value);
           } else {
             currentItem?.toggle();
           }
         } else if (/^[0-9]$/.test(key.sequence || '') && !editingKey) {
           const currentItem = items[activeSettingIndex];
           if (currentItem?.type === 'number') {
-            startEditing(currentItem.value, key.sequence);
+            startEdit(currentItem.value, key.sequence);
           }
         } else if (
           keyMatchers[Command.CLEAR_INPUT](key) ||
@@ -624,19 +586,17 @@ export function SettingsDialog({
             // Save default immediately
             updateSetting(selectedScope, currentSetting.value, defaultValue);
 
-            // Remove from globalPendingChanges (useMemo will derive the rest)
-            setGlobalPendingChanges((prev) => {
-              if (!prev.has(currentSetting.value)) return prev;
-              const next = new Map(prev);
-              next.delete(currentSetting.value);
-              return next;
+            // Remove from unsavedRestartChanges (useMemo will derive the rest)
+            dispatch({
+              type: 'REMOVE_PENDING_CHANGE',
+              key: currentSetting.value,
             });
           } else {
-            // Track default reset as pending change (useMemo will derive modifiedSettings, etc.)
-            setGlobalPendingChanges((prev) => {
-              const next = new Map(prev);
-              next.set(currentSetting.value, defaultValue as PendingValue);
-              return next;
+            // Track default reset as pending change (useMemo will derive pendingKeys, etc.)
+            dispatch({
+              type: 'ADD_PENDING_CHANGE',
+              key: currentSetting.value,
+              value: defaultValue as PendingValue,
             });
           }
         }
@@ -644,8 +604,8 @@ export function SettingsDialog({
       if (showRestartPrompt && name === 'r') {
         // Save restart-required settings and clear all pending changes
         saveRestartRequiredSettings();
-        // Clearing globalPendingChanges causes useMemo to derive showRestartPrompt = false
-        setGlobalPendingChanges(new Map());
+        // Clearing unsavedRestartChanges causes useMemo to derive showRestartPrompt = false
+        dispatch({ type: 'CLEAR_ALL_PENDING' });
         if (onRestartRequest) onRestartRequest();
       }
       if (keyMatchers[Command.ESCAPE](key)) {
@@ -673,7 +633,7 @@ export function SettingsDialog({
     },
     isValidPath: () => false,
     singleLine: true,
-    onChange: (text) => setSearchQuery(text),
+    onChange: (text) => dispatch({ type: 'SET_SEARCH_QUERY', query: text }),
   });
 
   return (
@@ -760,7 +720,7 @@ export function SettingsDialog({
               } else if (item.type === 'number' || item.type === 'string') {
                 // For numbers/strings, get the actual current value from pending settings
                 const path = item.value.split('.');
-                const currentValue = getNestedValue(pendingSettings, path);
+                const currentValue = getNestedValue(previewSettings, path);
 
                 const defaultValue = getDefaultValue(item.value);
 
@@ -774,7 +734,7 @@ export function SettingsDialog({
                 }
 
                 // Add * if value differs from default OR if currently being modified
-                const isModified = modifiedSettings.has(item.value);
+                const isModified = pendingKeys.has(item.value);
                 const effectiveCurrentValue =
                   currentValue !== undefined && currentValue !== null
                     ? currentValue
@@ -791,8 +751,8 @@ export function SettingsDialog({
                   item.value,
                   scopeSettings,
                   mergedSettings,
-                  modifiedSettings,
-                  pendingSettings,
+                  pendingKeys,
+                  previewSettings,
                 );
               }
               const shouldBeGreyedOut = isDefaultValue(
