@@ -233,7 +233,10 @@ export function SettingsDialog({
             // Special handling for vim mode to sync with VimModeContext
             if (key === 'general.vimMode' && newValue !== vimEnabled) {
               toggleVimEnabled().catch((error) => {
-                console.error('Failed to toggle vim mode:', error);
+                debugLogger.log(
+                  '[DEBUG SettingsDialog] Failed to toggle vim mode:',
+                  error,
+                );
               });
             }
 
@@ -668,29 +671,20 @@ export function SettingsDialog({
               });
             } else {
               // Track default reset as a pending change if restart required
-              if (
-                (currentSetting.type === 'boolean' &&
-                  typeof defaultValue === 'boolean') ||
-                (currentSetting.type === 'number' &&
-                  typeof defaultValue === 'number') ||
-                (currentSetting.type === 'string' &&
-                  typeof defaultValue === 'string')
-              ) {
-                dispatch({
-                  type: 'ADD_PENDING_CHANGE',
-                  key: currentSetting.value,
-                  value: defaultValue as PendingValue,
-                });
+              dispatch({
+                type: 'ADD_PENDING_CHANGE',
+                key: currentSetting.value,
+                value: defaultValue as PendingValue,
+              });
 
-                // Force re-render by updating previewSettings state
-                setPendingSettings((prev) =>
-                  setPendingSettingValueAny(
-                    currentSetting.value,
-                    defaultValue,
-                    prev,
-                  ),
-                );
-              }
+              // Force re-render by updating previewSettings state
+              setPendingSettings((prev) =>
+                setPendingSettingValueAny(
+                  currentSetting.value,
+                  defaultValue,
+                  prev,
+                ),
+              );
             }
           }
         }

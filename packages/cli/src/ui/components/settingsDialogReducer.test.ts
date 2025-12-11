@@ -322,6 +322,19 @@ describe('settingsDialogReducer', () => {
       expect(result.globalPendingChanges.get('number.setting')).toBe(42);
       expect(result.globalPendingChanges.get('string.setting')).toBe('test');
     });
+
+    it('should handle undefined value', () => {
+      const action: SettingsDialogAction = {
+        type: 'ADD_PENDING_CHANGE',
+        key: 'undefined.setting',
+        value: undefined,
+      };
+      const result = settingsDialogReducer(initialState, action);
+      expect(result.globalPendingChanges.size).toBe(1);
+      expect(
+        result.globalPendingChanges.get('undefined.setting'),
+      ).toBeUndefined();
+    });
   });
 
   describe('REMOVE_PENDING_CHANGE', () => {

@@ -7,12 +7,13 @@
 import type { LoadableSettingScope } from '../../config/settings.js';
 import { SettingScope } from '../../config/settings.js';
 import { getDialogSettingKeys } from '../../utils/settingsUtils.js';
+import { checkExhaustive } from '../../utils/checks.js';
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export type PendingValue = boolean | number | string;
+export type PendingValue = boolean | number | string | undefined;
 
 export interface SettingsDialogState {
   // Navigation
@@ -175,6 +176,6 @@ export function settingsDialogReducer(
       return { ...state, globalPendingChanges: new Map() };
 
     default:
-      return state;
+      checkExhaustive(action);
   }
 }
