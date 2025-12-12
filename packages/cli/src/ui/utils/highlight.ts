@@ -13,6 +13,11 @@ export type HighlightToken = {
 };
 
 const HIGHLIGHT_REGEX = /(^\/[a-zA-Z0-9_-]+|@(?:(?:\\ )|[a-zA-Z0-9_./-])+)/g;
+// Matches slash commands (e.g., /help) and @ references (files or MCP resource URIs).
+// The @ pattern uses a negated character class to support URIs like `@file:///example.txt`
+// which contain colons. It matches any character except delimiters: comma, whitespace,
+// semicolon, common punctuation, and brackets.
+const HIGHLIGHT_REGEX = /(^\/[a-zA-Z0-9_-]+|@(?:\\ |[^,\s;!?()[\]{}])+)/g;
 
 export function parseInputForHighlighting(
   text: string,
