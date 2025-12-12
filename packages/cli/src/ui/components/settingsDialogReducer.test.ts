@@ -30,7 +30,7 @@ describe('settingsDialogReducer', () => {
       expect(initialState.scrollOffset).toBe(0);
       expect(initialState.searchQuery).toBe('');
       expect(initialState.filteredKeys).toEqual(getDialogSettingKeys());
-      expect(initialState.globalPendingChanges).toEqual(new Map());
+      expect(initialState.pendingChanges).toEqual(new Map());
     });
   });
 
@@ -270,14 +270,14 @@ describe('settingsDialogReducer', () => {
         value: true,
       };
       const result = settingsDialogReducer(initialState, action);
-      expect(result.globalPendingChanges.size).toBe(1);
-      expect(result.globalPendingChanges.get('test.setting')).toBe(true);
+      expect(result.pendingChanges.size).toBe(1);
+      expect(result.pendingChanges.get('test.setting')).toBe(true);
     });
 
     it('should update existing pending change', () => {
       const state = {
         ...initialState,
-        globalPendingChanges: new Map<string, PendingValue>([
+        pendingChanges: new Map<string, PendingValue>([
           ['test.setting', false],
         ]),
       };
@@ -287,8 +287,8 @@ describe('settingsDialogReducer', () => {
         value: true,
       };
       const result = settingsDialogReducer(state, action);
-      expect(result.globalPendingChanges.size).toBe(1);
-      expect(result.globalPendingChanges.get('test.setting')).toBe(true);
+      expect(result.pendingChanges.size).toBe(1);
+      expect(result.pendingChanges.get('test.setting')).toBe(true);
     });
 
     it('should handle different value types', () => {
@@ -318,9 +318,9 @@ describe('settingsDialogReducer', () => {
       };
       result = settingsDialogReducer(result, stringAction);
 
-      expect(result.globalPendingChanges.get('bool.setting')).toBe(true);
-      expect(result.globalPendingChanges.get('number.setting')).toBe(42);
-      expect(result.globalPendingChanges.get('string.setting')).toBe('test');
+      expect(result.pendingChanges.get('bool.setting')).toBe(true);
+      expect(result.pendingChanges.get('number.setting')).toBe(42);
+      expect(result.pendingChanges.get('string.setting')).toBe('test');
     });
 
     it('should handle undefined value', () => {
@@ -330,10 +330,8 @@ describe('settingsDialogReducer', () => {
         value: undefined,
       };
       const result = settingsDialogReducer(initialState, action);
-      expect(result.globalPendingChanges.size).toBe(1);
-      expect(
-        result.globalPendingChanges.get('undefined.setting'),
-      ).toBeUndefined();
+      expect(result.pendingChanges.size).toBe(1);
+      expect(result.pendingChanges.get('undefined.setting')).toBeUndefined();
     });
   });
 
@@ -341,7 +339,7 @@ describe('settingsDialogReducer', () => {
     it('should remove existing pending change', () => {
       const state = {
         ...initialState,
-        globalPendingChanges: new Map<string, PendingValue>([
+        pendingChanges: new Map<string, PendingValue>([
           ['setting1', true],
           ['setting2', false],
         ]),
@@ -351,25 +349,23 @@ describe('settingsDialogReducer', () => {
         key: 'setting1',
       };
       const result = settingsDialogReducer(state, action);
-      expect(result.globalPendingChanges.size).toBe(1);
-      expect(result.globalPendingChanges.has('setting1')).toBe(false);
-      expect(result.globalPendingChanges.has('setting2')).toBe(true);
+      expect(result.pendingChanges.size).toBe(1);
+      expect(result.pendingChanges.has('setting1')).toBe(false);
+      expect(result.pendingChanges.has('setting2')).toBe(true);
     });
 
     it('should handle non-existent key', () => {
       const state = {
         ...initialState,
-        globalPendingChanges: new Map<string, PendingValue>([
-          ['setting1', true],
-        ]),
+        pendingChanges: new Map<string, PendingValue>([['setting1', true]]),
       };
       const action: SettingsDialogAction = {
         type: 'REMOVE_PENDING_CHANGE',
         key: 'non-existent',
       };
       const result = settingsDialogReducer(state, action);
-      expect(result.globalPendingChanges.size).toBe(1);
-      expect(result.globalPendingChanges.has('setting1')).toBe(true);
+      expect(result.pendingChanges.size).toBe(1);
+      expect(result.pendingChanges.has('setting1')).toBe(true);
     });
 
     it('should handle empty pending changes', () => {
@@ -378,7 +374,7 @@ describe('settingsDialogReducer', () => {
         key: 'setting1',
       };
       const result = settingsDialogReducer(initialState, action);
-      expect(result.globalPendingChanges.size).toBe(0);
+      expect(result.pendingChanges.size).toBe(0);
     });
   });
 
@@ -386,7 +382,7 @@ describe('settingsDialogReducer', () => {
     it('should remove specified keys from pending changes', () => {
       const state = {
         ...initialState,
-        globalPendingChanges: new Map<string, PendingValue>([
+        pendingChanges: new Map<string, PendingValue>([
           ['setting1', true],
           ['setting2', false],
           ['setting3', 'value'],
@@ -398,10 +394,10 @@ describe('settingsDialogReducer', () => {
         keys: keysToSave,
       };
       const result = settingsDialogReducer(state, action);
-      expect(result.globalPendingChanges.size).toBe(1);
-      expect(result.globalPendingChanges.has('setting1')).toBe(false);
-      expect(result.globalPendingChanges.has('setting2')).toBe(true);
-      expect(result.globalPendingChanges.has('setting3')).toBe(false);
+      expect(result.pendingChanges.size).toBe(1);
+      expect(result.pendingChanges.has('setting1')).toBe(false);
+      expect(result.pendingChanges.has('setting2')).toBe(true);
+      expect(result.pendingChanges.has('setting3')).toBe(false);
     });
 
     it('should handle empty pending changes', () => {
@@ -411,15 +407,13 @@ describe('settingsDialogReducer', () => {
         keys: keysToSave,
       };
       const result = settingsDialogReducer(initialState, action);
-      expect(result.globalPendingChanges.size).toBe(0);
+      expect(result.pendingChanges.size).toBe(0);
     });
 
     it('should handle empty keys set', () => {
       const state = {
         ...initialState,
-        globalPendingChanges: new Map<string, PendingValue>([
-          ['setting1', true],
-        ]),
+        pendingChanges: new Map<string, PendingValue>([['setting1', true]]),
       };
       const keysToSave = new Set<string>();
       const action: SettingsDialogAction = {
@@ -427,8 +421,8 @@ describe('settingsDialogReducer', () => {
         keys: keysToSave,
       };
       const result = settingsDialogReducer(state, action);
-      expect(result.globalPendingChanges.size).toBe(1);
-      expect(result.globalPendingChanges.has('setting1')).toBe(true);
+      expect(result.pendingChanges.size).toBe(1);
+      expect(result.pendingChanges.has('setting1')).toBe(true);
     });
   });
 
@@ -436,30 +430,31 @@ describe('settingsDialogReducer', () => {
     it('should clear all pending changes', () => {
       const state = {
         ...initialState,
-        globalPendingChanges: new Map<string, PendingValue>([
+        pendingChanges: new Map<string, PendingValue>([
           ['setting1', true],
           ['setting2', false],
         ]),
       };
       const action: SettingsDialogAction = { type: 'CLEAR_ALL_PENDING' };
       const result = settingsDialogReducer(state, action);
-      expect(result.globalPendingChanges.size).toBe(0);
+      expect(result.pendingChanges.size).toBe(0);
     });
 
     it('should handle empty pending changes', () => {
       const action: SettingsDialogAction = { type: 'CLEAR_ALL_PENDING' };
       const result = settingsDialogReducer(initialState, action);
-      expect(result.globalPendingChanges.size).toBe(0);
+      expect(result.pendingChanges.size).toBe(0);
     });
   });
 
   describe('unknown action type', () => {
-    it('should return current state for unknown action', () => {
+    it('should throw for unknown action (exhaustive check)', () => {
       const unknownAction = {
         type: 'UNKNOWN_ACTION',
       } as unknown as SettingsDialogAction;
-      const result = settingsDialogReducer(initialState, unknownAction);
-      expect(result).toBe(initialState);
+      expect(() =>
+        settingsDialogReducer(initialState, unknownAction),
+      ).toThrow();
     });
   });
 
@@ -477,9 +472,7 @@ describe('settingsDialogReducer', () => {
     it('should create new state objects for nested updates', () => {
       const state = {
         ...initialState,
-        globalPendingChanges: new Map<string, PendingValue>([
-          ['setting1', true],
-        ]),
+        pendingChanges: new Map<string, PendingValue>([['setting1', true]]),
       };
       const action: SettingsDialogAction = {
         type: 'ADD_PENDING_CHANGE',
@@ -487,9 +480,9 @@ describe('settingsDialogReducer', () => {
         value: false,
       };
       const result = settingsDialogReducer(state, action);
-      expect(result.globalPendingChanges).not.toBe(state.globalPendingChanges);
-      expect(state.globalPendingChanges.size).toBe(1);
-      expect(result.globalPendingChanges.size).toBe(2);
+      expect(result.pendingChanges).not.toBe(state.pendingChanges);
+      expect(state.pendingChanges.size).toBe(1);
+      expect(result.pendingChanges.size).toBe(2);
     });
   });
 });

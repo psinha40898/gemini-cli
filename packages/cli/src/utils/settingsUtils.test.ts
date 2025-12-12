@@ -28,6 +28,7 @@ import {
   TEST_ONLY,
   settingExistsInScope,
   setPendingSettingValue,
+  setNestedValue,
   hasRestartRequiredSettings,
   getRestartRequiredFromModified,
   getDisplayValue,
@@ -1147,6 +1148,81 @@ describe('SettingsUtils', () => {
           mergedSettings,
         );
         expect(result).toBe(false); // Default value
+      });
+    });
+
+    describe('setNestedValue', () => {
+      it('should set a top-level key', () => {
+        const obj: Record<string, unknown> = {};
+        setNestedValue(obj, ['foo'], 'bar');
+        expect(obj).toEqual({ foo: 'bar' });
+      });
+
+      it('should set a nested key two levels deep', () => {
+        const obj: Record<string, unknown> = {};
+        setNestedValue(obj, ['ui', 'theme'], 'dark');
+        expect(obj).toEqual({ ui: { theme: 'dark' } });
+      });
+
+      it('should set a nested key three levels deep', () => {
+        const obj: Record<string, unknown> = {};
+        setNestedValue(obj, ['ui', 'accessibility', 'highContrast'], true);
+        expect(obj).toEqual({
+          ui: { accessibility: { highContrast: true } },
+        });
+      });
+
+      it('should preserve existing sibling properties', () => {
+        const obj: Record<string, unknown> = {
+          existing: 'value',
+          ui: { oldProp: true },
+        };
+        setNestedValue(obj, ['ui', 'theme'], 'dark');
+        expect(obj).toEqual({
+          existing: 'value',
+          ui: { oldProp: true, theme: 'dark' },
+        });
+      });
+
+      it('should overwrite existing value at path', () => {
+        const obj: Record<string, unknown> = { ui: { theme: 'light' } };
+        setNestedValue(obj, ['ui', 'theme'], 'dark');
+        expect(obj).toEqual({ ui: { theme: 'dark' } });
+      });
+
+      it('should handle empty path by returning the object unchanged', () => {
+        const obj: Record<string, unknown> = { foo: 'bar' };
+        const result = setNestedValue(obj, [], 'ignored');
+        expect(result).toEqual({ foo: 'bar' });
+      });
+
+      it('should overwrite non-object intermediate values with objects', () => {
+        const obj: Record<string, unknown> = { ui: 'not-an-object' };
+        setNestedValue(obj, ['ui', 'theme'], 'dark');
+        expect(obj).toEqual({ ui: { theme: 'dark' } });
+      });
+
+      it('should return the modified object', () => {
+        const obj: Record<string, unknown> = {};
+        const result = setNestedValue(obj, ['foo'], 'bar');
+        expect(result).toBe(obj);
+      });
+
+      it('should handle setting various value types', () => {
+        const obj: Record<string, unknown> = {};
+        setNestedValue(obj, ['bool'], true);
+        setNestedValue(obj, ['num'], 42);
+        setNestedValue(obj, ['str'], 'hello');
+        setNestedValue(obj, ['arr'], [1, 2, 3]);
+        setNestedValue(obj, ['nested', 'obj'], { inner: 'value' });
+
+        expect(obj).toEqual({
+          bool: true,
+          num: 42,
+          str: 'hello',
+          arr: [1, 2, 3],
+          nested: { obj: { inner: 'value' } },
+        });
       });
     });
   });

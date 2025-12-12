@@ -27,8 +27,8 @@ export interface SettingsDialogState {
   filteredKeys: string[];
 
   // Unsaved restart-required changes (SINGLE SOURCE OF TRUTH)
-  // Renamed from globalPendingChanges for clarity - only holds restart-required settings
-  globalPendingChanges: Map<string, PendingValue>;
+  // Only holds restart-required settings
+  pendingChanges: Map<string, PendingValue>;
 }
 
 export type SettingsDialogAction =
@@ -65,7 +65,7 @@ export function createInitialState(): SettingsDialogState {
     scrollOffset: 0,
     searchQuery: '',
     filteredKeys: getDialogSettingKeys(),
-    globalPendingChanges: new Map(),
+    pendingChanges: new Map(),
   };
 }
 
@@ -151,29 +151,29 @@ export function settingsDialogReducer(
     }
 
     case 'ADD_PENDING_CHANGE': {
-      const next = new Map(state.globalPendingChanges);
+      const next = new Map(state.pendingChanges);
       next.set(action.key, action.value);
-      return { ...state, globalPendingChanges: next };
+      return { ...state, pendingChanges: next };
     }
 
     case 'REMOVE_PENDING_CHANGE': {
-      if (!state.globalPendingChanges.has(action.key)) return state;
-      const next = new Map(state.globalPendingChanges);
+      if (!state.pendingChanges.has(action.key)) return state;
+      const next = new Map(state.pendingChanges);
       next.delete(action.key);
-      return { ...state, globalPendingChanges: next };
+      return { ...state, pendingChanges: next };
     }
 
     case 'SAVE_AND_CLEAR_KEYS': {
-      if (state.globalPendingChanges.size === 0) return state;
-      const next = new Map(state.globalPendingChanges);
+      if (state.pendingChanges.size === 0) return state;
+      const next = new Map(state.pendingChanges);
       for (const key of action.keys) {
         next.delete(key);
       }
-      return { ...state, globalPendingChanges: next };
+      return { ...state, pendingChanges: next };
     }
 
     case 'CLEAR_ALL_PENDING':
-      return { ...state, globalPendingChanges: new Map() };
+      return { ...state, pendingChanges: new Map() };
 
     default:
       checkExhaustive(action);

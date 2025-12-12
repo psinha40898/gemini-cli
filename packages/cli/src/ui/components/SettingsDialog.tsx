@@ -97,10 +97,10 @@ export function SettingsDialog({
     scrollOffset,
     searchQuery,
     filteredKeys,
-    globalPendingChanges,
+    pendingChanges,
   } = state;
 
-  const showRestartPrompt = globalPendingChanges.size > 0;
+  const showRestartPrompt = pendingChanges.size > 0;
   const { fzfInstance, searchMap } = useMemo(() => {
     const keys = getDialogSettingKeys();
     const map = new Map<string, string>();
@@ -233,10 +233,7 @@ export function SettingsDialog({
             // Special handling for vim mode to sync with VimModeContext
             if (key === 'general.vimMode' && newValue !== vimEnabled) {
               toggleVimEnabled().catch((error) => {
-                debugLogger.log(
-                  '[DEBUG SettingsDialog] Failed to toggle vim mode:',
-                  error,
-                );
+                console.error('Failed to toggle vim mode:', error);
               });
             }
 
@@ -348,7 +345,7 @@ export function SettingsDialog({
 
     // Update previewSettings with new scope's base settings + overlay unsaved changes
     const updated = structuredClone(settings.forScope(scope).settings);
-    for (const [key, value] of globalPendingChanges.entries()) {
+    for (const [key, value] of pendingChanges.entries()) {
       const def = getSettingDefinition(key);
       if (
         (def?.type === 'boolean' && typeof value === 'boolean') ||
@@ -457,7 +454,7 @@ export function SettingsDialog({
 
   const saveRestartRequiredSettings = () => {
     // Get keys that require restart from our pending changes
-    const restartRequiredSet = new Set(globalPendingChanges.keys());
+    const restartRequiredSet = new Set(pendingChanges.keys());
 
     if (restartRequiredSet.size > 0) {
       saveModifiedSettings(
@@ -830,7 +827,7 @@ export function SettingsDialog({
                 }
 
                 // Add * if value differs from default OR if currently being modified
-                const isModified = globalPendingChanges.has(item.value);
+                const isModified = pendingChanges.has(item.value);
                 const effectiveCurrentValue =
                   currentValue !== undefined && currentValue !== null
                     ? currentValue
@@ -847,7 +844,7 @@ export function SettingsDialog({
                   item.value,
                   scopeSettings,
                   mergedSettings,
-                  new Set(globalPendingChanges.keys()),
+                  new Set(pendingChanges.keys()),
                   pendingSettings,
                 );
               }
