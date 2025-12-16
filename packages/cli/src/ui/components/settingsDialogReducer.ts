@@ -13,8 +13,6 @@ import { checkExhaustive } from '../../utils/checks.js';
 // Types
 // ============================================================================
 
-export type PendingValue = boolean | number | string | undefined;
-
 export interface SettingsDialogState {
   // Navigation
   focusSection: 'settings' | 'scope';
@@ -26,9 +24,10 @@ export interface SettingsDialogState {
   searchQuery: string;
   filteredKeys: string[];
 
-  // Unsaved restart-required changes (SINGLE SOURCE OF TRUTH)
-  // Only holds restart-required settings
-  pendingChanges: Map<string, PendingValue>;
+  // Tracks restart-required settings that have been modified this session.
+  // Once a restart-required key is changed, it stays in this set until restart.
+  // All settings (including restart-required) are saved immediately on change.
+  restartDirtyKeys: Set<string>;
 }
 
 export type SettingsDialogAction =
@@ -47,11 +46,8 @@ export type SettingsDialogAction =
   | { type: 'SET_SEARCH_QUERY'; query: string }
   | { type: 'SET_FILTERED_KEYS'; keys: string[] }
 
-  // Pending changes management
-  | { type: 'ADD_PENDING_CHANGE'; key: string; value: PendingValue }
-  | { type: 'REMOVE_PENDING_CHANGE'; key: string }
-  | { type: 'SAVE_AND_CLEAR_KEYS'; keys: Set<string> }
-  | { type: 'CLEAR_ALL_PENDING' };
+  // Restart-required tracking
+  | { type: 'MARK_RESTART_DIRTY'; key: string };
 
 // ============================================================================
 // Initial State Factory
@@ -65,7 +61,7 @@ export function createInitialState(): SettingsDialogState {
     scrollOffset: 0,
     searchQuery: '',
     filteredKeys: getDialogSettingKeys(),
-    pendingChanges: new Map(),
+    restartDirtyKeys: new Set(),
   };
 }
 
@@ -150,30 +146,12 @@ export function settingsDialogReducer(
       };
     }
 
-    case 'ADD_PENDING_CHANGE': {
-      const next = new Map(state.pendingChanges);
-      next.set(action.key, action.value);
-      return { ...state, pendingChanges: next };
+    case 'MARK_RESTART_DIRTY': {
+      if (state.restartDirtyKeys.has(action.key)) return state;
+      const next = new Set(state.restartDirtyKeys);
+      next.add(action.key);
+      return { ...state, restartDirtyKeys: next };
     }
-
-    case 'REMOVE_PENDING_CHANGE': {
-      if (!state.pendingChanges.has(action.key)) return state;
-      const next = new Map(state.pendingChanges);
-      next.delete(action.key);
-      return { ...state, pendingChanges: next };
-    }
-
-    case 'SAVE_AND_CLEAR_KEYS': {
-      if (state.pendingChanges.size === 0) return state;
-      const next = new Map(state.pendingChanges);
-      for (const key of action.keys) {
-        next.delete(key);
-      }
-      return { ...state, pendingChanges: next };
-    }
-
-    case 'CLEAR_ALL_PENDING':
-      return { ...state, pendingChanges: new Map() };
 
     default:
       checkExhaustive(action);

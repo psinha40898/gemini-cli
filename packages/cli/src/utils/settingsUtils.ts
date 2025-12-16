@@ -132,8 +132,8 @@ export function getNestedValue(
  */
 export function getEffectiveValue(
   key: string,
-  settings: Settings,
-  mergedSettings: Settings,
+  settings: Settings | DeepReadonlySettings,
+  mergedSettings: Settings | DeepReadonlySettings,
 ): SettingsValue {
   const definition = getSettingDefinition(key);
   if (!definition) {
@@ -266,8 +266,8 @@ export function getDialogSettingKeys(): string[] {
  */
 export function getSettingValue(
   key: string,
-  settings: Settings,
-  mergedSettings: Settings,
+  settings: Settings | DeepReadonlySettings,
+  mergedSettings: Settings | DeepReadonlySettings,
 ): boolean {
   const definition = getSettingDefinition(key);
   if (!definition) {
@@ -427,10 +427,10 @@ export function saveModifiedSettings(
  */
 export function getDisplayValue(
   key: string,
-  settings: Settings,
-  _mergedSettings: Settings,
+  settings: Settings | DeepReadonlySettings,
+  _mergedSettings: Settings | DeepReadonlySettings,
   modifiedSettings: Set<string>,
-  pendingSettings?: Settings,
+  pendingSettings?: Settings | DeepReadonlySettings,
 ): string {
   // Prioritize pending changes if user has modified this setting
   const definition = getSettingDefinition(key);
@@ -473,7 +473,10 @@ export function getDisplayValue(
 /**
  * Check if a setting doesn't exist in current scope (should be greyed out)
  */
-export function isDefaultValue(key: string, settings: Settings): boolean {
+export function isDefaultValue(
+  key: string,
+  settings: Settings | DeepReadonlySettings,
+): boolean {
   return !settingExistsInScope(key, settings);
 }
 
@@ -482,8 +485,8 @@ export function isDefaultValue(key: string, settings: Settings): boolean {
  */
 export function isValueInherited(
   key: string,
-  settings: Settings,
-  _mergedSettings: Settings,
+  settings: Settings | DeepReadonlySettings,
+  _mergedSettings: Settings | DeepReadonlySettings,
 ): boolean {
   return !settingExistsInScope(key, settings);
 }
@@ -494,8 +497,8 @@ export function isValueInherited(
  */
 export function getEffectiveDisplayValue(
   key: string,
-  settings: Settings,
-  mergedSettings: Settings,
+  settings: Settings | DeepReadonlySettings,
+  mergedSettings: Settings | DeepReadonlySettings,
 ): boolean {
   return getSettingValue(key, settings, mergedSettings);
 }

@@ -10,7 +10,6 @@ import { AsyncFzf } from 'fzf';
 import { theme } from '../semantic-colors.js';
 import type {
   LoadableSettingScope,
-  Settings,
   SettingScope,
 } from '../../config/settings.js';
 import type { SettingsContextValue } from '../contexts/SettingsContext.js';
@@ -28,7 +27,6 @@ import {
   getDefaultValue,
   getNestedValue,
   getEffectiveValue,
-  setNestedValue,
 } from '../../utils/settingsUtils.js';
 import { useVimMode } from '../contexts/VimModeContext.js';
 import { useKeypress } from '../hooks/useKeypress.js';
@@ -47,7 +45,6 @@ import { TextInput } from './shared/TextInput.js';
 import {
   settingsDialogReducer,
   createInitialState,
-  type PendingValue,
 } from './settingsDialogReducer.js';
 import { useInlineEdit } from '../hooks/useInlineEdit.js';
 
@@ -93,10 +90,10 @@ export function SettingsDialog({
     scrollOffset,
     searchQuery,
     filteredKeys,
-    pendingChanges,
+    restartDirtyKeys,
   } = state;
 
-  const showRestartPrompt = pendingChanges.size > 0;
+  const showRestartPrompt = restartDirtyKeys.size > 0;
 
   // Memoized fuzzy search instance and search map to drive search effect
   const { fzfInstance, searchMap } = useMemo(() => {
@@ -147,20 +144,9 @@ export function SettingsDialog({
     };
   }, [searchQuery, fzfInstance, searchMap]);
 
-  const currentScopeSettings = useMemo(() => {
-    const base = settings.state.forScope(selectedScope).settings as Settings;
-    if (pendingChanges.size === 0) return base;
-
-    const overlaid = structuredClone(base) as Settings;
-    for (const [key, value] of pendingChanges.entries()) {
-      setNestedValue(
-        overlaid as Record<string, unknown>,
-        key.split('.'),
-        value,
-      );
-    }
-    return overlaid;
-  }, [settings.state, selectedScope, pendingChanges]);
+  // Settings are now read directly from the snapshot - no overlay needed
+  // since all changes (including restart-required) are saved immediately
+  const scopeSettings = settings.state.forScope(selectedScope).settings;
 
   const {
     editState,
@@ -185,7 +171,7 @@ export function SettingsDialog({
           if (!TOGGLE_TYPES.has(definition?.type)) {
             return;
           }
-          const currentValue = getEffectiveValue(key, currentScopeSettings, {});
+          const currentValue = getEffectiveValue(key, scopeSettings, {});
           let newValue: SettingsValue;
           if (definition?.type === 'boolean') {
             newValue = !(currentValue as boolean);
@@ -201,35 +187,27 @@ export function SettingsDialog({
             }
           }
 
-          if (!requiresRestart(key)) {
-            debugLogger.log(
-              `[DEBUG SettingsDialog] Saving ${key} immediately with value:`,
-              newValue,
-            );
-            settings.setValue(selectedScope, key, newValue);
+          // Save all settings immediately, including restart-required ones
+          debugLogger.log(
+            `[DEBUG SettingsDialog] Saving ${key} immediately with value:`,
+            newValue,
+          );
+          settings.setValue(selectedScope, key, newValue);
 
-            // Special handling for vim mode to sync with VimModeContext
-            if (key === 'general.vimMode' && newValue !== vimEnabled) {
-              toggleVimEnabled().catch((error) => {
-                console.error('Failed to toggle vim mode:', error);
-              });
-            }
-
-            dispatch({ type: 'REMOVE_PENDING_CHANGE', key });
-
-            if (key === 'general.previewFeatures') {
-              config?.setPreviewFeatures(newValue as boolean);
-            }
-          } else {
-            debugLogger.log(
-              `[DEBUG SettingsDialog] Adding pending change for ${key}:`,
-              newValue,
-            );
-            dispatch({
-              type: 'ADD_PENDING_CHANGE',
-              key,
-              value: newValue as PendingValue,
+          // Special handling for vim mode to sync with VimModeContext
+          if (key === 'general.vimMode' && newValue !== vimEnabled) {
+            toggleVimEnabled().catch((error) => {
+              console.error('Failed to toggle vim mode:', error);
             });
+          }
+
+          if (key === 'general.previewFeatures') {
+            config?.setPreviewFeatures(newValue as boolean);
+          }
+
+          // Mark restart-required keys as dirty so we show the restart prompt
+          if (requiresRestart(key)) {
+            dispatch({ type: 'MARK_RESTART_DIRTY', key });
           }
         },
       };
@@ -263,15 +241,12 @@ export function SettingsDialog({
       parsed = editState.buffer;
     }
 
-    if (!requiresRestart(key)) {
-      settings.setValue(selectedScope, key, parsed);
-      dispatch({ type: 'REMOVE_PENDING_CHANGE', key });
-    } else {
-      dispatch({
-        type: 'ADD_PENDING_CHANGE',
-        key,
-        value: parsed as PendingValue,
-      });
+    // Save all settings immediately, including restart-required ones
+    settings.setValue(selectedScope, key, parsed);
+
+    // Mark restart-required keys as dirty so we show the restart prompt
+    if (requiresRestart(key)) {
+      dispatch({ type: 'MARK_RESTART_DIRTY', key });
     }
 
     clearEdit();
@@ -375,20 +350,6 @@ export function SettingsDialog({
   // Show arrows if there are more items than can be displayed
   const showScrollUp = items.length > effectiveMaxItemsToShow;
   const showScrollDown = items.length > effectiveMaxItemsToShow;
-
-  const saveRestartRequiredSettings = () => {
-    const restartRequiredSet = new Set(pendingChanges.keys());
-
-    if (restartRequiredSet.size > 0) {
-      for (const key of restartRequiredSet) {
-        const value = pendingChanges.get(key);
-        if (value !== undefined) {
-          settings.setValue(selectedScope, key, value);
-        }
-      }
-      dispatch({ type: 'SAVE_AND_CLEAR_KEYS', keys: restartRequiredSet });
-    }
-  };
 
   useKeypress(
     (key) => {
@@ -537,50 +498,44 @@ export function SettingsDialog({
           if (currentSetting) {
             const defaultValue = getDefaultValue(currentSetting.value);
 
-            // If this setting doesn't require restart, save it immediately
-            if (!requiresRestart(currentSetting.value)) {
-              const toSaveValue =
-                currentSetting.type === 'boolean'
-                  ? typeof defaultValue === 'boolean'
-                    ? defaultValue
-                    : false
-                  : typeof defaultValue === 'number' ||
-                      typeof defaultValue === 'string'
-                    ? defaultValue
-                    : undefined;
+            const toSaveValue =
+              currentSetting.type === 'boolean'
+                ? typeof defaultValue === 'boolean'
+                  ? defaultValue
+                  : false
+                : typeof defaultValue === 'number' ||
+                    typeof defaultValue === 'string'
+                  ? defaultValue
+                  : undefined;
 
-              // Save immediately via setValue (triggers snapshot update)
-              if (toSaveValue !== undefined) {
-                settings.setValue(
-                  selectedScope,
-                  currentSetting.value,
-                  toSaveValue,
-                );
-              }
+            // Save immediately via setValue (triggers snapshot update)
+            if (toSaveValue !== undefined) {
+              settings.setValue(
+                selectedScope,
+                currentSetting.value,
+                toSaveValue,
+              );
+            }
 
+            // Mark restart-required keys as dirty so we show the restart prompt
+            if (requiresRestart(currentSetting.value)) {
               dispatch({
-                type: 'REMOVE_PENDING_CHANGE',
+                type: 'MARK_RESTART_DIRTY',
                 key: currentSetting.value,
-              });
-            } else {
-              dispatch({
-                type: 'ADD_PENDING_CHANGE',
-                key: currentSetting.value,
-                value: defaultValue as PendingValue,
               });
             }
           }
         }
       }
       if (showRestartPrompt && name === 'r') {
-        saveRestartRequiredSettings();
+        // All settings are already saved, just trigger restart
         if (onRestartRequest) onRestartRequest();
       }
       if (keyMatchers[Command.ESCAPE](key)) {
         if (isEditing && editState.key) {
           commitEdit(editState.key);
         } else {
-          saveRestartRequiredSettings();
+          // All settings are already saved, just close
           onSelect(undefined, selectedScope);
         }
       }
@@ -657,9 +612,9 @@ export function SettingsDialog({
                 effectiveFocusSection === 'settings' &&
                 activeSettingIndex === idx + scrollOffset;
 
-              const scopeSettings = settings.state.forScope(selectedScope)
-                .settings as Settings;
-              const mergedSettings = settings.state.merged as Settings;
+              const scopeSettings =
+                settings.state.forScope(selectedScope).settings;
+              const mergedSettings = settings.state.merged;
 
               let displayValue: string;
               if (editState.key === item.value) {
@@ -696,9 +651,12 @@ export function SettingsDialog({
                   displayValue = editState.buffer;
                 }
               } else if (item.type === 'number' || item.type === 'string') {
-                // For numbers/strings, get the actual current value from derived settings
+                // For numbers/strings, get the actual current value from snapshot
                 const path = item.value.split('.');
-                const currentValue = getNestedValue(currentScopeSettings, path);
+                const currentValue = getNestedValue(
+                  scopeSettings as Record<string, unknown>,
+                  path,
+                );
 
                 const defaultValue = getDefaultValue(item.value);
 
@@ -711,8 +669,8 @@ export function SettingsDialog({
                       : '';
                 }
 
-                // Add * if value differs from default OR if currently being modified
-                const isModified = pendingChanges.has(item.value);
+                // Add * if value differs from default OR if restart-required and dirty
+                const isRestartDirty = restartDirtyKeys.has(item.value);
                 const effectiveCurrentValue =
                   currentValue !== undefined && currentValue !== null
                     ? currentValue
@@ -720,7 +678,7 @@ export function SettingsDialog({
                 const isDifferentFromDefault =
                   effectiveCurrentValue !== defaultValue;
 
-                if (isDifferentFromDefault || isModified) {
+                if (isDifferentFromDefault || isRestartDirty) {
                   displayValue += '*';
                 }
               } else {
@@ -729,8 +687,8 @@ export function SettingsDialog({
                   item.value,
                   scopeSettings,
                   mergedSettings,
-                  new Set(pendingChanges.keys()),
-                  currentScopeSettings,
+                  restartDirtyKeys,
+                  scopeSettings,
                 );
               }
               const shouldBeGreyedOut = isDefaultValue(

@@ -10,7 +10,6 @@ import {
   createInitialState,
   type SettingsDialogState,
   type SettingsDialogAction,
-  type PendingValue,
 } from './settingsDialogReducer.js';
 import { SettingScope } from '../../config/settings.js';
 import { getDialogSettingKeys } from '../../utils/settingsUtils.js';
@@ -30,7 +29,7 @@ describe('settingsDialogReducer', () => {
       expect(initialState.scrollOffset).toBe(0);
       expect(initialState.searchQuery).toBe('');
       expect(initialState.filteredKeys).toEqual(getDialogSettingKeys());
-      expect(initialState.pendingChanges).toEqual(new Map());
+      expect(initialState.restartDirtyKeys).toEqual(new Set());
     });
   });
 
@@ -262,188 +261,50 @@ describe('settingsDialogReducer', () => {
     });
   });
 
-  describe('ADD_PENDING_CHANGE', () => {
-    it('should add new pending change', () => {
+  describe('MARK_RESTART_DIRTY', () => {
+    it('should add key to restartDirtyKeys', () => {
       const action: SettingsDialogAction = {
-        type: 'ADD_PENDING_CHANGE',
+        type: 'MARK_RESTART_DIRTY',
         key: 'test.setting',
-        value: true,
       };
       const result = settingsDialogReducer(initialState, action);
-      expect(result.pendingChanges.size).toBe(1);
-      expect(result.pendingChanges.get('test.setting')).toBe(true);
+      expect(result.restartDirtyKeys.size).toBe(1);
+      expect(result.restartDirtyKeys.has('test.setting')).toBe(true);
     });
 
-    it('should update existing pending change', () => {
+    it('should not duplicate existing key', () => {
       const state = {
         ...initialState,
-        pendingChanges: new Map<string, PendingValue>([
-          ['test.setting', false],
-        ]),
+        restartDirtyKeys: new Set(['test.setting']),
       };
       const action: SettingsDialogAction = {
-        type: 'ADD_PENDING_CHANGE',
+        type: 'MARK_RESTART_DIRTY',
         key: 'test.setting',
-        value: true,
       };
       const result = settingsDialogReducer(state, action);
-      expect(result.pendingChanges.size).toBe(1);
-      expect(result.pendingChanges.get('test.setting')).toBe(true);
+      expect(result.restartDirtyKeys.size).toBe(1);
+      // Should return same state reference when key already exists
+      expect(result).toBe(state);
     });
 
-    it('should handle different value types', () => {
+    it('should add multiple different keys', () => {
       let result = initialState;
 
-      // Add boolean value
-      const boolAction: SettingsDialogAction = {
-        type: 'ADD_PENDING_CHANGE',
-        key: 'bool.setting',
-        value: true,
-      };
-      result = settingsDialogReducer(result, boolAction);
-
-      // Add number value
-      const numberAction: SettingsDialogAction = {
-        type: 'ADD_PENDING_CHANGE',
-        key: 'number.setting',
-        value: 42,
-      };
-      result = settingsDialogReducer(result, numberAction);
-
-      // Add string value
-      const stringAction: SettingsDialogAction = {
-        type: 'ADD_PENDING_CHANGE',
-        key: 'string.setting',
-        value: 'test',
-      };
-      result = settingsDialogReducer(result, stringAction);
-
-      expect(result.pendingChanges.get('bool.setting')).toBe(true);
-      expect(result.pendingChanges.get('number.setting')).toBe(42);
-      expect(result.pendingChanges.get('string.setting')).toBe('test');
-    });
-
-    it('should handle undefined value', () => {
-      const action: SettingsDialogAction = {
-        type: 'ADD_PENDING_CHANGE',
-        key: 'undefined.setting',
-        value: undefined,
-      };
-      const result = settingsDialogReducer(initialState, action);
-      expect(result.pendingChanges.size).toBe(1);
-      expect(result.pendingChanges.get('undefined.setting')).toBeUndefined();
-    });
-  });
-
-  describe('REMOVE_PENDING_CHANGE', () => {
-    it('should remove existing pending change', () => {
-      const state = {
-        ...initialState,
-        pendingChanges: new Map<string, PendingValue>([
-          ['setting1', true],
-          ['setting2', false],
-        ]),
-      };
-      const action: SettingsDialogAction = {
-        type: 'REMOVE_PENDING_CHANGE',
+      const action1: SettingsDialogAction = {
+        type: 'MARK_RESTART_DIRTY',
         key: 'setting1',
       };
-      const result = settingsDialogReducer(state, action);
-      expect(result.pendingChanges.size).toBe(1);
-      expect(result.pendingChanges.has('setting1')).toBe(false);
-      expect(result.pendingChanges.has('setting2')).toBe(true);
-    });
+      result = settingsDialogReducer(result, action1);
 
-    it('should handle non-existent key', () => {
-      const state = {
-        ...initialState,
-        pendingChanges: new Map<string, PendingValue>([['setting1', true]]),
+      const action2: SettingsDialogAction = {
+        type: 'MARK_RESTART_DIRTY',
+        key: 'setting2',
       };
-      const action: SettingsDialogAction = {
-        type: 'REMOVE_PENDING_CHANGE',
-        key: 'non-existent',
-      };
-      const result = settingsDialogReducer(state, action);
-      expect(result.pendingChanges.size).toBe(1);
-      expect(result.pendingChanges.has('setting1')).toBe(true);
-    });
+      result = settingsDialogReducer(result, action2);
 
-    it('should handle empty pending changes', () => {
-      const action: SettingsDialogAction = {
-        type: 'REMOVE_PENDING_CHANGE',
-        key: 'setting1',
-      };
-      const result = settingsDialogReducer(initialState, action);
-      expect(result.pendingChanges.size).toBe(0);
-    });
-  });
-
-  describe('SAVE_AND_CLEAR_KEYS', () => {
-    it('should remove specified keys from pending changes', () => {
-      const state = {
-        ...initialState,
-        pendingChanges: new Map<string, PendingValue>([
-          ['setting1', true],
-          ['setting2', false],
-          ['setting3', 'value'],
-        ]),
-      };
-      const keysToSave = new Set(['setting1', 'setting3']);
-      const action: SettingsDialogAction = {
-        type: 'SAVE_AND_CLEAR_KEYS',
-        keys: keysToSave,
-      };
-      const result = settingsDialogReducer(state, action);
-      expect(result.pendingChanges.size).toBe(1);
-      expect(result.pendingChanges.has('setting1')).toBe(false);
-      expect(result.pendingChanges.has('setting2')).toBe(true);
-      expect(result.pendingChanges.has('setting3')).toBe(false);
-    });
-
-    it('should handle empty pending changes', () => {
-      const keysToSave = new Set(['setting1']);
-      const action: SettingsDialogAction = {
-        type: 'SAVE_AND_CLEAR_KEYS',
-        keys: keysToSave,
-      };
-      const result = settingsDialogReducer(initialState, action);
-      expect(result.pendingChanges.size).toBe(0);
-    });
-
-    it('should handle empty keys set', () => {
-      const state = {
-        ...initialState,
-        pendingChanges: new Map<string, PendingValue>([['setting1', true]]),
-      };
-      const keysToSave = new Set<string>();
-      const action: SettingsDialogAction = {
-        type: 'SAVE_AND_CLEAR_KEYS',
-        keys: keysToSave,
-      };
-      const result = settingsDialogReducer(state, action);
-      expect(result.pendingChanges.size).toBe(1);
-      expect(result.pendingChanges.has('setting1')).toBe(true);
-    });
-  });
-
-  describe('CLEAR_ALL_PENDING', () => {
-    it('should clear all pending changes', () => {
-      const state = {
-        ...initialState,
-        pendingChanges: new Map<string, PendingValue>([
-          ['setting1', true],
-          ['setting2', false],
-        ]),
-      };
-      const action: SettingsDialogAction = { type: 'CLEAR_ALL_PENDING' };
-      const result = settingsDialogReducer(state, action);
-      expect(result.pendingChanges.size).toBe(0);
-    });
-
-    it('should handle empty pending changes', () => {
-      const action: SettingsDialogAction = { type: 'CLEAR_ALL_PENDING' };
-      const result = settingsDialogReducer(initialState, action);
-      expect(result.pendingChanges.size).toBe(0);
+      expect(result.restartDirtyKeys.size).toBe(2);
+      expect(result.restartDirtyKeys.has('setting1')).toBe(true);
+      expect(result.restartDirtyKeys.has('setting2')).toBe(true);
     });
   });
 
@@ -472,17 +333,16 @@ describe('settingsDialogReducer', () => {
     it('should create new state objects for nested updates', () => {
       const state = {
         ...initialState,
-        pendingChanges: new Map<string, PendingValue>([['setting1', true]]),
+        restartDirtyKeys: new Set(['setting1']),
       };
       const action: SettingsDialogAction = {
-        type: 'ADD_PENDING_CHANGE',
+        type: 'MARK_RESTART_DIRTY',
         key: 'setting2',
-        value: false,
       };
       const result = settingsDialogReducer(state, action);
-      expect(result.pendingChanges).not.toBe(state.pendingChanges);
-      expect(state.pendingChanges.size).toBe(1);
-      expect(result.pendingChanges.size).toBe(2);
+      expect(result.restartDirtyKeys).not.toBe(state.restartDirtyKeys);
+      expect(state.restartDirtyKeys.size).toBe(1);
+      expect(result.restartDirtyKeys.size).toBe(2);
     });
   });
 });
