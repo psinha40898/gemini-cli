@@ -18,7 +18,7 @@ interface AppHeaderProps {
 }
 
 export const AppHeader = ({ version }: AppHeaderProps) => {
-  const settings = useSettings();
+  const { state: settingsSnapshot } = useSettings();
   const config = useConfig();
   const { nightly, mainAreaWidth, bannerData, bannerVisible } = useUIState();
 
@@ -26,7 +26,9 @@ export const AppHeader = ({ version }: AppHeaderProps) => {
 
   return (
     <Box flexDirection="column">
-      {!(settings.merged.ui?.hideBanner || config.getScreenReader()) && (
+      {!(
+        settingsSnapshot.merged.ui?.hideBanner || config.getScreenReader()
+      ) && (
         <>
           <Header version={version} nightly={nightly} />
           {bannerVisible && bannerText && (
@@ -38,7 +40,7 @@ export const AppHeader = ({ version }: AppHeaderProps) => {
           )}
         </>
       )}
-      {!(settings.merged.ui?.hideTips || config.getScreenReader()) && (
+      {!(settingsSnapshot.merged.ui?.hideTips || config.getScreenReader()) && (
         <Tips config={config} />
       )}
     </Box>

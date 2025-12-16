@@ -5,7 +5,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { LoadedSettings } from '../../config/settings.js';
+import type { SettingsState } from '../contexts/SettingsContext.js';
 import { FolderTrustChoice } from '../components/FolderTrustDialog.js';
 import {
   loadTrustedFolders,
@@ -18,7 +18,7 @@ import { coreEvents, ExitCodes } from '@google/gemini-cli-core';
 import { runExitCleanup } from '../../utils/cleanup.js';
 
 export const useFolderTrust = (
-  settings: LoadedSettings,
+  settings: SettingsState,
   onTrustChange: (isTrusted: boolean | undefined) => void,
   addItem: (item: HistoryItemWithoutId, timestamp: number) => number,
 ) => {

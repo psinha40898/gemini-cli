@@ -68,7 +68,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { useSessionStats } from '../contexts/SessionContext.js';
 import { useKeypress } from './useKeypress.js';
-import type { LoadedSettings } from '../../config/settings.js';
+import type { SettingsState } from '../contexts/SettingsContext.js';
 
 enum StreamProcessingStatus {
   Completed,
@@ -76,7 +76,7 @@ enum StreamProcessingStatus {
   Error,
 }
 
-function showCitations(settings: LoadedSettings): boolean {
+function showCitations(settings: SettingsState): boolean {
   const enabled = settings?.merged?.ui?.showCitations;
   if (enabled !== undefined) {
     return enabled;
@@ -93,7 +93,7 @@ export const useGeminiStream = (
   history: HistoryItem[],
   addItem: UseHistoryManagerReturn['addItem'],
   config: Config,
-  settings: LoadedSettings,
+  settings: SettingsState,
   onDebugMessage: (message: string) => void,
   handleSlashCommand: (
     cmd: PartListUnion,

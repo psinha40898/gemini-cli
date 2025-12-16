@@ -16,7 +16,10 @@ import type {
   Logger,
   CommandActionReturn,
 } from '@google/gemini-cli-core';
-import type { LoadedSettings } from '../../config/settings.js';
+import type {
+  SettingsState,
+  SettingsContextValue,
+} from '../contexts/SettingsContext.js';
 import type { UseHistoryManagerReturn } from '../hooks/useHistoryManager.js';
 import type { SessionStatsState } from '../contexts/SessionContext.js';
 import type {
@@ -39,7 +42,8 @@ export interface CommandContext {
   services: {
     // TODO(abhipatel12): Ensure that config is never null.
     config: Config | null;
-    settings: LoadedSettings;
+    settings: SettingsState;
+    setValue: SettingsContextValue['setValue'];
     git: GitService | undefined;
     logger: Logger;
   };

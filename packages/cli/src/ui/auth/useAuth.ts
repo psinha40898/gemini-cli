@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import type { LoadedSettings } from '../../config/settings.js';
+import type { SettingsState } from '../contexts/SettingsContext.js';
 import {
   AuthType,
   type Config,
@@ -18,7 +18,7 @@ import { validateAuthMethod } from '../../config/auth.js';
 
 export function validateAuthMethodWithSettings(
   authType: AuthType,
-  settings: LoadedSettings,
+  settings: SettingsState,
 ): string | null {
   const enforcedType = settings.merged.security?.auth?.enforcedType;
   if (enforcedType && enforcedType !== authType) {
@@ -34,7 +34,7 @@ export function validateAuthMethodWithSettings(
   return validateAuthMethod(authType);
 }
 
-export const useAuthCommand = (settings: LoadedSettings, config: Config) => {
+export const useAuthCommand = (settings: SettingsState, config: Config) => {
   const [authState, setAuthState] = useState<AuthState>(
     AuthState.Unauthenticated,
   );

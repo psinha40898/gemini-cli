@@ -16,7 +16,7 @@ import {
 } from 'vitest';
 import { AuthDialog } from './AuthDialog.js';
 import { AuthType, type Config, debugLogger } from '@google/gemini-cli-core';
-import type { LoadedSettings } from '../../config/settings.js';
+import type { SettingsState } from '../contexts/SettingsContext.js';
 import { AuthState } from '../types.js';
 import { RadioButtonSelect } from '../components/shared/RadioButtonSelect.js';
 import { useKeypress } from '../hooks/useKeypress.js';
@@ -65,14 +65,11 @@ const mockedRadioButtonSelect = RadioButtonSelect as Mock;
 const mockedValidateAuthMethod = validateAuthMethodWithSettings as Mock;
 const mockedRunExitCleanup = runExitCleanup as Mock;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TestProps = any; // Use any for test props to allow mutation
+
 describe('AuthDialog', () => {
-  let props: {
-    config: Config;
-    settings: LoadedSettings;
-    setAuthState: (state: AuthState) => void;
-    authError: string | null;
-    onAuthError: (error: string | null) => void;
-  };
+  let props: TestProps;
   const originalEnv = { ...process.env };
 
   beforeEach(() => {
@@ -89,8 +86,8 @@ describe('AuthDialog', () => {
             auth: {},
           },
         },
-        setValue: vi.fn(),
-      } as unknown as LoadedSettings,
+      } as unknown as SettingsState,
+      setValue: vi.fn(),
       setAuthState: vi.fn(),
       authError: null,
       onAuthError: vi.fn(),
@@ -214,7 +211,7 @@ describe('AuthDialog', () => {
         props.settings,
       );
       expect(props.onAuthError).toHaveBeenCalledWith('Invalid method');
-      expect(props.settings.setValue).not.toHaveBeenCalled();
+      expect(props.setValue).not.toHaveBeenCalled();
     });
 
     it('skips API key dialog on initial setup if env var is present', async () => {
@@ -328,7 +325,7 @@ describe('AuthDialog', () => {
           expect(p.setAuthState).toHaveBeenCalledWith(
             AuthState.Unauthenticated,
           );
-          expect(p.settings.setValue).not.toHaveBeenCalled();
+          expect(p.setValue).not.toHaveBeenCalled();
         },
       },
     ])('$desc', ({ setup, expectations }) => {

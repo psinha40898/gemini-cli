@@ -16,7 +16,7 @@ import { useSettings } from '../contexts/SettingsContext.js';
 
 import { MessageType } from '../types.js';
 import { type UseHistoryManagerReturn } from './useHistoryManager.js';
-import type { LoadedSettings } from '../../config/settings.js';
+import type { SettingsState } from '../contexts/SettingsContext.js';
 import { coreEvents } from '@google/gemini-cli-core';
 
 interface TrustState {
@@ -26,7 +26,7 @@ interface TrustState {
 }
 
 function getInitialTrustState(
-  settings: LoadedSettings,
+  settings: SettingsState,
   cwd: string,
   isCurrentWorkspace: boolean,
 ): TrustState {
@@ -59,7 +59,7 @@ export const usePermissionsModifyTrust = (
   addItem: UseHistoryManagerReturn['addItem'],
   targetDirectory: string,
 ) => {
-  const settings = useSettings();
+  const { state: settingsSnapshot } = useSettings();
   const cwd = targetDirectory;
   // Normalize paths for case-insensitive file systems (macOS/Windows) to ensure
   // accurate comparison between targetDirectory and process.cwd().
@@ -68,7 +68,7 @@ export const usePermissionsModifyTrust = (
     path.resolve(process.cwd()).toLowerCase();
 
   const [initialState] = useState(() =>
-    getInitialTrustState(settings, cwd, isCurrentWorkspace),
+    getInitialTrustState(settingsSnapshot, cwd, isCurrentWorkspace),
   );
 
   const [currentTrustLevel] = useState<TrustLevel | undefined>(
@@ -85,7 +85,8 @@ export const usePermissionsModifyTrust = (
   );
   const [needsRestart, setNeedsRestart] = useState(false);
 
-  const isFolderTrustEnabled = !!settings.merged.security?.folderTrust?.enabled;
+  const isFolderTrustEnabled =
+    !!settingsSnapshot.merged.security?.folderTrust?.enabled;
 
   const updateTrustLevel = useCallback(
     (trustLevel: TrustLevel) => {
@@ -99,14 +100,14 @@ export const usePermissionsModifyTrust = (
       }
 
       // All logic below only applies when editing the current workspace.
-      const wasTrusted = isWorkspaceTrusted(settings.merged).isTrusted;
+      const wasTrusted = isWorkspaceTrusted(settingsSnapshot.merged).isTrusted;
 
       // Create a temporary config to check the new trust status without writing
       const currentConfig = loadTrustedFolders().user.config;
       const newConfig = { ...currentConfig, [cwd]: trustLevel };
 
       const { isTrusted, source } = isWorkspaceTrusted(
-        settings.merged,
+        settingsSnapshot.merged,
         newConfig,
       );
 
@@ -142,7 +143,7 @@ export const usePermissionsModifyTrust = (
         onExit();
       }
     },
-    [cwd, settings.merged, onExit, addItem, isCurrentWorkspace],
+    [cwd, settingsSnapshot.merged, onExit, addItem, isCurrentWorkspace],
   );
 
   const commitTrustLevelChange = useCallback(() => {

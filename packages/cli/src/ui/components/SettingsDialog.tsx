@@ -10,10 +10,10 @@ import { AsyncFzf } from 'fzf';
 import { theme } from '../semantic-colors.js';
 import type {
   LoadableSettingScope,
-  LoadedSettings,
   Settings,
   SettingScope,
 } from '../../config/settings.js';
+import type { SettingsContextValue } from '../contexts/SettingsContext.js';
 import {
   getScopeItems,
   getScopeMessageForSetting,
@@ -62,7 +62,7 @@ interface FzfResult {
 }
 
 interface SettingsDialogProps {
-  settings: LoadedSettings;
+  settings: SettingsContextValue;
   onSelect: (settingName: string | undefined, scope: SettingScope) => void;
   onRestartRequest?: () => void;
   availableTerminalHeight?: number;
@@ -157,8 +157,11 @@ export function SettingsDialog({
   // 2. Restart-required settings are changed (tracked in unsavedRestartChanges)
   // 3. Scope changes (need to show new scope's settings)
   // ============================================================================
-  const [pendingSettings, setPendingSettings] = useState<Settings>(() =>
-    structuredClone(settings.forScope(selectedScope).settings),
+  const [pendingSettings, setPendingSettings] = useState<Settings>(
+    () =>
+      structuredClone(
+        settings.state.forScope(selectedScope).settings,
+      ) as Settings,
   );
 
   // ============================================================================
@@ -206,8 +209,8 @@ export function SettingsDialog({
           if (!requiresRestart(key)) {
             // Non-restart settings: save immediately
             const immediateSettings = new Set([key]);
-            const currentScopeSettings =
-              settings.forScope(selectedScope).settings;
+            const currentScopeSettings = settings.state.forScope(selectedScope)
+              .settings as Settings;
             const immediateSettingsObject = setPendingSettingValueAny(
               key,
               newValue,
@@ -220,7 +223,8 @@ export function SettingsDialog({
             saveModifiedSettings(
               immediateSettings,
               immediateSettingsObject,
-              settings,
+              settings.state,
+              settings.setValue,
               selectedScope,
             );
 
@@ -297,7 +301,8 @@ export function SettingsDialog({
     if (!requiresRestart(key)) {
       // Non-restart settings: save immediately
       const immediateSettings = new Set([key]);
-      const currentScopeSettings = settings.forScope(selectedScope).settings;
+      const currentScopeSettings = settings.state.forScope(selectedScope)
+        .settings as Settings;
       const immediateSettingsObject = setPendingSettingValueAny(
         key,
         parsed,
@@ -306,7 +311,8 @@ export function SettingsDialog({
       saveModifiedSettings(
         immediateSettings,
         immediateSettingsObject,
-        settings,
+        settings.state,
+        settings.setValue,
         selectedScope,
       );
 
@@ -344,7 +350,7 @@ export function SettingsDialog({
     dispatch({ type: 'SET_SCOPE', scope });
 
     // Update previewSettings with new scope's base settings + overlay unsaved changes
-    const updated = structuredClone(settings.forScope(scope).settings);
+    const updated = structuredClone(settings.state.forScope(scope).settings);
     for (const [key, value] of pendingChanges.entries()) {
       const def = getSettingDefinition(key);
       if (
@@ -359,7 +365,7 @@ export function SettingsDialog({
         );
       }
     }
-    setPendingSettings(updated);
+    setPendingSettings(updated as Settings);
   };
 
   const handleScopeSelect = (scope: LoadableSettingScope) => {
@@ -460,7 +466,8 @@ export function SettingsDialog({
       saveModifiedSettings(
         restartRequiredSet,
         pendingSettings,
-        settings,
+        settings.state,
+        settings.setValue,
         selectedScope,
       );
 
@@ -632,8 +639,9 @@ export function SettingsDialog({
                       typeof defaultValue === 'string'
                     ? defaultValue
                     : undefined;
-              const currentScopeSettings =
-                settings.forScope(selectedScope).settings;
+              const currentScopeSettings = settings.state.forScope(
+                selectedScope,
+              ).settings as Settings;
               const immediateSettingsObject =
                 toSaveValue !== undefined
                   ? setPendingSettingValueAny(
@@ -646,7 +654,8 @@ export function SettingsDialog({
               saveModifiedSettings(
                 immediateSettings,
                 immediateSettingsObject,
-                settings,
+                settings.state,
+                settings.setValue,
                 selectedScope,
               );
 
@@ -773,8 +782,9 @@ export function SettingsDialog({
                 effectiveFocusSection === 'settings' &&
                 activeSettingIndex === idx + scrollOffset;
 
-              const scopeSettings = settings.forScope(selectedScope).settings;
-              const mergedSettings = settings.merged;
+              const scopeSettings = settings.state.forScope(selectedScope)
+                .settings as Settings;
+              const mergedSettings = settings.state.merged as Settings;
 
               let displayValue: string;
               if (editState.key === item.value) {
@@ -857,7 +867,7 @@ export function SettingsDialog({
               const scopeMessage = getScopeMessageForSetting(
                 item.value,
                 selectedScope,
-                settings,
+                settings.state,
               );
 
               return (

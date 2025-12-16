@@ -16,7 +16,7 @@ import {
 import { useIdeTrustListener } from './useIdeTrustListener.js';
 import * as trustedFolders from '../../config/trustedFolders.js';
 import { useSettings } from '../contexts/SettingsContext.js';
-import type { LoadedSettings } from '../../config/settings.js';
+// LoadedSettings type removed - now using SettingsContextValue format
 
 // Mock dependencies
 vi.mock('@google/gemini-cli-core', async (importOriginal) => {
@@ -47,7 +47,8 @@ vi.mock('../../config/trustedFolders.js');
 vi.mock('../contexts/SettingsContext.js');
 
 describe('useIdeTrustListener', () => {
-  let mockSettings: LoadedSettings;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let mockSettings: any;
   let mockIdeClient: Awaited<ReturnType<typeof IdeClient.getInstance>>;
   let trustChangeCallback: (isTrusted: boolean) => void;
   let statusChangeCallback: (state: IDEConnectionState) => void;
@@ -57,14 +58,17 @@ describe('useIdeTrustListener', () => {
     mockIdeClient = await IdeClient.getInstance();
 
     mockSettings = {
-      merged: {
-        security: {
-          folderTrust: {
-            enabled: true,
+      state: {
+        merged: {
+          security: {
+            folderTrust: {
+              enabled: true,
+            },
           },
         },
       },
-    } as LoadedSettings;
+      setValue: vi.fn(),
+    };
 
     vi.mocked(useSettings).mockReturnValue(mockSettings);
 

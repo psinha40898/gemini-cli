@@ -17,7 +17,6 @@ import { act } from 'react';
 import { renderHook } from '../../test-utils/render.js';
 import { usePermissionsModifyTrust } from './usePermissionsModifyTrust.js';
 import { TrustLevel } from '../../config/trustedFolders.js';
-import type { LoadedSettings } from '../../config/settings.js';
 import type { LoadedTrustedFolders } from '../../config/trustedFolders.js';
 import { coreEvents } from '@google/gemini-cli-core';
 
@@ -64,15 +63,19 @@ describe('usePermissionsModifyTrust', () => {
     mockOnExit = vi.fn();
 
     mockedCwd.mockReturnValue('/test/dir');
+    // Mock useSettings to return SettingsContextValue format
     mockedUseSettings.mockReturnValue({
-      merged: {
-        security: {
-          folderTrust: {
-            enabled: true,
+      state: {
+        merged: {
+          security: {
+            folderTrust: {
+              enabled: true,
+            },
           },
         },
       },
-    } as LoadedSettings);
+      setValue: vi.fn(),
+    });
     mockedIsWorkspaceTrusted.mockReturnValue({
       isTrusted: undefined,
       source: undefined,

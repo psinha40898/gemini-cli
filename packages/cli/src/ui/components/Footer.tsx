@@ -23,7 +23,7 @@ import { useVimMode } from '../contexts/VimModeContext.js';
 export const Footer: React.FC = () => {
   const uiState = useUIState();
   const config = useConfig();
-  const settings = useSettings();
+  const { state: settingsSnapshot } = useSettings();
   const { vimEnabled, vimMode } = useVimMode();
 
   const {
@@ -55,13 +55,16 @@ export const Footer: React.FC = () => {
   };
 
   const showMemoryUsage =
-    config.getDebugMode() || settings.merged.ui?.showMemoryUsage || false;
-  const hideCWD = settings.merged.ui?.footer?.hideCWD || false;
+    config.getDebugMode() ||
+    settingsSnapshot.merged.ui?.showMemoryUsage ||
+    false;
+  const hideCWD = settingsSnapshot.merged.ui?.footer?.hideCWD || false;
   const hideSandboxStatus =
-    settings.merged.ui?.footer?.hideSandboxStatus || false;
-  const hideModelInfo = settings.merged.ui?.footer?.hideModelInfo || false;
+    settingsSnapshot.merged.ui?.footer?.hideSandboxStatus || false;
+  const hideModelInfo =
+    settingsSnapshot.merged.ui?.footer?.hideModelInfo || false;
   const hideContextPercentage =
-    settings.merged.ui?.footer?.hideContextPercentage ?? true;
+    settingsSnapshot.merged.ui?.footer?.hideContextPercentage ?? true;
 
   const pathLength = Math.max(20, Math.floor(mainAreaWidth * 0.25));
   const displayPath = shortenPath(tildeifyPath(targetDir), pathLength);

@@ -13,7 +13,11 @@ import { UIStateContext, type UIState } from './contexts/UIStateContext.js';
 import { StreamingState } from './types.js';
 import { ConfigContext } from './contexts/ConfigContext.js';
 import { AppContext, type AppState } from './contexts/AppContext.js';
-import { SettingsContext } from './contexts/SettingsContext.js';
+import {
+  SettingsContext,
+  type SettingsContextValue,
+  type SettingsState,
+} from './contexts/SettingsContext.js';
 import {
   type SettingScope,
   LoadedSettings,
@@ -95,6 +99,12 @@ describe('App', () => {
     new Set<SettingScope>(),
   );
 
+  // Wrap LoadedSettings in SettingsContextValue format
+  const mockSettingsContextValue: SettingsContextValue = {
+    state: mockLoadedSettings as unknown as SettingsState,
+    setValue: vi.fn(),
+  };
+
   const mockAppState: AppState = {
     version: '1.0.0',
     startupWarnings: [],
@@ -104,7 +114,7 @@ describe('App', () => {
     render(
       <AppContext.Provider value={mockAppState}>
         <ConfigContext.Provider value={mockConfig}>
-          <SettingsContext.Provider value={mockLoadedSettings}>
+          <SettingsContext.Provider value={mockSettingsContextValue}>
             <UIStateContext.Provider value={state}>
               {ui}
             </UIStateContext.Provider>

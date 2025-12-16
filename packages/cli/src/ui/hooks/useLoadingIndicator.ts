@@ -11,7 +11,7 @@ import { useState, useEffect, useRef } from 'react'; // Added useRef
 
 export const useLoadingIndicator = (
   streamingState: StreamingState,
-  customWittyPhrases?: string[],
+  customWittyPhrases?: readonly string[],
   isInteractiveShellWaiting: boolean = false,
   lastOutputTime: number = 0,
 ) => {

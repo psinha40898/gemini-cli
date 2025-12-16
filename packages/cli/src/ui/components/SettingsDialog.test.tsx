@@ -27,6 +27,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SettingsDialog } from './SettingsDialog.js';
 import { LoadedSettings, SettingScope } from '../../config/settings.js';
 import { VimModeProvider } from '../contexts/VimModeContext.js';
+import { SettingsContext } from '../contexts/SettingsContext.js';
+import type {
+  SettingsContextValue,
+  SettingsState,
+} from '../contexts/SettingsContext.js';
 import { KeypressProvider } from '../contexts/KeypressContext.js';
 import { act } from 'react';
 import { saveModifiedSettings, TEST_ONLY } from '../../utils/settingsUtils.js';
@@ -265,17 +270,23 @@ const renderDialog = (
     onRestartRequest?: ReturnType<typeof vi.fn>;
     availableTerminalHeight?: number;
   },
-) =>
-  render(
+) => {
+  // Wrap settings in SettingsContextValue format
+  const settingsContextValue: SettingsContextValue = {
+    state: settings as unknown as SettingsState,
+    setValue: vi.fn(),
+  };
+  return render(
     <KeypressProvider>
       <SettingsDialog
-        settings={settings}
+        settings={settingsContextValue}
         onSelect={onSelect}
         onRestartRequest={options?.onRestartRequest}
         availableTerminalHeight={options?.availableTerminalHeight}
       />
     </KeypressProvider>,
   );
+};
 
 describe('SettingsDialog', () => {
   beforeEach(() => {
@@ -696,12 +707,22 @@ describe('SettingsDialog', () => {
       const settings = createMockSettings();
       const onSelect = vi.fn();
 
+      // Wrap settings in SettingsContextValue format
+      const settingsContextValue: SettingsContextValue = {
+        state: settings as unknown as SettingsState,
+        setValue: vi.fn(),
+      };
       const { stdin, unmount } = render(
-        <VimModeProvider settings={settings}>
-          <KeypressProvider>
-            <SettingsDialog settings={settings} onSelect={onSelect} />
-          </KeypressProvider>
-        </VimModeProvider>,
+        <SettingsContext.Provider value={settingsContextValue}>
+          <VimModeProvider>
+            <KeypressProvider>
+              <SettingsDialog
+                settings={settingsContextValue}
+                onSelect={onSelect}
+              />
+            </KeypressProvider>
+          </VimModeProvider>
+        </SettingsContext.Provider>,
       );
 
       // Navigate to and toggle vim mode setting
@@ -1116,10 +1137,14 @@ describe('SettingsDialog', () => {
     it('should allow editing and committing a string setting', async () => {
       let settings = createMockSettings({ 'a.string.setting': 'initial' });
       const onSelect = vi.fn();
+      let settingsContextValue: SettingsContextValue = {
+        state: settings as unknown as SettingsState,
+        setValue: vi.fn(),
+      };
 
       const { stdin, unmount, rerender } = render(
         <KeypressProvider>
-          <SettingsDialog settings={settings} onSelect={onSelect} />
+          <SettingsDialog settings={settingsContextValue} onSelect={onSelect} />
         </KeypressProvider>,
       );
 
@@ -1142,9 +1167,13 @@ describe('SettingsDialog', () => {
         {},
         {},
       );
+      settingsContextValue = {
+        state: settings as unknown as SettingsState,
+        setValue: vi.fn(),
+      };
       rerender(
         <KeypressProvider>
-          <SettingsDialog settings={settings} onSelect={onSelect} />
+          <SettingsDialog settings={settingsContextValue} onSelect={onSelect} />
         </KeypressProvider>,
       );
 

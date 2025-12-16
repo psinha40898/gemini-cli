@@ -6,8 +6,8 @@
 
 import type {
   Settings,
-  LoadedSettings,
   LoadableSettingScope,
+  DeepReadonlySettings,
 } from '../config/settings.js';
 import type {
   SettingDefinition,
@@ -305,7 +305,7 @@ export function isSettingModified(key: string, value: boolean): boolean {
  */
 export function settingExistsInScope(
   key: string,
-  scopeSettings: Settings,
+  scopeSettings: Settings | DeepReadonlySettings,
 ): boolean {
   const path = key.split('.');
   const value = getNestedValue(scopeSettings as Record<string, unknown>, path);
@@ -390,7 +390,12 @@ export function getRestartRequiredFromModified(
 export function saveModifiedSettings(
   modifiedSettings: Set<string>,
   pendingSettings: Settings,
-  loadedSettings: LoadedSettings,
+  settingsState: {
+    forScope: (scope: LoadableSettingScope) => {
+      settings: Settings | DeepReadonlySettings;
+    };
+  },
+  setValue: (scope: LoadableSettingScope, key: string, value: unknown) => void,
   scope: LoadableSettingScope,
 ): void {
   modifiedSettings.forEach((settingKey) => {
@@ -406,13 +411,13 @@ export function saveModifiedSettings(
 
     const existsInOriginalFile = settingExistsInScope(
       settingKey,
-      loadedSettings.forScope(scope).settings,
+      settingsState.forScope(scope).settings,
     );
 
     const isDefaultValue = value === getDefaultValue(settingKey);
 
     if (existsInOriginalFile || !isDefaultValue) {
-      loadedSettings.setValue(scope, settingKey, value);
+      setValue(scope, settingKey, value);
     }
   });
 }

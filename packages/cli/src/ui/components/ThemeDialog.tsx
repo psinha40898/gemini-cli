@@ -12,10 +12,8 @@ import { themeManager, DEFAULT_THEME } from '../themes/theme-manager.js';
 import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
 import { DiffRenderer } from './messages/DiffRenderer.js';
 import { colorizeCode } from '../utils/CodeColorizer.js';
-import type {
-  LoadableSettingScope,
-  LoadedSettings,
-} from '../../config/settings.js';
+import type { LoadableSettingScope } from '../../config/settings.js';
+import type { SettingsState } from '../contexts/SettingsContext.js';
 import { SettingScope } from '../../config/settings.js';
 import { getScopeMessageForSetting } from '../../utils/dialogScopeUtils.js';
 import { useKeypress } from '../hooks/useKeypress.js';
@@ -33,7 +31,7 @@ interface ThemeDialogProps {
   /** Callback function when a theme is highlighted */
   onHighlight: (themeName: string | undefined) => void;
   /** The settings object */
-  settings: LoadedSettings;
+  settings: SettingsState;
   availableTerminalHeight?: number;
   terminalWidth: number;
 }

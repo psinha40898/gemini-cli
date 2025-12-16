@@ -28,7 +28,7 @@ export type RestartReason = 'NONE' | 'CONNECTION_CHANGE' | 'TRUST_CHANGE';
  * is needed because the trust state has changed.
  */
 export function useIdeTrustListener() {
-  const settings = useSettings();
+  const { state: settingsSnapshot } = useSettings();
   const [connectionStatus, setConnectionStatus] = useState<IDEConnectionStatus>(
     IDEConnectionStatus.Disconnected,
   );
@@ -76,7 +76,9 @@ export function useIdeTrustListener() {
   const isIdeTrusted = useSyncExternalStore(subscribe, getSnapshot);
 
   useEffect(() => {
-    const currentTrust = isWorkspaceTrusted(settings.merged).isTrusted;
+    const currentTrust = isWorkspaceTrusted(
+      settingsSnapshot.merged as Parameters<typeof isWorkspaceTrusted>[0],
+    ).isTrusted;
     // Trigger a restart if the overall trust status for the CLI has changed,
     // but not on the initial trust value.
     if (
@@ -86,7 +88,7 @@ export function useIdeTrustListener() {
       setNeedsRestart(true);
     }
     previousTrust.current = currentTrust;
-  }, [isIdeTrusted, settings.merged]);
+  }, [isIdeTrusted, settingsSnapshot.merged]);
 
   return { isIdeTrusted, needsRestart, restartReason };
 }

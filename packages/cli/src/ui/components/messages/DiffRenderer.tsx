@@ -101,7 +101,7 @@ export const DiffRenderer: React.FC<DiffRendererProps> = ({
   terminalWidth,
   theme,
 }) => {
-  const settings = useSettings();
+  const { state: settingsSnapshot } = useSettings();
   const isAlternateBuffer = useAlternateBuffer();
 
   const screenReaderEnabled = useIsScreenReaderEnabled();
@@ -170,7 +170,7 @@ export const DiffRenderer: React.FC<DiffRendererProps> = ({
         availableHeight: availableTerminalHeight,
         maxWidth: terminalWidth,
         theme,
-        settings,
+        settings: settingsSnapshot,
       });
     } else {
       return renderDiffContent(
@@ -191,7 +191,7 @@ export const DiffRenderer: React.FC<DiffRendererProps> = ({
     availableTerminalHeight,
     terminalWidth,
     theme,
-    settings,
+    settingsSnapshot,
     isAlternateBuffer,
     tabWidth,
   ]);

@@ -168,7 +168,7 @@ export const AppContainer = (props: AppContainerProps) => {
     chatRecordingService: config.getGeminiClient()?.getChatRecordingService(),
   });
   useMemoryMonitor(historyManager);
-  const settings = useSettings();
+  const { state, setValue } = useSettings();
   const isAlternateBuffer = useAlternateBuffer();
   const [corgiMode, setCorgiMode] = useState(false);
   const [debugMessage, setDebugMessage] = useState<string>('');
@@ -194,7 +194,7 @@ export const AppContainer = (props: AppContainerProps) => {
   const [historyRemountKey, setHistoryRemountKey] = useState(0);
   const [updateInfo, setUpdateInfo] = useState<UpdateObject | null>(null);
   const [isTrustedFolder, setIsTrustedFolder] = useState<boolean | undefined>(
-    isWorkspaceTrusted(settings.merged).isTrusted,
+    isWorkspaceTrusted(state.merged).isTrusted,
   );
 
   const [queueErrorMessage, setQueueErrorMessage] = useState<string | null>(
@@ -360,7 +360,7 @@ export const AppContainer = (props: AppContainerProps) => {
   const { consoleMessages, clearConsoleMessages: clearConsoleMessagesState } =
     useConsoleMessages();
 
-  const mainAreaWidth = calculateMainAreaWidth(terminalWidth, settings);
+  const mainAreaWidth = calculateMainAreaWidth(terminalWidth, state);
   // Derive widths for InputPrompt using shared helper
   const { inputWidth, suggestionsWidth } = useMemo(() => {
     const { inputWidth, suggestionsWidth } =
@@ -425,7 +425,7 @@ export const AppContainer = (props: AppContainerProps) => {
 
   useEffect(() => {
     if (
-      !(settings.merged.ui?.hideBanner || config.getScreenReader()) &&
+      !(state.merged.ui?.hideBanner || config.getScreenReader()) &&
       bannerVisible &&
       bannerText
     ) {
@@ -433,7 +433,7 @@ export const AppContainer = (props: AppContainerProps) => {
       // so we must trigger a static refresh for it to be visible.
       refreshStatic();
     }
-  }, [bannerVisible, bannerText, settings, config, refreshStatic]);
+  }, [bannerVisible, bannerText, state, config, refreshStatic]);
 
   const {
     isThemeDialogOpen,
@@ -442,10 +442,11 @@ export const AppContainer = (props: AppContainerProps) => {
     handleThemeSelect,
     handleThemeHighlight,
   } = useThemeCommand(
-    settings,
+    state,
     setThemeError,
     historyManager.addItem,
     initializationResult.themeError,
+    setValue,
   );
 
   const {
@@ -455,7 +456,7 @@ export const AppContainer = (props: AppContainerProps) => {
     onAuthError,
     apiKeyDefaultValue,
     reloadApiKey,
-  } = useAuthCommand(settings, config);
+  } = useAuthCommand(state, config);
 
   const { proQuotaRequest, handleProQuotaChoice } = useQuotaAndFallback({
     config,
@@ -500,7 +501,7 @@ export const AppContainer = (props: AppContainerProps) => {
     async (authType: AuthType | undefined, scope: LoadableSettingScope) => {
       if (authType) {
         await clearCachedCredentialFile();
-        settings.setValue(scope, 'security.auth.selectedType', authType);
+        setValue(scope, 'security.auth.selectedType', authType);
 
         try {
           await config.refreshAuth(authType);
@@ -527,7 +528,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
       }
       setAuthState(AuthState.Authenticated);
     },
-    [settings, config, setAuthState, onAuthError],
+    [setValue, config, setAuthState, onAuthError],
   );
 
   const handleApiKeySubmit = useCallback(
@@ -570,29 +571,27 @@ Logging in with Google... Restarting Gemini CLI to continue.
   // Check for enforced auth type mismatch
   useEffect(() => {
     if (
-      settings.merged.security?.auth?.enforcedType &&
-      settings.merged.security?.auth.selectedType &&
-      settings.merged.security?.auth.enforcedType !==
-        settings.merged.security?.auth.selectedType
+      state.merged.security?.auth?.enforcedType &&
+      state.merged.security?.auth.selectedType &&
+      state.merged.security?.auth.enforcedType !==
+        state.merged.security?.auth.selectedType
     ) {
       onAuthError(
-        `Authentication is enforced to be ${settings.merged.security?.auth.enforcedType}, but you are currently using ${settings.merged.security?.auth.selectedType}.`,
+        `Authentication is enforced to be ${state.merged.security?.auth.enforcedType}, but you are currently using ${state.merged.security?.auth.selectedType}.`,
       );
     } else if (
-      settings.merged.security?.auth?.selectedType &&
-      !settings.merged.security?.auth?.useExternal
+      state.merged.security?.auth?.selectedType &&
+      !state.merged.security?.auth?.useExternal
     ) {
-      const error = validateAuthMethod(
-        settings.merged.security.auth.selectedType,
-      );
+      const error = validateAuthMethod(state.merged.security.auth.selectedType);
       if (error) {
         onAuthError(error);
       }
     }
   }, [
-    settings.merged.security?.auth?.selectedType,
-    settings.merged.security?.auth?.enforcedType,
-    settings.merged.security?.auth?.useExternal,
+    state.merged.security?.auth?.selectedType,
+    state.merged.security?.auth?.enforcedType,
+    state.merged.security?.auth?.useExternal,
     onAuthError,
   ]);
 
@@ -602,7 +601,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
     openEditorDialog,
     handleEditorSelect,
     exitEditorDialog,
-  } = useEditorSettings(settings, setEditorError, historyManager.addItem);
+  } = useEditorSettings(setValue, setEditorError, historyManager.addItem);
 
   const { isSettingsDialogOpen, openSettingsDialog, closeSettingsDialog } =
     useSettingsCommand();
@@ -662,7 +661,8 @@ Logging in with Google... Restarting Gemini CLI to continue.
     confirmationRequest,
   } = useSlashCommandProcessor(
     config,
-    settings,
+    state,
+    setValue,
     historyManager.addItem,
     historyManager.clearItems,
     historyManager.loadHistory,
@@ -725,8 +725,8 @@ Logging in with Google... Restarting Gemini CLI to continue.
   );
 
   const getPreferredEditor = useCallback(
-    () => settings.merged.general?.preferredEditor as EditorType,
-    [settings.merged.general?.preferredEditor],
+    () => state.merged.general?.preferredEditor as EditorType,
+    [state.merged.general?.preferredEditor],
   );
 
   const onCancelSubmit = useCallback((shouldRestorePrompt?: boolean) => {
@@ -772,7 +772,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
     historyManager.history,
     historyManager.addItem,
     config,
-    settings,
+    state,
     setDebugMessage,
     handleSlashCommand,
     shellModeActive,
@@ -907,8 +907,8 @@ Logging in with Google... Restarting Gemini CLI to continue.
       Math.floor(availableTerminalHeight - SHELL_HEIGHT_PADDING),
       1,
     ),
-    pager: settings.merged.tools?.shell?.pager,
-    showColor: settings.merged.tools?.shell?.showColor,
+    pager: state.merged.tools?.shell?.pager,
+    showColor: state.merged.tools?.shell?.showColor,
   });
 
   const isFocused = useFocus();
@@ -916,13 +916,13 @@ Logging in with Google... Restarting Gemini CLI to continue.
 
   // Context file names computation
   const contextFileNames = useMemo(() => {
-    const fromSettings = settings.merged.context?.fileName;
+    const fromSettings = state.merged.context?.fileName;
     return fromSettings
       ? Array.isArray(fromSettings)
         ? fromSettings
         : [fromSettings]
       : getAllGeminiMdFilenames();
-  }, [settings.merged.context?.fileName]);
+  }, [state.merged.context?.fileName]);
   // Initial prompt handling
   const initialPrompt = useMemo(() => config.getQuestion(), [config]);
   const initialPromptSubmitted = useRef(false);
@@ -996,7 +996,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
   const shouldShowIdePrompt = Boolean(
     currentIDE &&
       !config.getIdeMode() &&
-      !settings.merged.ide?.hasSeenNudge &&
+      !state.merged.ide?.hasSeenNudge &&
       !idePromptAnswered,
   );
 
@@ -1017,7 +1017,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
 
   const { isFolderTrustDialogOpen, handleFolderTrustSelect, isRestarting } =
-    useFolderTrust(settings, setIsTrustedFolder, historyManager.addItem);
+    useFolderTrust(state, setIsTrustedFolder, historyManager.addItem);
   const {
     needsRestart: ideNeedsRestart,
     restartReason: ideTrustRestartReason,
@@ -1154,26 +1154,18 @@ Logging in with Google... Restarting Gemini CLI to continue.
       if (result.userSelection === 'yes') {
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         handleSlashCommand('/ide install');
-        settings.setValue(
-          SettingScope.User,
-          'hasSeenIdeIntegrationNudge',
-          true,
-        );
+        setValue(SettingScope.User, 'hasSeenIdeIntegrationNudge', true);
       } else if (result.userSelection === 'dismiss') {
-        settings.setValue(
-          SettingScope.User,
-          'hasSeenIdeIntegrationNudge',
-          true,
-        );
+        setValue(SettingScope.User, 'hasSeenIdeIntegrationNudge', true);
       }
       setIdePromptAnswered(true);
     },
-    [handleSlashCommand, settings],
+    [handleSlashCommand, setValue],
   );
 
   const { elapsedTime, currentLoadingPhrase } = useLoadingIndicator(
     streamingState,
-    settings.merged.ui?.customWittyPhrases,
+    state.merged.ui?.customWittyPhrases,
     !!activePtyId && !embeddedShellFocused,
     lastOutputTime,
   );
@@ -1188,7 +1180,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
       }
 
       // Debug log keystrokes if enabled
-      if (settings.merged.general?.debugKeystrokeLogging) {
+      if (state.merged.general?.debugKeystrokeLogging) {
         debugLogger.log('[DEBUG] Keystroke:', JSON.stringify(key));
       }
 
@@ -1261,7 +1253,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
       cancelOngoingRequest,
       activePtyId,
       embeddedShellFocused,
-      settings.merged.general?.debugKeystrokeLogging,
+      state.merged.general?.debugKeystrokeLogging,
       refreshStatic,
       setCopyModeEnabled,
       copyModeEnabled,
@@ -1274,10 +1266,7 @@ Logging in with Google... Restarting Gemini CLI to continue.
   // Update terminal title with Gemini CLI status and thoughts
   useEffect(() => {
     // Respect both showStatusInTitle and hideWindowTitle settings
-    if (
-      !settings.merged.ui?.showStatusInTitle ||
-      settings.merged.ui?.hideWindowTitle
-    )
+    if (!state.merged.ui?.showStatusInTitle || state.merged.ui?.hideWindowTitle)
       return;
 
     let title;
@@ -1302,8 +1291,8 @@ Logging in with Google... Restarting Gemini CLI to continue.
   }, [
     streamingState,
     thought,
-    settings.merged.ui?.showStatusInTitle,
-    settings.merged.ui?.hideWindowTitle,
+    state.merged.ui?.showStatusInTitle,
+    state.merged.ui?.hideWindowTitle,
     stdout,
   ]);
 

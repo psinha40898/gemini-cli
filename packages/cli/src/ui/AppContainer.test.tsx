@@ -19,7 +19,11 @@ import { waitFor } from '../test-utils/async.js';
 import { cleanup } from 'ink-testing-library';
 import { act, useContext } from 'react';
 import { AppContainer } from './AppContainer.js';
-import { SettingsContext } from './contexts/SettingsContext.js';
+import {
+  SettingsContext,
+  type SettingsContextValue,
+  type SettingsState,
+} from './contexts/SettingsContext.js';
 import {
   type Config,
   makeFakeConfig,
@@ -195,17 +199,24 @@ describe('AppContainer State Management', () => {
     initResult?: InitializationResult;
     startupWarnings?: string[];
     resumedSessionData?: ResumedSessionData;
-  } = {}) => (
-    <SettingsContext.Provider value={settings}>
-      <AppContainer
-        config={config}
-        version={version}
-        initializationResult={initResult}
-        startupWarnings={startupWarnings}
-        resumedSessionData={resumedSessionData}
-      />
-    </SettingsContext.Provider>
-  );
+  } = {}) => {
+    // Wrap LoadedSettings in SettingsContextValue format
+    const settingsContextValue: SettingsContextValue = {
+      state: settings as unknown as SettingsState,
+      setValue: vi.fn(),
+    };
+    return (
+      <SettingsContext.Provider value={settingsContextValue}>
+        <AppContainer
+          config={config}
+          version={version}
+          initializationResult={initResult}
+          startupWarnings={startupWarnings}
+          resumedSessionData={resumedSessionData}
+        />
+      </SettingsContext.Provider>
+    );
+  };
 
   // Helper to render the AppContainer
   const renderAppContainer = (props?: Parameters<typeof getAppContainer>[0]) =>

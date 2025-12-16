@@ -6,7 +6,7 @@
 
 import { vi } from 'vitest';
 import type { CommandContext } from '../ui/commands/types.js';
-import type { LoadedSettings } from '../config/settings.js';
+import type { SettingsState } from '../ui/contexts/SettingsContext.js';
 import type { GitService } from '@google/gemini-cli-core';
 import type { SessionStatsState } from '../ui/contexts/SessionContext.js';
 
@@ -35,7 +35,8 @@ export const createMockCommandContext = (
     },
     services: {
       config: null,
-      settings: { merged: {} } as LoadedSettings,
+      settings: { merged: {} } as unknown as SettingsState,
+      setValue: vi.fn(),
       git: undefined as GitService | undefined,
       logger: {
         log: vi.fn(),

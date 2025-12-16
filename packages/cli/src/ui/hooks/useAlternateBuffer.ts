@@ -5,12 +5,12 @@
  */
 
 import { useSettings } from '../contexts/SettingsContext.js';
-import type { LoadedSettings } from '../../config/settings.js';
+import type { SettingsState } from '../contexts/SettingsContext.js';
 
-export const isAlternateBufferEnabled = (settings: LoadedSettings): boolean =>
+export const isAlternateBufferEnabled = (settings: SettingsState): boolean =>
   settings.merged.ui?.useAlternateBuffer === true;
 
 export const useAlternateBuffer = (): boolean => {
-  const settings = useSettings();
-  return isAlternateBufferEnabled(settings);
+  const { state } = useSettings();
+  return isAlternateBufferEnabled(state);
 };

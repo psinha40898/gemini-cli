@@ -27,7 +27,7 @@ export const usePhraseCycler = (
   isWaiting: boolean,
   isInteractiveShellWaiting: boolean,
   lastOutputTime: number = 0,
-  customPhrases?: string[],
+  customPhrases?: readonly string[],
 ) => {
   const loadingPhrases =
     customPhrases && customPhrases.length > 0

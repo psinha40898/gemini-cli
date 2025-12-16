@@ -58,6 +58,16 @@ function getMergeStrategyForPath(path: string[]): MergeStrategy | undefined {
 
 export type { Settings, MemoryImportFormat };
 
+// DeepReadonly utility type for immutable settings access
+type DeepReadonlyObject<T> = { readonly [K in keyof T]: DeepReadonly<T[K]> };
+type DeepReadonly<T> = T extends Array<infer U>
+  ? ReadonlyArray<DeepReadonly<U>>
+  : T extends object
+    ? DeepReadonlyObject<T>
+    : T;
+
+export type DeepReadonlySettings = DeepReadonly<Settings>;
+
 export const USER_SETTINGS_PATH = Storage.getGlobalSettingsPath();
 export const USER_SETTINGS_DIR = path.dirname(USER_SETTINGS_PATH);
 export const DEFAULT_EXCLUDED_ENV_VARS = ['DEBUG', 'DEBUG_MODE'];
@@ -488,11 +498,11 @@ export class LoadedSettings {
 
   private computeSnapshot(): LoadedSettingsSnapshot {
     const cloneSettingsFile = (file: SettingsFile): SettingsFile => ({
-        path: file.path,
-        rawJson: file.rawJson,
-        settings: structuredClone(file.settings),
-        originalSettings: structuredClone(file.originalSettings),
-      });
+      path: file.path,
+      rawJson: file.rawJson,
+      settings: structuredClone(file.settings),
+      originalSettings: structuredClone(file.originalSettings),
+    });
 
     return {
       system: cloneSettingsFile(this.system),

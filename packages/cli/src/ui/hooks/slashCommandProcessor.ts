@@ -32,7 +32,10 @@ import type {
   ConfirmationRequest,
 } from '../types.js';
 import { MessageType } from '../types.js';
-import type { LoadedSettings } from '../../config/settings.js';
+import type {
+  SettingsState,
+  SettingsContextValue,
+} from '../contexts/SettingsContext.js';
 import { type CommandContext, type SlashCommand } from '../commands/types.js';
 import { CommandService } from '../../services/CommandService.js';
 import { BuiltinCommandLoader } from '../../services/BuiltinCommandLoader.js';
@@ -68,7 +71,8 @@ interface SlashCommandProcessorActions {
  */
 export const useSlashCommandProcessor = (
   config: Config | null,
-  settings: LoadedSettings,
+  settings: SettingsState,
+  setValue: SettingsContextValue['setValue'],
   addItem: UseHistoryManagerReturn['addItem'],
   clearItems: UseHistoryManagerReturn['clearItems'],
   loadHistory: UseHistoryManagerReturn['loadHistory'],
@@ -194,6 +198,7 @@ export const useSlashCommandProcessor = (
       services: {
         config,
         settings,
+        setValue,
         git: gitService,
         logger,
       },
@@ -230,6 +235,7 @@ export const useSlashCommandProcessor = (
       alternateBuffer,
       config,
       settings,
+      setValue,
       gitService,
       logger,
       loadHistory,

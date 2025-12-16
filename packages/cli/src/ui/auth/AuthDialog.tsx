@@ -9,10 +9,11 @@ import { useCallback, useState } from 'react';
 import { Box, Text } from 'ink';
 import { theme } from '../semantic-colors.js';
 import { RadioButtonSelect } from '../components/shared/RadioButtonSelect.js';
+import type { LoadableSettingScope } from '../../config/settings.js';
 import type {
-  LoadableSettingScope,
-  LoadedSettings,
-} from '../../config/settings.js';
+  SettingsState,
+  SettingsContextValue,
+} from '../contexts/SettingsContext.js';
 import { SettingScope } from '../../config/settings.js';
 import {
   AuthType,
@@ -27,7 +28,8 @@ import { RELAUNCH_EXIT_CODE } from '../../utils/processUtils.js';
 
 interface AuthDialogProps {
   config: Config;
-  settings: LoadedSettings;
+  settings: SettingsState;
+  setValue: SettingsContextValue['setValue'];
   setAuthState: (state: AuthState) => void;
   authError: string | null;
   onAuthError: (error: string | null) => void;
@@ -36,6 +38,7 @@ interface AuthDialogProps {
 export function AuthDialog({
   config,
   settings,
+  setValue,
   setAuthState,
   authError,
   onAuthError,
@@ -121,7 +124,7 @@ export function AuthDialog({
 
         await clearCachedCredentialFile();
 
-        settings.setValue(scope, 'security.auth.selectedType', authType);
+        setValue(scope, 'security.auth.selectedType', authType);
         if (
           authType === AuthType.LOGIN_WITH_GOOGLE &&
           config.isBrowserLaunchSuppressed()
@@ -146,7 +149,13 @@ export function AuthDialog({
       }
       setAuthState(AuthState.Unauthenticated);
     },
-    [settings, config, setAuthState, exiting],
+    [
+      setValue,
+      config,
+      setAuthState,
+      exiting,
+      settings.merged.security?.auth?.selectedType,
+    ],
   );
 
   const handleAuthSelect = (authMethod: AuthType) => {

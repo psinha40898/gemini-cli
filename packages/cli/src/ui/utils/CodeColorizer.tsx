@@ -20,9 +20,9 @@ import {
   MaxSizedBox,
   MINIMUM_MAX_HEIGHT,
 } from '../components/shared/MaxSizedBox.js';
-import type { LoadedSettings } from '../../config/settings.js';
 import { debugLogger } from '@google/gemini-cli-core';
 import { isAlternateBufferEnabled } from '../hooks/useAlternateBuffer.js';
+import type { SettingsState } from '../contexts/SettingsContext.js';
 
 // Configure theming and parsing utilities.
 const lowlight = createLowlight(common);
@@ -126,7 +126,7 @@ export interface ColorizeCodeOptions {
   availableHeight?: number;
   maxWidth: number;
   theme?: Theme | null;
-  settings: LoadedSettings;
+  settings: SettingsState;
   hideLineNumbers?: boolean;
 }
 

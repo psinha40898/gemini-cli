@@ -14,7 +14,7 @@ import {
   ideContextStore,
   GEMINI_DIR,
 } from '@google/gemini-cli-core';
-import type { Settings } from './settings.js';
+import type { Settings, DeepReadonlySettings } from './settings.js';
 import stripJsonComments from 'strip-json-comments';
 
 export const TRUSTED_FOLDERS_FILENAME = 'trustedFolders.json';
@@ -205,7 +205,9 @@ export function saveTrustedFolders(
 }
 
 /** Is folder trust feature enabled per the current applied settings */
-export function isFolderTrustEnabled(settings: Settings): boolean {
+export function isFolderTrustEnabled(
+  settings: Settings | DeepReadonlySettings,
+): boolean {
   const folderTrustSetting = settings.security?.folderTrust?.enabled ?? false;
   return folderTrustSetting;
 }
@@ -233,7 +235,7 @@ function getWorkspaceTrustFromLocalConfig(
 }
 
 export function isWorkspaceTrusted(
-  settings: Settings,
+  settings: Settings | DeepReadonlySettings,
   trustConfig?: Record<string, TrustLevel>,
 ): TrustResult {
   if (!isFolderTrustEnabled(settings)) {

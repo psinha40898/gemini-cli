@@ -6,10 +6,11 @@
 
 import { useState, useCallback } from 'react';
 import { themeManager } from '../themes/theme-manager.js';
+import type { LoadableSettingScope } from '../../config/settings.js';
 import type {
-  LoadableSettingScope,
-  LoadedSettings,
-} from '../../config/settings.js'; // Import LoadedSettings, AppSettings, MergedSetting
+  SettingsState,
+  SettingsContextValue,
+} from '../contexts/SettingsContext.js';
 import { MessageType } from '../types.js';
 import process from 'node:process';
 import type { UseHistoryManagerReturn } from './useHistoryManager.js';
@@ -23,10 +24,11 @@ interface UseThemeCommandReturn {
 }
 
 export const useThemeCommand = (
-  loadedSettings: LoadedSettings,
+  state: SettingsState,
   setThemeError: (error: string | null) => void,
   addItem: UseHistoryManagerReturn['addItem'],
   initialThemeError: string | null,
+  setValue?: SettingsContextValue['setValue'],
 ): UseThemeCommandReturn => {
   const [isThemeDialogOpen, setIsThemeDialogOpen] =
     useState(!!initialThemeError);
@@ -67,17 +69,17 @@ export const useThemeCommand = (
 
   const closeThemeDialog = useCallback(() => {
     // Re-apply the saved theme to revert any preview changes from highlighting
-    applyTheme(loadedSettings.merged.ui?.theme);
+    applyTheme(state.merged.ui?.theme);
     setIsThemeDialogOpen(false);
-  }, [applyTheme, loadedSettings]);
+  }, [applyTheme, state]);
 
   const handleThemeSelect = useCallback(
     (themeName: string, scope: LoadableSettingScope) => {
       try {
         // Merge user and workspace custom themes (workspace takes precedence)
         const mergedCustomThemes = {
-          ...(loadedSettings.user.settings.ui?.customThemes || {}),
-          ...(loadedSettings.workspace.settings.ui?.customThemes || {}),
+          ...(state.user.settings.ui?.customThemes || {}),
+          ...(state.workspace.settings.ui?.customThemes || {}),
         };
         // Only allow selecting themes available in the merged custom themes or built-in themes
         const isBuiltIn = themeManager.findThemeByName(themeName);
@@ -87,17 +89,22 @@ export const useThemeCommand = (
           setIsThemeDialogOpen(true);
           return;
         }
-        loadedSettings.setValue(scope, 'ui.theme', themeName); // Update the merged settings
-        if (loadedSettings.merged.ui?.customThemes) {
-          themeManager.loadCustomThemes(loadedSettings.merged.ui?.customThemes);
+        setValue?.(scope, 'ui.theme', themeName); // Update the merged settings
+        if (state.merged.ui?.customThemes) {
+          // Type assertion: loadCustomThemes only reads the data
+          themeManager.loadCustomThemes(
+            state.merged.ui.customThemes as Parameters<
+              typeof themeManager.loadCustomThemes
+            >[0],
+          );
         }
-        applyTheme(loadedSettings.merged.ui?.theme); // Apply the current theme
+        applyTheme(state.merged.ui?.theme); // Apply the current theme
         setThemeError(null);
       } finally {
         setIsThemeDialogOpen(false); // Close the dialog
       }
     },
-    [applyTheme, loadedSettings, setThemeError],
+    [applyTheme, state, setThemeError, setValue],
   );
 
   return {

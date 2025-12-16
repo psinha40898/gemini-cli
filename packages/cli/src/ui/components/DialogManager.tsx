@@ -43,7 +43,8 @@ export const DialogManager = ({
   terminalWidth,
 }: DialogManagerProps) => {
   const config = useConfig();
-  const settings = useSettings();
+  const settingsContext = useSettings();
+  const { state: settingsSnapshot, setValue } = settingsContext;
 
   const uiState = useUIState();
   const uiActions = useUIActions();
@@ -125,7 +126,7 @@ export const DialogManager = ({
           onSelect={uiActions.handleThemeSelect}
           onCancel={uiActions.closeThemeDialog}
           onHighlight={uiActions.handleThemeHighlight}
-          settings={settings}
+          settings={settingsSnapshot}
           availableTerminalHeight={
             constrainHeight ? terminalHeight - staticExtraHeight : undefined
           }
@@ -138,7 +139,7 @@ export const DialogManager = ({
     return (
       <Box flexDirection="column">
         <SettingsDialog
-          settings={settings}
+          settings={settingsContext}
           onSelect={() => uiActions.closeSettingsDialog()}
           onRestartRequest={async () => {
             await runExitCleanup();
@@ -179,7 +180,8 @@ export const DialogManager = ({
       <Box flexDirection="column">
         <AuthDialog
           config={config}
-          settings={settings}
+          settings={settingsSnapshot}
+          setValue={setValue}
           setAuthState={uiActions.setAuthState}
           authError={uiState.authError}
           onAuthError={uiActions.onAuthError}
@@ -197,7 +199,7 @@ export const DialogManager = ({
         )}
         <EditorSettingsDialog
           onSelect={uiActions.handleEditorSelect}
-          settings={settings}
+          settings={settingsSnapshot}
           onExit={uiActions.exitEditorDialog}
         />
       </Box>

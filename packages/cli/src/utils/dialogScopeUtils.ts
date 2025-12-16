@@ -4,10 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type {
-  LoadableSettingScope,
-  LoadedSettings,
-} from '../config/settings.js';
+import type { LoadableSettingScope } from '../config/settings.js';
+import type { SettingsState } from '../ui/contexts/SettingsContext.js';
 import { isLoadableSettingScope, SettingScope } from '../config/settings.js';
 import { settingExistsInScope } from './settingsUtils.js';
 
@@ -43,7 +41,7 @@ export function getScopeItems(): Array<{
 export function getScopeMessageForSetting(
   settingKey: string,
   selectedScope: LoadableSettingScope,
-  settings: LoadedSettings,
+  settings: SettingsState,
 ): string {
   const otherScopes = Object.values(SettingScope)
     .filter(isLoadableSettingScope)

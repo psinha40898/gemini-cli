@@ -5,10 +5,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import type {
-  LoadableSettingScope,
-  LoadedSettings,
-} from '../../config/settings.js';
+import type { LoadableSettingScope } from '../../config/settings.js';
 import { MessageType } from '../types.js';
 import type { EditorType } from '@google/gemini-cli-core';
 import {
@@ -19,6 +16,7 @@ import {
 import type { UseHistoryManagerReturn } from './useHistoryManager.js';
 
 import { SettingPaths } from '../../config/settingPaths.js';
+import type { SettingsContextValue } from '../contexts/SettingsContext.js';
 
 interface UseEditorSettingsReturn {
   isEditorDialogOpen: boolean;
@@ -31,7 +29,7 @@ interface UseEditorSettingsReturn {
 }
 
 export const useEditorSettings = (
-  loadedSettings: LoadedSettings,
+  setValue: SettingsContextValue['setValue'],
   setEditorError: (error: string | null) => void,
   addItem: UseHistoryManagerReturn['addItem'],
 ): UseEditorSettingsReturn => {
@@ -52,11 +50,7 @@ export const useEditorSettings = (
       }
 
       try {
-        loadedSettings.setValue(
-          scope,
-          SettingPaths.General.PreferredEditor,
-          editorType,
-        );
+        setValue(scope, SettingPaths.General.PreferredEditor, editorType);
         addItem(
           {
             type: MessageType.INFO,
@@ -70,7 +64,7 @@ export const useEditorSettings = (
         setEditorError(`Failed to set editor preference: ${error}`);
       }
     },
-    [loadedSettings, setEditorError, addItem],
+    [setValue, setEditorError, addItem],
   );
 
   const exitEditorDialog = useCallback(() => {

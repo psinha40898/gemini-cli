@@ -32,7 +32,7 @@ import { TodoTray } from './messages/Todo.js';
 
 export const Composer = () => {
   const config = useConfig();
-  const settings = useSettings();
+  const { state: settingsSnapshot } = useSettings();
   const isScreenReaderEnabled = useIsScreenReaderEnabled();
   const uiState = useUIState();
   const uiActions = useUIActions();
@@ -83,7 +83,7 @@ export const Composer = () => {
       <Box
         marginTop={1}
         justifyContent={
-          settings.merged.ui?.hideContextSummary
+          settingsSnapshot.merged.ui?.hideContextSummary
             ? 'flex-start'
             : 'space-between'
         }
@@ -110,7 +110,7 @@ export const Composer = () => {
           ) : uiState.queueErrorMessage ? (
             <Text color={theme.status.error}>{uiState.queueErrorMessage}</Text>
           ) : (
-            !settings.merged.ui?.hideContextSummary &&
+            !settingsSnapshot.merged.ui?.hideContextSummary &&
             !hideContextSummary && (
               <ContextSummaryDisplay
                 ideContext={uiState.ideContextState}
@@ -182,7 +182,9 @@ export const Composer = () => {
         />
       )}
 
-      {!settings.merged.ui?.hideFooter && !isScreenReaderEnabled && <Footer />}
+      {!settingsSnapshot.merged.ui?.hideFooter && !isScreenReaderEnabled && (
+        <Footer />
+      )}
     </Box>
   );
 };

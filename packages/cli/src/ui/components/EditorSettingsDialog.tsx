@@ -13,10 +13,8 @@ import {
   type EditorDisplay,
 } from '../editors/editorSettingsManager.js';
 import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
-import type {
-  LoadableSettingScope,
-  LoadedSettings,
-} from '../../config/settings.js';
+import type { LoadableSettingScope } from '../../config/settings.js';
+import type { SettingsState } from '../contexts/SettingsContext.js';
 import { SettingScope } from '../../config/settings.js';
 import {
   type EditorType,
@@ -30,7 +28,7 @@ interface EditorDialogProps {
     editorType: EditorType | undefined,
     scope: LoadableSettingScope,
   ) => void;
-  settings: LoadedSettings;
+  settings: SettingsState;
   onExit: () => void;
 }
 
