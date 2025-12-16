@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useMemo, useReducer, useState } from 'react';
+import React, { useEffect, useMemo, useReducer } from 'react';
 import { Box, Text } from 'ink';
 import { AsyncFzf } from 'fzf';
 import { theme } from '../semantic-colors.js';
@@ -22,12 +22,10 @@ import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
 import {
   getDialogSettingKeys,
   getDisplayValue,
-  saveModifiedSettings,
   getSettingDefinition,
   isDefaultValue,
   requiresRestart,
   getDefaultValue,
-  setPendingSettingValueAny,
   getNestedValue,
   getEffectiveValue,
   setNestedValue,
@@ -151,18 +149,24 @@ export function SettingsDialog({
   }, [searchQuery, fzfInstance, searchMap]);
 
   // ============================================================================
-  // previewSettings: React state that holds the current view of settings
-  // This is a React state (not derived) because we need to force re-renders when:
-  // 1. Non-restart settings are toggled (saved immediately, but UI needs to update)
-  // 2. Restart-required settings are changed (tracked in unsavedRestartChanges)
-  // 3. Scope changes (need to show new scope's settings)
+  // Derive current scope settings from the snapshot
+  // For restart-required pending changes, we overlay them on top
   // ============================================================================
-  const [pendingSettings, setPendingSettings] = useState<Settings>(
-    () =>
-      structuredClone(
-        settings.state.forScope(selectedScope).settings,
-      ) as Settings,
-  );
+  const currentScopeSettings = useMemo(() => {
+    const base = settings.state.forScope(selectedScope).settings as Settings;
+    if (pendingChanges.size === 0) return base;
+
+    // Overlay pending (restart-required) changes on top of snapshot
+    const overlaid = structuredClone(base) as Settings;
+    for (const [key, value] of pendingChanges.entries()) {
+      setNestedValue(
+        overlaid as Record<string, unknown>,
+        key.split('.'),
+        value,
+      );
+    }
+    return overlaid;
+  }, [settings.state, selectedScope, pendingChanges]);
 
   // ============================================================================
   // Inline editing state (consolidated via custom hook)
@@ -190,7 +194,7 @@ export function SettingsDialog({
           if (!TOGGLE_TYPES.has(definition?.type)) {
             return;
           }
-          const currentValue = getEffectiveValue(key, pendingSettings, {});
+          const currentValue = getEffectiveValue(key, currentScopeSettings, {});
           let newValue: SettingsValue;
           if (definition?.type === 'boolean') {
             newValue = !(currentValue as boolean);
@@ -207,32 +211,12 @@ export function SettingsDialog({
           }
 
           if (!requiresRestart(key)) {
-            // Non-restart settings: save immediately
-            const immediateSettings = new Set([key]);
-            const currentScopeSettings = settings.state.forScope(selectedScope)
-              .settings as Settings;
-            const immediateSettingsObject = setPendingSettingValueAny(
-              key,
-              newValue,
-              currentScopeSettings,
-            );
+            // Non-restart settings: save immediately via setValue (triggers snapshot update)
             debugLogger.log(
               `[DEBUG SettingsDialog] Saving ${key} immediately with value:`,
               newValue,
             );
-            saveModifiedSettings(
-              immediateSettings,
-              immediateSettingsObject,
-              settings.state,
-              settings.setValue,
-              selectedScope,
-            );
-
-            // Force re-render by updating previewSettings state
-            // This is necessary because the settings prop was mutated but React doesn't know
-            setPendingSettings((prev) =>
-              setPendingSettingValueAny(key, newValue, prev),
-            );
+            settings.setValue(selectedScope, key, newValue);
 
             // Special handling for vim mode to sync with VimModeContext
             if (key === 'general.vimMode' && newValue !== vimEnabled) {
@@ -248,7 +232,7 @@ export function SettingsDialog({
               config?.setPreviewFeatures(newValue as boolean);
             }
           } else {
-            // Restart-required settings: add to pending changes
+            // Restart-required settings: add to pending changes (saved on explicit restart)
             debugLogger.log(
               `[DEBUG SettingsDialog] Adding pending change for ${key}:`,
               newValue,
@@ -258,11 +242,6 @@ export function SettingsDialog({
               key,
               value: newValue as PendingValue,
             });
-
-            // Force re-render by updating previewSettings state
-            setPendingSettings((prev) =>
-              setPendingSettingValueAny(key, newValue, prev),
-            );
           }
         },
       };
@@ -299,42 +278,18 @@ export function SettingsDialog({
     }
 
     if (!requiresRestart(key)) {
-      // Non-restart settings: save immediately
-      const immediateSettings = new Set([key]);
-      const currentScopeSettings = settings.state.forScope(selectedScope)
-        .settings as Settings;
-      const immediateSettingsObject = setPendingSettingValueAny(
-        key,
-        parsed,
-        currentScopeSettings,
-      );
-      saveModifiedSettings(
-        immediateSettings,
-        immediateSettingsObject,
-        settings.state,
-        settings.setValue,
-        selectedScope,
-      );
-
-      // Force re-render by updating previewSettings state
-      setPendingSettings((prev) =>
-        setPendingSettingValueAny(key, parsed, prev),
-      );
+      // Non-restart settings: save immediately via setValue (triggers snapshot update)
+      settings.setValue(selectedScope, key, parsed);
 
       // Remove from pending changes if present
       dispatch({ type: 'REMOVE_PENDING_CHANGE', key });
     } else {
-      // Restart-required settings: add to pending changes
+      // Restart-required settings: add to pending changes (saved on explicit restart)
       dispatch({
         type: 'ADD_PENDING_CHANGE',
         key,
         value: parsed as PendingValue,
       });
-
-      // Force re-render by updating previewSettings state
-      setPendingSettings((prev) =>
-        setPendingSettingValueAny(key, parsed, prev),
-      );
     }
 
     clearEdit();
@@ -347,25 +302,8 @@ export function SettingsDialog({
   }));
 
   const handleScopeHighlight = (scope: LoadableSettingScope) => {
+    // Just update the scope - currentScopeSettings will derive automatically
     dispatch({ type: 'SET_SCOPE', scope });
-
-    // Update previewSettings with new scope's base settings + overlay unsaved changes
-    const updated = structuredClone(settings.state.forScope(scope).settings);
-    for (const [key, value] of pendingChanges.entries()) {
-      const def = getSettingDefinition(key);
-      if (
-        (def?.type === 'boolean' && typeof value === 'boolean') ||
-        (def?.type === 'number' && typeof value === 'number') ||
-        (def?.type === 'string' && typeof value === 'string')
-      ) {
-        setNestedValue(
-          updated as Record<string, unknown>,
-          key.split('.'),
-          value,
-        );
-      }
-    }
-    setPendingSettings(updated as Settings);
   };
 
   const handleScopeSelect = (scope: LoadableSettingScope) => {
@@ -463,13 +401,13 @@ export function SettingsDialog({
     const restartRequiredSet = new Set(pendingChanges.keys());
 
     if (restartRequiredSet.size > 0) {
-      saveModifiedSettings(
-        restartRequiredSet,
-        pendingSettings,
-        settings.state,
-        settings.setValue,
-        selectedScope,
-      );
+      // Save each pending change directly via setValue
+      for (const key of restartRequiredSet) {
+        const value = pendingChanges.get(key);
+        if (value !== undefined) {
+          settings.setValue(selectedScope, key, value);
+        }
+      }
 
       // Clear saved keys from pending changes
       dispatch({ type: 'SAVE_AND_CLEAR_KEYS', keys: restartRequiredSet });
@@ -629,7 +567,6 @@ export function SettingsDialog({
 
             // If this setting doesn't require restart, save it immediately
             if (!requiresRestart(currentSetting.value)) {
-              const immediateSettings = new Set([currentSetting.value]);
               const toSaveValue =
                 currentSetting.type === 'boolean'
                   ? typeof defaultValue === 'boolean'
@@ -639,34 +576,13 @@ export function SettingsDialog({
                       typeof defaultValue === 'string'
                     ? defaultValue
                     : undefined;
-              const currentScopeSettings = settings.state.forScope(
-                selectedScope,
-              ).settings as Settings;
-              const immediateSettingsObject =
-                toSaveValue !== undefined
-                  ? setPendingSettingValueAny(
-                      currentSetting.value,
-                      toSaveValue,
-                      currentScopeSettings,
-                    )
-                  : currentScopeSettings;
 
-              saveModifiedSettings(
-                immediateSettings,
-                immediateSettingsObject,
-                settings.state,
-                settings.setValue,
-                selectedScope,
-              );
-
-              // Force re-render by updating previewSettings state
+              // Save immediately via setValue (triggers snapshot update)
               if (toSaveValue !== undefined) {
-                setPendingSettings((prev) =>
-                  setPendingSettingValueAny(
-                    currentSetting.value,
-                    toSaveValue,
-                    prev,
-                  ),
+                settings.setValue(
+                  selectedScope,
+                  currentSetting.value,
+                  toSaveValue,
                 );
               }
 
@@ -682,15 +598,6 @@ export function SettingsDialog({
                 key: currentSetting.value,
                 value: defaultValue as PendingValue,
               });
-
-              // Force re-render by updating previewSettings state
-              setPendingSettings((prev) =>
-                setPendingSettingValueAny(
-                  currentSetting.value,
-                  defaultValue,
-                  prev,
-                ),
-              );
             }
           }
         }
@@ -821,9 +728,9 @@ export function SettingsDialog({
                   displayValue = editState.buffer;
                 }
               } else if (item.type === 'number' || item.type === 'string') {
-                // For numbers/strings, get the actual current value from preview settings
+                // For numbers/strings, get the actual current value from derived settings
                 const path = item.value.split('.');
-                const currentValue = getNestedValue(pendingSettings, path);
+                const currentValue = getNestedValue(currentScopeSettings, path);
 
                 const defaultValue = getDefaultValue(item.value);
 
@@ -855,7 +762,7 @@ export function SettingsDialog({
                   scopeSettings,
                   mergedSettings,
                   new Set(pendingChanges.keys()),
-                  pendingSettings,
+                  currentScopeSettings,
                 );
               }
               const shouldBeGreyedOut = isDefaultValue(

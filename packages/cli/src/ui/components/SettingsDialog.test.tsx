@@ -34,7 +34,7 @@ import type {
 } from '../contexts/SettingsContext.js';
 import { KeypressProvider } from '../contexts/KeypressContext.js';
 import { act } from 'react';
-import { saveModifiedSettings, TEST_ONLY } from '../../utils/settingsUtils.js';
+import { TEST_ONLY } from '../../utils/settingsUtils.js';
 import {
   getSettingsSchema,
   type SettingDefinition,
@@ -131,14 +131,6 @@ vi.mock('../contexts/VimModeContext.js', async () => {
       toggleVimEnabled: mockToggleVimEnabled,
       setVimMode: mockSetVimMode,
     }),
-  };
-});
-
-vi.mock('../../utils/settingsUtils.js', async () => {
-  const actual = await vi.importActual('../../utils/settingsUtils.js');
-  return {
-    ...actual,
-    saveModifiedSettings: vi.fn(),
   };
 });
 
@@ -272,20 +264,24 @@ const renderDialog = (
   },
 ) => {
   // Wrap settings in SettingsContextValue format
+  const mockSetValue = vi.fn();
   const settingsContextValue: SettingsContextValue = {
     state: settings as unknown as SettingsState,
-    setValue: vi.fn(),
+    setValue: mockSetValue,
   };
-  return render(
-    <KeypressProvider>
-      <SettingsDialog
-        settings={settingsContextValue}
-        onSelect={onSelect}
-        onRestartRequest={options?.onRestartRequest}
-        availableTerminalHeight={options?.availableTerminalHeight}
-      />
-    </KeypressProvider>,
-  );
+  return {
+    ...render(
+      <KeypressProvider>
+        <SettingsDialog
+          settings={settingsContextValue}
+          onSelect={onSelect}
+          onRestartRequest={options?.onRestartRequest}
+          availableTerminalHeight={options?.availableTerminalHeight}
+        />
+      </KeypressProvider>,
+    ),
+    mockSetValue,
+  };
 };
 
 describe('SettingsDialog', () => {
@@ -404,12 +400,13 @@ describe('SettingsDialog', () => {
 
   describe('Settings Toggling', () => {
     it('should toggle setting with Enter key', async () => {
-      vi.mocked(saveModifiedSettings).mockClear();
-
       const settings = createMockSettings();
       const onSelect = vi.fn();
 
-      const { stdin, unmount, lastFrame } = renderDialog(settings, onSelect);
+      const { stdin, unmount, lastFrame, mockSetValue } = renderDialog(
+        settings,
+        onSelect,
+      );
 
       // Wait for initial render and verify we're on Preview Features (first setting)
       await waitFor(() => {
@@ -428,27 +425,16 @@ describe('SettingsDialog', () => {
       act(() => {
         stdin.write(TerminalKeys.ENTER as string);
       });
-      // Wait for the setting change to be processed
+
+      // Wait for setValue to be called (now called directly instead of saveModifiedSettings)
       await waitFor(() => {
-        expect(
-          vi.mocked(saveModifiedSettings).mock.calls.length,
-        ).toBeGreaterThan(0);
+        expect(mockSetValue).toHaveBeenCalled();
       });
 
-      // Wait for the mock to be called
-      await waitFor(() => {
-        expect(vi.mocked(saveModifiedSettings)).toHaveBeenCalled();
-      });
-
-      expect(vi.mocked(saveModifiedSettings)).toHaveBeenCalledWith(
-        new Set<string>(['general.vimMode']),
-        expect.objectContaining({
-          general: expect.objectContaining({
-            vimMode: true,
-          }),
-        }),
-        expect.any(LoadedSettings),
+      expect(mockSetValue).toHaveBeenCalledWith(
         SettingScope.User,
+        'general.vimMode',
+        true,
       );
 
       unmount();
@@ -467,7 +453,6 @@ describe('SettingsDialog', () => {
           expectedValue: StringEnum.FOO,
         },
       ])('$name', async ({ initialValue, expectedValue }) => {
-        vi.mocked(saveModifiedSettings).mockClear();
         vi.mocked(getSettingsSchema).mockReturnValue(ENUM_FAKE_SCHEMA);
 
         const settings = createMockSettings();
@@ -477,7 +462,10 @@ describe('SettingsDialog', () => {
 
         const onSelect = vi.fn();
 
-        const { stdin, unmount } = renderDialog(settings, onSelect);
+        const { stdin, unmount, mockSetValue } = renderDialog(
+          settings,
+          onSelect,
+        );
 
         act(() => {
           stdin.write(TerminalKeys.DOWN_ARROW as string);
@@ -485,18 +473,13 @@ describe('SettingsDialog', () => {
         });
 
         await waitFor(() => {
-          expect(vi.mocked(saveModifiedSettings)).toHaveBeenCalled();
+          expect(mockSetValue).toHaveBeenCalled();
         });
 
-        expect(vi.mocked(saveModifiedSettings)).toHaveBeenCalledWith(
-          new Set<string>(['ui.theme']),
-          expect.objectContaining({
-            ui: expect.objectContaining({
-              theme: expectedValue,
-            }),
-          }),
-          expect.any(LoadedSettings),
+        expect(mockSetValue).toHaveBeenCalledWith(
           SettingScope.User,
+          'ui.theme',
+          expectedValue,
         );
 
         unmount();
@@ -856,9 +839,11 @@ describe('SettingsDialog', () => {
       },
     ])(
       'should $name',
-      async ({ toggleCount, shellSettings, expectedSiblings }) => {
-        vi.mocked(saveModifiedSettings).mockClear();
-
+      async ({
+        toggleCount,
+        shellSettings,
+        expectedSiblings: _expectedSiblings,
+      }) => {
         vi.mocked(getSettingsSchema).mockReturnValue(TOOLS_SHELL_FAKE_SCHEMA);
 
         const settings = createMockSettings({
@@ -869,7 +854,10 @@ describe('SettingsDialog', () => {
 
         const onSelect = vi.fn();
 
-        const { stdin, unmount } = renderDialog(settings, onSelect);
+        const { stdin, unmount, mockSetValue } = renderDialog(
+          settings,
+          onSelect,
+        );
 
         for (let i = 0; i < toggleCount; i++) {
           act(() => {
@@ -877,28 +865,19 @@ describe('SettingsDialog', () => {
           });
         }
 
+        // With the new approach, setValue is called directly for the specific key only
+        // Sibling settings are preserved implicitly in the store
         await waitFor(() => {
-          expect(
-            vi.mocked(saveModifiedSettings).mock.calls.length,
-          ).toBeGreaterThan(0);
+          expect(mockSetValue.mock.calls.length).toBeGreaterThan(0);
         });
 
-        const calls = vi.mocked(saveModifiedSettings).mock.calls;
+        // Verify that only the toggled setting key is passed to setValue
+        const calls = mockSetValue.mock.calls;
         calls.forEach((call) => {
-          const [modifiedKeys, pendingSettings] = call;
-
-          if (modifiedKeys.has('tools.shell.showColor')) {
-            const shellSettings = pendingSettings.tools?.shell as
-              | Record<string, unknown>
-              | undefined;
-
-            Object.entries(expectedSiblings).forEach(([key, value]) => {
-              expect(shellSettings?.[key]).toBe(value);
-              expect(modifiedKeys.has(`tools.shell.${key}`)).toBe(false);
-            });
-
-            expect(modifiedKeys.size).toBe(1);
-          }
+          const [scope, key, value] = call;
+          expect(scope).toBe(SettingScope.User);
+          expect(key).toBe('tools.shell.showColor');
+          expect(typeof value).toBe('boolean');
         });
 
         expect(calls.length).toBeGreaterThan(0);
