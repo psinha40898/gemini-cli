@@ -76,12 +76,10 @@ export function SettingsDialog({
   availableTerminalHeight,
   config,
 }: SettingsDialogProps): React.JSX.Element {
-  // Get vim mode context to sync vim mode changes
   const { vimEnabled, toggleVimEnabled } = useVimMode();
 
-  // ============================================================================
-  // Reducer for core dialog state
-  // ============================================================================
+  // The reducer handles the bulk of Dialog state
+  // The current settings scope, currently focused menu (settings or scope), responsive height, search state, and setting changes that require a restart.
   const [state, dispatch] = useReducer(
     settingsDialogReducer,
     undefined,
@@ -99,6 +97,8 @@ export function SettingsDialog({
   } = state;
 
   const showRestartPrompt = pendingChanges.size > 0;
+
+  // Memoized fuzzy search instance and search map to drive search effect
   const { fzfInstance, searchMap } = useMemo(() => {
     const keys = getDialogSettingKeys();
     const map = new Map<string, string>();
@@ -119,7 +119,6 @@ export function SettingsDialog({
     return { fzfInstance: fzf, searchMap: map };
   }, []);
 
-  // Perform search
   useEffect(() => {
     let active = true;
     if (!searchQuery.trim() || !fzfInstance) {
@@ -148,15 +147,10 @@ export function SettingsDialog({
     };
   }, [searchQuery, fzfInstance, searchMap]);
 
-  // ============================================================================
-  // Derive current scope settings from the snapshot
-  // For restart-required pending changes, we overlay them on top
-  // ============================================================================
   const currentScopeSettings = useMemo(() => {
     const base = settings.state.forScope(selectedScope).settings as Settings;
     if (pendingChanges.size === 0) return base;
 
-    // Overlay pending (restart-required) changes on top of snapshot
     const overlaid = structuredClone(base) as Settings;
     for (const [key, value] of pendingChanges.entries()) {
       setNestedValue(
@@ -168,9 +162,6 @@ export function SettingsDialog({
     return overlaid;
   }, [settings.state, selectedScope, pendingChanges]);
 
-  // ============================================================================
-  // Inline editing state (consolidated via custom hook)
-  // ============================================================================
   const {
     editState,
     startEdit,
@@ -211,7 +202,6 @@ export function SettingsDialog({
           }
 
           if (!requiresRestart(key)) {
-            // Non-restart settings: save immediately via setValue (triggers snapshot update)
             debugLogger.log(
               `[DEBUG SettingsDialog] Saving ${key} immediately with value:`,
               newValue,
@@ -225,14 +215,12 @@ export function SettingsDialog({
               });
             }
 
-            // Remove from pending changes if present (non-restart setting was saved)
             dispatch({ type: 'REMOVE_PENDING_CHANGE', key });
 
             if (key === 'general.previewFeatures') {
               config?.setPreviewFeatures(newValue as boolean);
             }
           } else {
-            // Restart-required settings: add to pending changes (saved on explicit restart)
             debugLogger.log(
               `[DEBUG SettingsDialog] Adding pending change for ${key}:`,
               newValue,
@@ -250,9 +238,7 @@ export function SettingsDialog({
 
   const items = generateSettingsItems();
 
-  // ============================================================================
-  // Commit edit helper - saves inline edits for number/string settings
-  // ============================================================================
+  // Save the settings value from an inline editable field
   const commitEdit = (key: string) => {
     const definition = getSettingDefinition(key);
     const type = definition?.type;
@@ -278,13 +264,9 @@ export function SettingsDialog({
     }
 
     if (!requiresRestart(key)) {
-      // Non-restart settings: save immediately via setValue (triggers snapshot update)
       settings.setValue(selectedScope, key, parsed);
-
-      // Remove from pending changes if present
       dispatch({ type: 'REMOVE_PENDING_CHANGE', key });
     } else {
-      // Restart-required settings: add to pending changes (saved on explicit restart)
       dispatch({
         type: 'ADD_PENDING_CHANGE',
         key,
@@ -295,14 +277,12 @@ export function SettingsDialog({
     clearEdit();
   };
 
-  // Scope selector items
   const scopeItems = getScopeItems().map((item) => ({
     ...item,
     key: item.value,
   }));
 
   const handleScopeHighlight = (scope: LoadableSettingScope) => {
-    // Just update the scope - currentScopeSettings will derive automatically
     dispatch({ type: 'SET_SCOPE', scope });
   };
 
@@ -397,19 +377,15 @@ export function SettingsDialog({
   const showScrollDown = items.length > effectiveMaxItemsToShow;
 
   const saveRestartRequiredSettings = () => {
-    // Get keys that require restart from our pending changes
     const restartRequiredSet = new Set(pendingChanges.keys());
 
     if (restartRequiredSet.size > 0) {
-      // Save each pending change directly via setValue
       for (const key of restartRequiredSet) {
         const value = pendingChanges.get(key);
         if (value !== undefined) {
           settings.setValue(selectedScope, key, value);
         }
       }
-
-      // Clear saved keys from pending changes
       dispatch({ type: 'SAVE_AND_CLEAR_KEYS', keys: restartRequiredSet });
     }
   };
@@ -496,7 +472,6 @@ export function SettingsDialog({
             return;
           }
 
-          // Arrow key navigation
           if (name === 'left') {
             moveCursor(Math.max(0, editState.cursorPos - 1));
             return;
@@ -507,7 +482,6 @@ export function SettingsDialog({
             );
             return;
           }
-          // Home and End keys
           if (keyMatchers[Command.HOME](key)) {
             moveCursor(0);
             return;
@@ -520,7 +494,6 @@ export function SettingsDialog({
           return;
         }
         if (keyMatchers[Command.DIALOG_NAVIGATION_UP](key)) {
-          // If editing, commit first
           if (isEditing && editState.key) {
             commitEdit(editState.key);
           }
@@ -531,7 +504,6 @@ export function SettingsDialog({
             maxVisible: effectiveMaxItemsToShow,
           });
         } else if (keyMatchers[Command.DIALOG_NAVIGATION_DOWN](key)) {
-          // If editing, commit first
           if (isEditing && editState.key) {
             commitEdit(editState.key);
           }
@@ -586,13 +558,11 @@ export function SettingsDialog({
                 );
               }
 
-              // Remove from pending changes if present
               dispatch({
                 type: 'REMOVE_PENDING_CHANGE',
                 key: currentSetting.value,
               });
             } else {
-              // Track default reset as a pending change if restart required
               dispatch({
                 type: 'ADD_PENDING_CHANGE',
                 key: currentSetting.value,
@@ -603,7 +573,6 @@ export function SettingsDialog({
         }
       }
       if (showRestartPrompt && name === 'r') {
-        // Only save settings that require restart (non-restart settings were already saved immediately)
         saveRestartRequiredSettings();
         if (onRestartRequest) onRestartRequest();
       }
@@ -611,7 +580,6 @@ export function SettingsDialog({
         if (isEditing && editState.key) {
           commitEdit(editState.key);
         } else {
-          // Save any restart-required settings before closing
           saveRestartRequiredSettings();
           onSelect(undefined, selectedScope);
         }
@@ -770,7 +738,6 @@ export function SettingsDialog({
                 scopeSettings,
               );
 
-              // Generate scope message for this setting
               const scopeMessage = getScopeMessageForSetting(
                 item.value,
                 selectedScope,
@@ -831,7 +798,6 @@ export function SettingsDialog({
 
         <Box height={1} />
 
-        {/* Scope Selection - conditionally visible based on height constraints */}
         {showScopeSelection && (
           <Box marginX={1} flexDirection="column">
             <Text bold={focusSection === 'scope'} wrap="truncate">
