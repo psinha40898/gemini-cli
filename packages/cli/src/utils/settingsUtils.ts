@@ -312,6 +312,34 @@ export function settingExistsInScope(
   return value !== undefined;
 }
 
+export function shouldWriteSetting(
+  key: string,
+  value: SettingsValue,
+  scopeSettings: Settings | DeepReadonlySettings,
+): boolean {
+  if (value === undefined) {
+    return false;
+  }
+
+  const existsInFile = settingExistsInScope(key, scopeSettings);
+  const isDefault = value === getDefaultValue(key);
+  return existsInFile || !isDefault;
+}
+
+export function saveSetting(
+  key: string,
+  value: SettingsValue,
+  scope: LoadableSettingScope,
+  scopeSettings: Settings | DeepReadonlySettings,
+  setValue: (scope: LoadableSettingScope, key: string, value: unknown) => void,
+): void {
+  if (!shouldWriteSetting(key, value, scopeSettings)) {
+    return;
+  }
+
+  setValue(scope, key, value);
+}
+
 /**
  * Recursively sets a value in a nested object using a key path array.
  */

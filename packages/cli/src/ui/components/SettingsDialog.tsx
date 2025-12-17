@@ -27,6 +27,7 @@ import {
   getDefaultValue,
   getNestedValue,
   getEffectiveValue,
+  saveSetting,
 } from '../../utils/settingsUtils.js';
 import { useVimMode } from '../contexts/VimModeContext.js';
 import { useKeypress } from '../hooks/useKeypress.js';
@@ -187,12 +188,20 @@ export function SettingsDialog({
             }
           }
 
-          // Save all settings immediately, including restart-required ones
+          if (newValue === undefined) {
+            return;
+          }
           debugLogger.log(
-            `[DEBUG SettingsDialog] Saving ${key} immediately with value:`,
+            `[DEBUG SettingsDialog] Saving ${key} with value:`,
             newValue,
           );
-          settings.setValue(selectedScope, key, newValue);
+          saveSetting(
+            key,
+            newValue,
+            selectedScope,
+            scopeSettings,
+            settings.setValue,
+          );
 
           // Special handling for vim mode to sync with VimModeContext
           if (key === 'general.vimMode' && newValue !== vimEnabled) {
@@ -241,8 +250,7 @@ export function SettingsDialog({
       parsed = editState.buffer;
     }
 
-    // Save all settings immediately, including restart-required ones
-    settings.setValue(selectedScope, key, parsed);
+    saveSetting(key, parsed, selectedScope, scopeSettings, settings.setValue);
 
     // Mark restart-required keys as dirty so we show the restart prompt
     if (requiresRestart(key)) {
@@ -508,14 +516,13 @@ export function SettingsDialog({
                   ? defaultValue
                   : undefined;
 
-            // Save immediately via setValue (triggers snapshot update)
-            if (toSaveValue !== undefined) {
-              settings.setValue(
-                selectedScope,
-                currentSetting.value,
-                toSaveValue,
-              );
-            }
+            saveSetting(
+              currentSetting.value,
+              toSaveValue,
+              selectedScope,
+              scopeSettings,
+              settings.setValue,
+            );
 
             // Mark restart-required keys as dirty so we show the restart prompt
             if (requiresRestart(currentSetting.value)) {
