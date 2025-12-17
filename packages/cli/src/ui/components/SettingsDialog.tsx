@@ -78,9 +78,11 @@ export function SettingsDialog({
 
   // The reducer handles the bulk of Dialog state
   // The current settings scope, currently focused menu (settings or scope), responsive height, search state, and setting changes that require a restart.
+  // Note: createInitialState only runs once (React's useReducer guarantee), capturing
+  // the original values of restart-required settings at mount time.
   const [state, dispatch] = useReducer(
     settingsDialogReducer,
-    undefined,
+    settings.state.merged,
     createInitialState,
   );
 
@@ -214,9 +216,9 @@ export function SettingsDialog({
             config?.setPreviewFeatures(newValue as boolean);
           }
 
-          // Mark restart-required keys as dirty so we show the restart prompt
+          // Update restart-dirty tracking (adds if different from original, removes if reverted)
           if (requiresRestart(key)) {
-            dispatch({ type: 'MARK_RESTART_DIRTY', key });
+            dispatch({ type: 'UPDATE_RESTART_DIRTY', key, newValue });
           }
         },
       };
@@ -252,9 +254,9 @@ export function SettingsDialog({
 
     saveSetting(key, parsed, selectedScope, scopeSettings, settings.setValue);
 
-    // Mark restart-required keys as dirty so we show the restart prompt
+    // Update restart-dirty tracking (adds if different from original, removes if reverted)
     if (requiresRestart(key)) {
-      dispatch({ type: 'MARK_RESTART_DIRTY', key });
+      dispatch({ type: 'UPDATE_RESTART_DIRTY', key, newValue: parsed });
     }
 
     clearEdit();
@@ -524,11 +526,12 @@ export function SettingsDialog({
               settings.setValue,
             );
 
-            // Mark restart-required keys as dirty so we show the restart prompt
+            // Update restart-dirty tracking (adds if different from original, removes if reverted)
             if (requiresRestart(currentSetting.value)) {
               dispatch({
-                type: 'MARK_RESTART_DIRTY',
+                type: 'UPDATE_RESTART_DIRTY',
                 key: currentSetting.value,
+                newValue: toSaveValue,
               });
             }
           }

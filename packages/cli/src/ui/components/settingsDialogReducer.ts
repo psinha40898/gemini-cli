@@ -6,7 +6,13 @@
 
 import type { LoadableSettingScope } from '../../config/settings.js';
 import { SettingScope } from '../../config/settings.js';
-import { getDialogSettingKeys } from '../../utils/settingsUtils.js';
+import type { Settings } from '../../config/settingsSchema.js';
+import type { DeepReadonly } from '../contexts/SettingsContext.js';
+import {
+  getDialogSettingKeys,
+  getEffectiveValue,
+  requiresRestart,
+} from '../../utils/settingsUtils.js';
 import { checkExhaustive } from '../../utils/checks.js';
 
 // ============================================================================
@@ -24,10 +30,14 @@ export interface SettingsDialogState {
   searchQuery: string;
   filteredKeys: string[];
 
-  // Tracks restart-required settings that have been modified this session.
-  // Once a restart-required key is changed, it stays in this set until restart.
+  // Tracks restart-required settings that differ from their original values at mount.
+  // A key is added when changed from original, removed when reverted to original.
   // All settings (including restart-required) are saved immediately on change.
   restartDirtyKeys: Set<string>;
+
+  // Original values of restart-required settings captured at dialog mount.
+  // Used to determine if a setting has been "reverted" to its original state.
+  restartOriginalValues: Map<string, unknown>;
 }
 
 export type SettingsDialogAction =
@@ -47,13 +57,23 @@ export type SettingsDialogAction =
   | { type: 'SET_FILTERED_KEYS'; keys: string[] }
 
   // Restart-required tracking
-  | { type: 'MARK_RESTART_DIRTY'; key: string };
+  | { type: 'UPDATE_RESTART_DIRTY'; key: string; newValue: unknown };
 
 // ============================================================================
 // Initial State Factory
 // ============================================================================
 
-export function createInitialState(): SettingsDialogState {
+export function createInitialState(
+  mergedAtMount: Settings | DeepReadonly<Settings>,
+): SettingsDialogState {
+  // Capture original values for all restart-required settings at mount
+  const restartOriginalValues = new Map<string, unknown>();
+  for (const key of getDialogSettingKeys()) {
+    if (requiresRestart(key)) {
+      restartOriginalValues.set(key, getEffectiveValue(key, mergedAtMount, {}));
+    }
+  }
+
   return {
     focusSection: 'settings',
     selectedScope: SettingScope.User,
@@ -62,6 +82,7 @@ export function createInitialState(): SettingsDialogState {
     searchQuery: '',
     filteredKeys: getDialogSettingKeys(),
     restartDirtyKeys: new Set(),
+    restartOriginalValues,
   };
 }
 
@@ -146,10 +167,21 @@ export function settingsDialogReducer(
       };
     }
 
-    case 'MARK_RESTART_DIRTY': {
-      if (state.restartDirtyKeys.has(action.key)) return state;
+    case 'UPDATE_RESTART_DIRTY': {
+      const { key, newValue } = action;
+      const originalValue = state.restartOriginalValues.get(key);
+      const isDirty = newValue !== originalValue;
+      const wasDirty = state.restartDirtyKeys.has(key);
+
+      // No change needed
+      if (isDirty === wasDirty) return state;
+
       const next = new Set(state.restartDirtyKeys);
-      next.add(action.key);
+      if (isDirty) {
+        next.add(key);
+      } else {
+        next.delete(key);
+      }
       return { ...state, restartDirtyKeys: next };
     }
 

@@ -12,13 +12,17 @@ import {
   type SettingsDialogAction,
 } from './settingsDialogReducer.js';
 import { SettingScope } from '../../config/settings.js';
+import type { Settings } from '../../config/settingsSchema.js';
 import { getDialogSettingKeys } from '../../utils/settingsUtils.js';
+
+// Mock merged settings for testing
+const mockMergedSettings: Settings = {} as Settings;
 
 describe('settingsDialogReducer', () => {
   let initialState: SettingsDialogState;
 
   beforeEach(() => {
-    initialState = createInitialState();
+    initialState = createInitialState(mockMergedSettings);
   });
 
   describe('createInitialState', () => {
@@ -30,6 +34,7 @@ describe('settingsDialogReducer', () => {
       expect(initialState.searchQuery).toBe('');
       expect(initialState.filteredKeys).toEqual(getDialogSettingKeys());
       expect(initialState.restartDirtyKeys).toEqual(new Set());
+      expect(initialState.restartOriginalValues).toBeInstanceOf(Map);
     });
   });
 
@@ -261,49 +266,95 @@ describe('settingsDialogReducer', () => {
     });
   });
 
-  describe('MARK_RESTART_DIRTY', () => {
-    it('should add key to restartDirtyKeys', () => {
-      const action: SettingsDialogAction = {
-        type: 'MARK_RESTART_DIRTY',
-        key: 'test.setting',
+  describe('UPDATE_RESTART_DIRTY', () => {
+    it('should add key to restartDirtyKeys when value differs from original', () => {
+      const state = {
+        ...initialState,
+        restartOriginalValues: new Map([['test.setting', 'original']]),
       };
-      const result = settingsDialogReducer(initialState, action);
+      const action: SettingsDialogAction = {
+        type: 'UPDATE_RESTART_DIRTY',
+        key: 'test.setting',
+        newValue: 'changed',
+      };
+      const result = settingsDialogReducer(state, action);
       expect(result.restartDirtyKeys.size).toBe(1);
       expect(result.restartDirtyKeys.has('test.setting')).toBe(true);
     });
 
-    it('should not duplicate existing key', () => {
+    it('should remove key from restartDirtyKeys when value matches original', () => {
       const state = {
         ...initialState,
         restartDirtyKeys: new Set(['test.setting']),
+        restartOriginalValues: new Map([['test.setting', 'original']]),
       };
       const action: SettingsDialogAction = {
-        type: 'MARK_RESTART_DIRTY',
+        type: 'UPDATE_RESTART_DIRTY',
         key: 'test.setting',
+        newValue: 'original',
       };
       const result = settingsDialogReducer(state, action);
-      expect(result.restartDirtyKeys.size).toBe(1);
-      // Should return same state reference when key already exists
+      expect(result.restartDirtyKeys.size).toBe(0);
+      expect(result.restartDirtyKeys.has('test.setting')).toBe(false);
+    });
+
+    it('should return same state when dirty status unchanged (still dirty)', () => {
+      const state = {
+        ...initialState,
+        restartDirtyKeys: new Set(['test.setting']),
+        restartOriginalValues: new Map([['test.setting', 'original']]),
+      };
+      const action: SettingsDialogAction = {
+        type: 'UPDATE_RESTART_DIRTY',
+        key: 'test.setting',
+        newValue: 'still-changed',
+      };
+      const result = settingsDialogReducer(state, action);
       expect(result).toBe(state);
     });
 
-    it('should add multiple different keys', () => {
-      let result = initialState;
-
-      const action1: SettingsDialogAction = {
-        type: 'MARK_RESTART_DIRTY',
-        key: 'setting1',
+    it('should return same state when dirty status unchanged (still clean)', () => {
+      const state = {
+        ...initialState,
+        restartOriginalValues: new Map([['test.setting', 'original']]),
       };
-      result = settingsDialogReducer(result, action1);
+      const action: SettingsDialogAction = {
+        type: 'UPDATE_RESTART_DIRTY',
+        key: 'test.setting',
+        newValue: 'original',
+      };
+      const result = settingsDialogReducer(state, action);
+      expect(result).toBe(state);
+    });
 
-      const action2: SettingsDialogAction = {
-        type: 'MARK_RESTART_DIRTY',
+    it('should handle multiple keys independently', () => {
+      const state = {
+        ...initialState,
+        restartDirtyKeys: new Set(['setting1']),
+        restartOriginalValues: new Map([
+          ['setting1', 'orig1'],
+          ['setting2', 'orig2'],
+        ]),
+      };
+
+      // Add setting2 as dirty
+      const action1: SettingsDialogAction = {
+        type: 'UPDATE_RESTART_DIRTY',
         key: 'setting2',
+        newValue: 'changed2',
+      };
+      let result = settingsDialogReducer(state, action1);
+      expect(result.restartDirtyKeys.size).toBe(2);
+
+      // Revert setting1 to original
+      const action2: SettingsDialogAction = {
+        type: 'UPDATE_RESTART_DIRTY',
+        key: 'setting1',
+        newValue: 'orig1',
       };
       result = settingsDialogReducer(result, action2);
-
-      expect(result.restartDirtyKeys.size).toBe(2);
-      expect(result.restartDirtyKeys.has('setting1')).toBe(true);
+      expect(result.restartDirtyKeys.size).toBe(1);
+      expect(result.restartDirtyKeys.has('setting1')).toBe(false);
       expect(result.restartDirtyKeys.has('setting2')).toBe(true);
     });
   });
@@ -334,10 +385,15 @@ describe('settingsDialogReducer', () => {
       const state = {
         ...initialState,
         restartDirtyKeys: new Set(['setting1']),
+        restartOriginalValues: new Map([
+          ['setting1', 'orig1'],
+          ['setting2', 'orig2'],
+        ]),
       };
       const action: SettingsDialogAction = {
-        type: 'MARK_RESTART_DIRTY',
+        type: 'UPDATE_RESTART_DIRTY',
         key: 'setting2',
+        newValue: 'changed2',
       };
       const result = settingsDialogReducer(state, action);
       expect(result.restartDirtyKeys).not.toBe(state.restartDirtyKeys);
