@@ -27,10 +27,6 @@ import {
   isSettingModified,
   TEST_ONLY,
   settingExistsInScope,
-  setPendingSettingValue,
-  setNestedValue,
-  hasRestartRequiredSettings,
-  getRestartRequiredFromModified,
   getDisplayValue,
   isDefaultValue,
   isValueInherited,
@@ -507,14 +503,11 @@ describe('SettingsUtils', () => {
         // Test the specific issue with fileFiltering.respectGitIgnore
         const key = 'context.fileFiltering.respectGitIgnore';
         const initialSettings = makeMockSettings({});
-        const pendingSettings = makeMockSettings({});
 
-        // Set the nested setting to true
-        const updatedPendingSettings = setPendingSettingValue(
-          key,
-          true,
-          pendingSettings,
-        );
+        // Create pending settings with the nested value set directly
+        const updatedPendingSettings = makeMockSettings({
+          context: { fileFiltering: { respectGitIgnore: true } },
+        });
 
         // Check if the setting exists in pending settings
         const existsInPending = settingExistsInScope(
@@ -657,93 +650,6 @@ describe('SettingsUtils', () => {
             settings,
           ),
         ).toBe(false);
-      });
-    });
-
-    describe('setPendingSettingValue', () => {
-      it('should set top-level setting value', () => {
-        const pendingSettings = makeMockSettings({});
-        const result = setPendingSettingValue(
-          'ui.hideWindowTitle',
-          true,
-          pendingSettings,
-        );
-
-        expect(result.ui?.hideWindowTitle).toBe(true);
-      });
-
-      it('should set nested setting value', () => {
-        const pendingSettings = makeMockSettings({});
-        const result = setPendingSettingValue(
-          'ui.accessibility.disableLoadingPhrases',
-          true,
-          pendingSettings,
-        );
-
-        expect(result.ui?.accessibility?.disableLoadingPhrases).toBe(true);
-      });
-
-      it('should preserve existing nested settings', () => {
-        const pendingSettings = makeMockSettings({
-          ui: { accessibility: { disableLoadingPhrases: false } },
-        });
-        const result = setPendingSettingValue(
-          'ui.accessibility.disableLoadingPhrases',
-          true,
-          pendingSettings,
-        );
-
-        expect(result.ui?.accessibility?.disableLoadingPhrases).toBe(true);
-      });
-
-      it('should not mutate original settings', () => {
-        const pendingSettings = makeMockSettings({});
-        setPendingSettingValue('ui.requiresRestart', true, pendingSettings);
-
-        expect(pendingSettings).toEqual({});
-      });
-    });
-
-    describe('hasRestartRequiredSettings', () => {
-      it('should return true when modified settings require restart', () => {
-        const modifiedSettings = new Set<string>([
-          'advanced.autoConfigureMemory',
-          'ui.requiresRestart',
-        ]);
-        expect(hasRestartRequiredSettings(modifiedSettings)).toBe(true);
-      });
-
-      it('should return false when no modified settings require restart', () => {
-        const modifiedSettings = new Set<string>(['test']);
-        expect(hasRestartRequiredSettings(modifiedSettings)).toBe(false);
-      });
-
-      it('should return false for empty set', () => {
-        const modifiedSettings = new Set<string>();
-        expect(hasRestartRequiredSettings(modifiedSettings)).toBe(false);
-      });
-    });
-
-    describe('getRestartRequiredFromModified', () => {
-      it('should return only settings that require restart', () => {
-        const modifiedSettings = new Set<string>([
-          'ui.requiresRestart',
-          'test',
-        ]);
-        const result = getRestartRequiredFromModified(modifiedSettings);
-
-        expect(result).toContain('ui.requiresRestart');
-        expect(result).not.toContain('test');
-      });
-
-      it('should return empty array when no settings require restart', () => {
-        const modifiedSettings = new Set<string>([
-          'requiresRestart',
-          'hideTips',
-        ]);
-        const result = getRestartRequiredFromModified(modifiedSettings);
-
-        expect(result).toEqual([]);
       });
     });
 
@@ -1148,81 +1054,6 @@ describe('SettingsUtils', () => {
           mergedSettings,
         );
         expect(result).toBe(false); // Default value
-      });
-    });
-
-    describe('setNestedValue', () => {
-      it('should set a top-level key', () => {
-        const obj: Record<string, unknown> = {};
-        setNestedValue(obj, ['foo'], 'bar');
-        expect(obj).toEqual({ foo: 'bar' });
-      });
-
-      it('should set a nested key two levels deep', () => {
-        const obj: Record<string, unknown> = {};
-        setNestedValue(obj, ['ui', 'theme'], 'dark');
-        expect(obj).toEqual({ ui: { theme: 'dark' } });
-      });
-
-      it('should set a nested key three levels deep', () => {
-        const obj: Record<string, unknown> = {};
-        setNestedValue(obj, ['ui', 'accessibility', 'highContrast'], true);
-        expect(obj).toEqual({
-          ui: { accessibility: { highContrast: true } },
-        });
-      });
-
-      it('should preserve existing sibling properties', () => {
-        const obj: Record<string, unknown> = {
-          existing: 'value',
-          ui: { oldProp: true },
-        };
-        setNestedValue(obj, ['ui', 'theme'], 'dark');
-        expect(obj).toEqual({
-          existing: 'value',
-          ui: { oldProp: true, theme: 'dark' },
-        });
-      });
-
-      it('should overwrite existing value at path', () => {
-        const obj: Record<string, unknown> = { ui: { theme: 'light' } };
-        setNestedValue(obj, ['ui', 'theme'], 'dark');
-        expect(obj).toEqual({ ui: { theme: 'dark' } });
-      });
-
-      it('should handle empty path by returning the object unchanged', () => {
-        const obj: Record<string, unknown> = { foo: 'bar' };
-        const result = setNestedValue(obj, [], 'ignored');
-        expect(result).toEqual({ foo: 'bar' });
-      });
-
-      it('should overwrite non-object intermediate values with objects', () => {
-        const obj: Record<string, unknown> = { ui: 'not-an-object' };
-        setNestedValue(obj, ['ui', 'theme'], 'dark');
-        expect(obj).toEqual({ ui: { theme: 'dark' } });
-      });
-
-      it('should return the modified object', () => {
-        const obj: Record<string, unknown> = {};
-        const result = setNestedValue(obj, ['foo'], 'bar');
-        expect(result).toBe(obj);
-      });
-
-      it('should handle setting various value types', () => {
-        const obj: Record<string, unknown> = {};
-        setNestedValue(obj, ['bool'], true);
-        setNestedValue(obj, ['num'], 42);
-        setNestedValue(obj, ['str'], 'hello');
-        setNestedValue(obj, ['arr'], [1, 2, 3]);
-        setNestedValue(obj, ['nested', 'obj'], { inner: 'value' });
-
-        expect(obj).toEqual({
-          bool: true,
-          num: 42,
-          str: 'hello',
-          arr: [1, 2, 3],
-          nested: { obj: { inner: 'value' } },
-        });
       });
     });
   });
