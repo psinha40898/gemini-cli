@@ -28,7 +28,7 @@ export const useThemeCommand = (
   setThemeError: (error: string | null) => void,
   addItem: UseHistoryManagerReturn['addItem'],
   initialThemeError: string | null,
-  setSetting?: SettingsContextValue['setSetting'],
+  setSetting: SettingsContextValue['setSetting'],
 ): UseThemeCommandReturn => {
   const [isThemeDialogOpen, setIsThemeDialogOpen] =
     useState(!!initialThemeError);
@@ -89,7 +89,7 @@ export const useThemeCommand = (
           setIsThemeDialogOpen(true);
           return;
         }
-        setSetting?.(scope, 'ui.theme', themeName); // Update the merged settings
+        setSetting(scope, 'ui.theme', themeName); // Update the merged settings
         if (settings.merged.ui?.customThemes) {
           // Type assertion: loadCustomThemes only reads the data
           themeManager.loadCustomThemes(
