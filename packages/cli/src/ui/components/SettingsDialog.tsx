@@ -78,8 +78,8 @@ export function SettingsDialog({
 
   // The reducer handles the bulk of Dialog state
   // The current settings scope, currently focused menu (settings or scope), responsive height, search state, and setting changes that require a restart.
-  // Note: createInitialState only runs once (React's useReducer guarantee), capturing
-  // the original values of restart-required settings at mount time.
+  // Note: createInitialState only runs once (React's useReducer guarantee)
+  // capturing the original values of restart-required settings at mount time.
   const [state, dispatch] = useReducer(
     settingsDialogReducer,
     settings.settings.merged,
@@ -93,10 +93,10 @@ export function SettingsDialog({
     scrollOffset,
     searchQuery,
     filteredKeys,
-    restartDirtyKeys,
+    restartRequiredChangedKeys,
   } = state;
 
-  const showRestartPrompt = restartDirtyKeys.size > 0;
+  const showRestartPrompt = restartRequiredChangedKeys.size > 0;
 
   // Memoized fuzzy search instance and search map to drive search effect
   const { fzfInstance, searchMap } = useMemo(() => {
@@ -680,7 +680,9 @@ export function SettingsDialog({
                 }
 
                 // Add * if value differs from default OR if restart-required and dirty
-                const isRestartDirty = restartDirtyKeys.has(item.value);
+                const isRestartDirty = restartRequiredChangedKeys.has(
+                  item.value,
+                );
                 const effectiveCurrentValue =
                   currentValue !== undefined && currentValue !== null
                     ? currentValue
@@ -697,7 +699,7 @@ export function SettingsDialog({
                   item.value,
                   scopeSettings,
                   mergedSettings,
-                  restartDirtyKeys,
+                  restartRequiredChangedKeys,
                   scopeSettings,
                 );
               }

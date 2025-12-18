@@ -4,7 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { LoadableSettingScope , DeepReadonly } from '../../config/settings.js';
+import type {
+  LoadableSettingScope,
+  DeepReadonly,
+} from '../../config/settings.js';
 import { SettingScope } from '../../config/settings.js';
 import type { Settings } from '../../config/settingsSchema.js';
 import {
@@ -25,14 +28,11 @@ export interface SettingsDialogState {
   searchQuery: string;
   filteredKeys: string[];
 
-  // Tracks restart-required settings that differ from their original values at mount.
-  // A key is added when changed from original, removed when reverted to original.
-  // All settings (including restart-required) are saved immediately on change.
-  restartDirtyKeys: Set<string>;
+  // Tracks restart-required keys where the value differs from their initial values at mount.
+  restartRequiredChangedKeys: Set<string>;
 
-  // Original values of restart-required settings captured at dialog mount.
-  // Used to determine if a setting has been "reverted" to its original state.
-  restartOriginalValues: Map<string, unknown>;
+  // Initial values of restart-required settings (key and val) captured at dialog mount
+  restartRequiredInitialSettings: Map<string, unknown>;
 }
 
 export type SettingsDialogAction =
@@ -57,11 +57,14 @@ export type SettingsDialogAction =
 export function createInitialState(
   mergedAtMount: Settings | DeepReadonly<Settings>,
 ): SettingsDialogState {
-  // Capture original values for all restart-required settings at mount
-  const restartOriginalValues = new Map<string, unknown>();
+  // Capture initial values for all restart-required settings at mount
+  const restartRequiredInitialSettings = new Map<string, unknown>();
   for (const key of getDialogSettingKeys()) {
     if (requiresRestart(key)) {
-      restartOriginalValues.set(key, getEffectiveValue(key, mergedAtMount, {}));
+      restartRequiredInitialSettings.set(
+        key,
+        getEffectiveValue(key, mergedAtMount, {}),
+      );
     }
   }
 
@@ -72,8 +75,8 @@ export function createInitialState(
     scrollOffset: 0,
     searchQuery: '',
     filteredKeys: getDialogSettingKeys(),
-    restartDirtyKeys: new Set(),
-    restartOriginalValues,
+    restartRequiredChangedKeys: new Set(),
+    restartRequiredInitialSettings,
   };
 }
 
@@ -156,20 +159,20 @@ export function settingsDialogReducer(
 
     case 'UPDATE_RESTART_DIRTY': {
       const { key, newValue } = action;
-      const originalValue = state.restartOriginalValues.get(key);
-      const isDirty = newValue !== originalValue;
-      const wasDirty = state.restartDirtyKeys.has(key);
+      const initialValue = state.restartRequiredInitialSettings.get(key);
+      const isDirty = newValue !== initialValue;
+      const wasDirty = state.restartRequiredChangedKeys.has(key);
 
       // No change needed
       if (isDirty === wasDirty) return state;
 
-      const next = new Set(state.restartDirtyKeys);
+      const next = new Set(state.restartRequiredChangedKeys);
       if (isDirty) {
         next.add(key);
       } else {
         next.delete(key);
       }
-      return { ...state, restartDirtyKeys: next };
+      return { ...state, restartRequiredChangedKeys: next };
     }
 
     default:

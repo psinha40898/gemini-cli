@@ -230,7 +230,9 @@ const TOOLS_SHELL_FAKE_SCHEMA: SettingsSchemaType = {
 
 // Schema with a restart-required boolean setting that has an undefined default
 // This isolates the bug where resetting a restart-required setting with
-// default === undefined is not tracked in globalPendingChanges
+// default === undefined is not tracked
+
+// Note: there is no actual setting that is restart-required, has an undefined default, and is shown in the dialog.
 const RESTART_REQUIRED_UNDEFINED_DEFAULT_SCHEMA: SettingsSchemaType = {
   testFlags: {
     type: 'object',
@@ -940,7 +942,7 @@ describe('SettingsDialog', () => {
 
     it('should track reset for restart-required boolean with undefined default (regression test)', async () => {
       // This test demonstrates the bug where resetting a restart-required setting
-      // with an undefined default value is not tracked in globalPendingChanges
+      // with an undefined default value is not tracked in state
       const { getSettingsSchema } = await import(
         '../../config/settingsSchema.js'
       );
@@ -962,10 +964,7 @@ describe('SettingsDialog', () => {
 
       // EXPECTED BEHAVIOR: Resetting a restart-required setting should cause the
       // restart banner ("press r to restart") to appear because the reset is tracked
-      // in globalPendingChanges, even if the schema default is undefined.
-      // CURRENT BUG: Because defaultValue is undefined, ADD_PENDING_CHANGE is never
-      // dispatched, so the banner never shows. Once the bug is fixed, this waitFor
-      // will pass.
+      // in state, even if the schema default is undefined.
       await waitFor(() => {
         expect(lastFrame()).toContain(
           'To see changes, Gemini CLI must be restarted',
