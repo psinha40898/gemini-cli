@@ -51,7 +51,7 @@ describe('ideCommand', () => {
       },
       services: {
         settings: {},
-        setValue: vi.fn(), // setValue is now at services level, not settings
+        setSetting: vi.fn(), // setSetting is now at services level, not settings
         config: {
           getIdeMode: vi.fn(),
           setIdeMode: vi.fn(),

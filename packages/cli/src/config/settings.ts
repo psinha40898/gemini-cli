@@ -60,11 +60,12 @@ export type { Settings, MemoryImportFormat };
 
 // DeepReadonly utility type for immutable settings access
 type DeepReadonlyObject<T> = { readonly [K in keyof T]: DeepReadonly<T[K]> };
-type DeepReadonly<T> = T extends Array<infer U>
-  ? ReadonlyArray<DeepReadonly<U>>
-  : T extends object
-    ? DeepReadonlyObject<T>
-    : T;
+export type DeepReadonly<T> =
+  T extends Array<infer U>
+    ? ReadonlyArray<DeepReadonly<U>>
+    : T extends object
+      ? DeepReadonlyObject<T>
+      : T;
 
 export type DeepReadonlySettings = DeepReadonly<Settings>;
 
@@ -528,7 +529,7 @@ export class LoadedSettings {
     }
   }
 
-  getSnapshot(): LoadedSettingsSnapshot {
+  getSnapshot(): DeepReadonly<LoadedSettingsSnapshot> {
     return this._snapshot;
   }
 
@@ -547,7 +548,7 @@ export class LoadedSettings {
     }
   }
 
-  setValue(scope: LoadableSettingScope, key: string, value: unknown): void {
+  setSetting(scope: LoadableSettingScope, key: string, value: unknown): void {
     const settingsFile = this.forScope(scope);
     setNestedProperty(settingsFile.settings, key, value);
     setNestedProperty(settingsFile.originalSettings, key, value);
@@ -868,7 +869,7 @@ export function migrateDeprecatedSettings(
       const newExtensionsValue = { ...settings.extensions };
       newExtensionsValue.disabled = undefined;
 
-      loadedSettings.setValue(scope, 'extensions', newExtensionsValue);
+      loadedSettings.setSetting(scope, 'extensions', newExtensionsValue);
     }
   };
 

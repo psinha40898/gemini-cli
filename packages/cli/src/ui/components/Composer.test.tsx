@@ -152,7 +152,7 @@ const createMockConfig = (overrides = {}) => ({
 });
 
 const createMockSettings = (merged = {}) => ({
-  state: {
+  settings: {
     merged: {
       ui: {
         hideFooter: false,
@@ -161,7 +161,7 @@ const createMockSettings = (merged = {}) => ({
       },
     },
   },
-  setValue: vi.fn(),
+  setSetting: vi.fn(),
 });
 
 /* eslint-disable @typescript-eslint/no-explicit-any */

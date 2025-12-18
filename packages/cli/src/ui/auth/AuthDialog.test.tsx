@@ -87,7 +87,7 @@ describe('AuthDialog', () => {
           },
         },
       } as unknown as SettingsState,
-      setValue: vi.fn(),
+      setSetting: vi.fn(),
       setAuthState: vi.fn(),
       authError: null,
       onAuthError: vi.fn(),
@@ -211,7 +211,7 @@ describe('AuthDialog', () => {
         props.settings,
       );
       expect(props.onAuthError).toHaveBeenCalledWith('Invalid method');
-      expect(props.setValue).not.toHaveBeenCalled();
+      expect(props.setSetting).not.toHaveBeenCalled();
     });
 
     it('skips API key dialog on initial setup if env var is present', async () => {
@@ -325,7 +325,7 @@ describe('AuthDialog', () => {
           expect(p.setAuthState).toHaveBeenCalledWith(
             AuthState.Unauthenticated,
           );
-          expect(p.setValue).not.toHaveBeenCalled();
+          expect(p.setSetting).not.toHaveBeenCalled();
         },
       },
     ])('$desc', ({ setup, expectations }) => {

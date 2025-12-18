@@ -259,7 +259,7 @@ describe('useGeminiStream', () => {
     workspace: { path: '/workspace/.gemini/settings.json', settings: {} },
     errors: [],
     forScope: vi.fn(),
-    setValue: vi.fn(),
+    setSetting: vi.fn(),
   } as unknown as LoadedSettings;
 
   const renderTestHook = (

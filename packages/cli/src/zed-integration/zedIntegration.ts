@@ -124,7 +124,7 @@ export class GeminiAgent {
     // This will reuse existing credentials if they're valid,
     // or perform new authentication if needed
     await this.config.refreshAuth(method);
-    this.settings.setValue(
+    this.settings.setSetting(
       SettingScope.User,
       'security.auth.selectedType',
       method,

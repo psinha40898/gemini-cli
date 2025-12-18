@@ -352,7 +352,7 @@ export async function main() {
       process.env['CLOUD_SHELL'] === 'true' ||
       process.env['GEMINI_CLI_USE_COMPUTE_ADC'] === 'true'
     ) {
-      settings.setValue(
+      settings.setSetting(
         SettingScope.User,
         'selectedAuthType',
         AuthType.COMPUTE_ADC,

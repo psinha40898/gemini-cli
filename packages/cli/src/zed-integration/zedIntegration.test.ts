@@ -103,7 +103,7 @@ describe('GeminiAgent', () => {
         security: { auth: { selectedType: 'login_with_google' } },
         mcpServers: {},
       },
-      setValue: vi.fn(),
+      setSetting: vi.fn(),
     } as unknown as Mocked<LoadedSettings>;
     mockArgv = {} as unknown as CliArgs;
     mockClient = {
@@ -134,7 +134,7 @@ describe('GeminiAgent', () => {
     expect(mockConfig.refreshAuth).toHaveBeenCalledWith(
       AuthType.LOGIN_WITH_GOOGLE,
     );
-    expect(mockSettings.setValue).toHaveBeenCalledWith(
+    expect(mockSettings.setSetting).toHaveBeenCalledWith(
       SettingScope.User,
       'security.auth.selectedType',
       AuthType.LOGIN_WITH_GOOGLE,

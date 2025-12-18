@@ -59,7 +59,7 @@ export const usePermissionsModifyTrust = (
   addItem: UseHistoryManagerReturn['addItem'],
   targetDirectory: string,
 ) => {
-  const { state: settingsSnapshot } = useSettings();
+  const { settings } = useSettings();
   const cwd = targetDirectory;
   // Normalize paths for case-insensitive file systems (macOS/Windows) to ensure
   // accurate comparison between targetDirectory and process.cwd().
@@ -68,7 +68,7 @@ export const usePermissionsModifyTrust = (
     path.resolve(process.cwd()).toLowerCase();
 
   const [initialState] = useState(() =>
-    getInitialTrustState(settingsSnapshot, cwd, isCurrentWorkspace),
+    getInitialTrustState(settings, cwd, isCurrentWorkspace),
   );
 
   const [currentTrustLevel] = useState<TrustLevel | undefined>(
@@ -85,8 +85,7 @@ export const usePermissionsModifyTrust = (
   );
   const [needsRestart, setNeedsRestart] = useState(false);
 
-  const isFolderTrustEnabled =
-    !!settingsSnapshot.merged.security?.folderTrust?.enabled;
+  const isFolderTrustEnabled = !!settings.merged.security?.folderTrust?.enabled;
 
   const updateTrustLevel = useCallback(
     (trustLevel: TrustLevel) => {
@@ -100,14 +99,14 @@ export const usePermissionsModifyTrust = (
       }
 
       // All logic below only applies when editing the current workspace.
-      const wasTrusted = isWorkspaceTrusted(settingsSnapshot.merged).isTrusted;
+      const wasTrusted = isWorkspaceTrusted(settings.merged).isTrusted;
 
       // Create a temporary config to check the new trust status without writing
       const currentConfig = loadTrustedFolders().user.config;
       const newConfig = { ...currentConfig, [cwd]: trustLevel };
 
       const { isTrusted, source } = isWorkspaceTrusted(
-        settingsSnapshot.merged,
+        settings.merged,
         newConfig,
       );
 
@@ -143,7 +142,7 @@ export const usePermissionsModifyTrust = (
         onExit();
       }
     },
-    [cwd, settingsSnapshot.merged, onExit, addItem, isCurrentWorkspace],
+    [cwd, settings.merged, onExit, addItem, isCurrentWorkspace],
   );
 
   const commitTrustLevelChange = useCallback(() => {

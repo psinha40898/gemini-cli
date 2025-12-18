@@ -202,8 +202,8 @@ describe('AppContainer State Management', () => {
   } = {}) => {
     // Wrap LoadedSettings in SettingsContextValue format
     const settingsContextValue: SettingsContextValue = {
-      state: settings as unknown as SettingsState,
-      setValue: vi.fn(),
+      settings: settings as unknown as SettingsState,
+      setSetting: vi.fn(),
     };
     return (
       <SettingsContext.Provider value={settingsContextValue}>

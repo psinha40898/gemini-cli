@@ -66,7 +66,7 @@ describe('validateNonInterActiveAuth', () => {
       user: { path: '', settings: {} },
       workspace: { path: '', settings: {} },
       errors: [],
-      setValue: vi.fn(),
+      setSetting: vi.fn(),
       merged: {
         security: {
           auth: {

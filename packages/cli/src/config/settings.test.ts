@@ -2267,7 +2267,7 @@ describe('Settings Loading and Merging', () => {
       );
 
       const loadedSettings = loadSettings(MOCK_WORKSPACE_DIR);
-      const setValueSpy = vi.spyOn(loadedSettings, 'setValue');
+      const setSettingSpy = vi.spyOn(loadedSettings, 'setSetting');
       const extensionManager = new ExtensionManager({
         settings: loadedSettings.merged,
         workspaceDir: MOCK_WORKSPACE_DIR,
@@ -2303,14 +2303,14 @@ describe('Settings Loading and Merging', () => {
       );
 
       // Check that setValue was called to remove the deprecated setting
-      expect(setValueSpy).toHaveBeenCalledWith(
+      expect(setSettingSpy).toHaveBeenCalledWith(
         SettingScope.User,
         'extensions',
         {
           disabled: undefined,
         },
       );
-      expect(setValueSpy).toHaveBeenCalledWith(
+      expect(setSettingSpy).toHaveBeenCalledWith(
         SettingScope.Workspace,
         'extensions',
         {
@@ -2340,7 +2340,7 @@ describe('Settings Loading and Merging', () => {
       );
 
       const loadedSettings = loadSettings(MOCK_WORKSPACE_DIR);
-      const setValueSpy = vi.spyOn(loadedSettings, 'setValue');
+      const setSettingSpy = vi.spyOn(loadedSettings, 'setSetting');
       const extensionManager = new ExtensionManager({
         settings: loadedSettings.merged,
         workspaceDir: MOCK_WORKSPACE_DIR,
@@ -2356,7 +2356,7 @@ describe('Settings Loading and Merging', () => {
       migrateDeprecatedSettings(loadedSettings, extensionManager);
 
       expect(mockDisableExtension).not.toHaveBeenCalled();
-      expect(setValueSpy).not.toHaveBeenCalled();
+      expect(setSettingSpy).not.toHaveBeenCalled();
     });
   });
 

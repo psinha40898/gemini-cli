@@ -33,13 +33,13 @@ vi.mock('../utils.js', () => ({
 describe('mcp remove command', () => {
   describe('unit tests with mocks', () => {
     let parser: Argv;
-    let mockSetValue: Mock;
+    let mockSetSetting: Mock;
     let mockSettings: Record<string, unknown>;
 
     beforeEach(async () => {
       vi.resetAllMocks();
 
-      mockSetValue = vi.fn();
+      mockSetSetting = vi.fn();
       mockSettings = {
         mcpServers: {
           'test-server': {
@@ -53,7 +53,7 @@ describe('mcp remove command', () => {
         'loadSettings',
       ).mockReturnValue({
         forScope: () => ({ settings: mockSettings }),
-        setValue: mockSetValue,
+        setSetting: mockSetSetting,
         workspace: { path: '/path/to/project' },
         user: { path: '/home/user' },
       } as unknown as LoadedSettings);
@@ -65,7 +65,7 @@ describe('mcp remove command', () => {
     it('should remove a server from project settings', async () => {
       await parser.parseAsync('remove test-server');
 
-      expect(mockSetValue).toHaveBeenCalledWith(
+      expect(mockSetSetting).toHaveBeenCalledWith(
         SettingScope.Workspace,
         'mcpServers',
         {},
@@ -78,7 +78,7 @@ describe('mcp remove command', () => {
         .mockImplementation(() => {});
       await parser.parseAsync('remove non-existent-server');
 
-      expect(mockSetValue).not.toHaveBeenCalled();
+      expect(mockSetSetting).not.toHaveBeenCalled();
       expect(debugLogSpy).toHaveBeenCalledWith(
         'Server "non-existent-server" not found in project settings.',
       );

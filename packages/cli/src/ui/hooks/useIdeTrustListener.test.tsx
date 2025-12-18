@@ -58,7 +58,7 @@ describe('useIdeTrustListener', () => {
     mockIdeClient = await IdeClient.getInstance();
 
     mockSettings = {
-      state: {
+      settings: {
         merged: {
           security: {
             folderTrust: {
@@ -67,7 +67,7 @@ describe('useIdeTrustListener', () => {
           },
         },
       },
-      setValue: vi.fn(),
+      setSetting: vi.fn(),
     };
 
     vi.mocked(useSettings).mockReturnValue(mockSettings);

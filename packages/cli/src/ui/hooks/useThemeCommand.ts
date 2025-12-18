@@ -24,11 +24,11 @@ interface UseThemeCommandReturn {
 }
 
 export const useThemeCommand = (
-  state: SettingsState,
+  settings: SettingsState,
   setThemeError: (error: string | null) => void,
   addItem: UseHistoryManagerReturn['addItem'],
   initialThemeError: string | null,
-  setValue?: SettingsContextValue['setValue'],
+  setSetting?: SettingsContextValue['setSetting'],
 ): UseThemeCommandReturn => {
   const [isThemeDialogOpen, setIsThemeDialogOpen] =
     useState(!!initialThemeError);
@@ -69,17 +69,17 @@ export const useThemeCommand = (
 
   const closeThemeDialog = useCallback(() => {
     // Re-apply the saved theme to revert any preview changes from highlighting
-    applyTheme(state.merged.ui?.theme);
+    applyTheme(settings.merged.ui?.theme);
     setIsThemeDialogOpen(false);
-  }, [applyTheme, state]);
+  }, [applyTheme, settings]);
 
   const handleThemeSelect = useCallback(
     (themeName: string, scope: LoadableSettingScope) => {
       try {
         // Merge user and workspace custom themes (workspace takes precedence)
         const mergedCustomThemes = {
-          ...(state.user.settings.ui?.customThemes || {}),
-          ...(state.workspace.settings.ui?.customThemes || {}),
+          ...(settings.user.settings.ui?.customThemes || {}),
+          ...(settings.workspace.settings.ui?.customThemes || {}),
         };
         // Only allow selecting themes available in the merged custom themes or built-in themes
         const isBuiltIn = themeManager.findThemeByName(themeName);
@@ -89,22 +89,22 @@ export const useThemeCommand = (
           setIsThemeDialogOpen(true);
           return;
         }
-        setValue?.(scope, 'ui.theme', themeName); // Update the merged settings
-        if (state.merged.ui?.customThemes) {
+        setSetting?.(scope, 'ui.theme', themeName); // Update the merged settings
+        if (settings.merged.ui?.customThemes) {
           // Type assertion: loadCustomThemes only reads the data
           themeManager.loadCustomThemes(
-            state.merged.ui.customThemes as Parameters<
+            settings.merged.ui.customThemes as Parameters<
               typeof themeManager.loadCustomThemes
             >[0],
           );
         }
-        applyTheme(state.merged.ui?.theme); // Apply the current theme
+        applyTheme(settings.merged.ui?.theme); // Apply the current theme
         setThemeError(null);
       } finally {
         setIsThemeDialogOpen(false); // Close the dialog
       }
     },
-    [applyTheme, state, setThemeError, setValue],
+    [applyTheme, settings, setThemeError, setSetting],
   );
 
   return {

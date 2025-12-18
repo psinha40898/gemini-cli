@@ -29,7 +29,7 @@ import { RELAUNCH_EXIT_CODE } from '../../utils/processUtils.js';
 interface AuthDialogProps {
   config: Config;
   settings: SettingsState;
-  setValue: SettingsContextValue['setValue'];
+  setSetting: SettingsContextValue['setSetting'];
   setAuthState: (state: AuthState) => void;
   authError: string | null;
   onAuthError: (error: string | null) => void;
@@ -38,7 +38,7 @@ interface AuthDialogProps {
 export function AuthDialog({
   config,
   settings,
-  setValue,
+  setSetting,
   setAuthState,
   authError,
   onAuthError,
@@ -124,7 +124,7 @@ export function AuthDialog({
 
         await clearCachedCredentialFile();
 
-        setValue(scope, 'security.auth.selectedType', authType);
+        setSetting(scope, 'security.auth.selectedType', authType);
         if (
           authType === AuthType.LOGIN_WITH_GOOGLE &&
           config.isBrowserLaunchSuppressed()
@@ -150,7 +150,7 @@ export function AuthDialog({
       setAuthState(AuthState.Unauthenticated);
     },
     [
-      setValue,
+      setSetting,
       config,
       setAuthState,
       exiting,

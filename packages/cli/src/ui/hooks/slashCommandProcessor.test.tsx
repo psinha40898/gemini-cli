@@ -178,7 +178,7 @@ describe('useSlashCommandProcessor', () => {
         useSlashCommandProcessor(
           mockConfig,
           mockSettings,
-          vi.fn(), // setValue
+          vi.fn(), // setSetting
           mockAddItem,
           mockClearItems,
           mockLoadHistory,

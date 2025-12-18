@@ -41,7 +41,7 @@ const mockCheckHasEditorType = vi.mocked(checkHasEditorType);
 const mockAllowEditorTypeInSandbox = vi.mocked(allowEditorTypeInSandbox);
 
 describe('useEditorSettings', () => {
-  let mockSetValue: MockedFunction<
+  let mockSetSetting: MockedFunction<
     (scope: LoadableSettingScope, key: string, value: unknown) => void
   >;
   let mockSetEditorError: MockedFunction<(error: string | null) => void>;
@@ -49,14 +49,14 @@ describe('useEditorSettings', () => {
   let result: ReturnType<typeof useEditorSettings>;
 
   function TestComponent() {
-    result = useEditorSettings(mockSetValue, mockSetEditorError, mockAddItem);
+    result = useEditorSettings(mockSetSetting, mockSetEditorError, mockAddItem);
     return null;
   }
 
   beforeEach(() => {
     vi.resetAllMocks();
 
-    mockSetValue = vi.fn();
+    mockSetSetting = vi.fn();
 
     mockSetEditorError = vi.fn();
     mockAddItem = vi.fn();
@@ -106,7 +106,7 @@ describe('useEditorSettings', () => {
       result.handleEditorSelect(editorType, scope);
     });
 
-    expect(mockSetValue).toHaveBeenCalledWith(
+    expect(mockSetSetting).toHaveBeenCalledWith(
       scope,
       SettingPaths.General.PreferredEditor,
       editorType,
@@ -134,7 +134,7 @@ describe('useEditorSettings', () => {
       result.handleEditorSelect(undefined, scope);
     });
 
-    expect(mockSetValue).toHaveBeenCalledWith(
+    expect(mockSetSetting).toHaveBeenCalledWith(
       scope,
       SettingPaths.General.PreferredEditor,
       undefined,
@@ -168,7 +168,7 @@ describe('useEditorSettings', () => {
         result.handleEditorSelect(editorType, scope);
       });
 
-      expect(mockSetValue).toHaveBeenCalledWith(
+      expect(mockSetSetting).toHaveBeenCalledWith(
         scope,
         SettingPaths.General.PreferredEditor,
         editorType,
@@ -198,7 +198,7 @@ describe('useEditorSettings', () => {
         result.handleEditorSelect(editorType, scope);
       });
 
-      expect(mockSetValue).toHaveBeenCalledWith(
+      expect(mockSetSetting).toHaveBeenCalledWith(
         scope,
         SettingPaths.General.PreferredEditor,
         editorType,
@@ -227,7 +227,7 @@ describe('useEditorSettings', () => {
       result.handleEditorSelect(editorType, scope);
     });
 
-    expect(mockSetValue).not.toHaveBeenCalled();
+    expect(mockSetSetting).not.toHaveBeenCalled();
     expect(mockAddItem).not.toHaveBeenCalled();
     expect(result.isEditorDialogOpen).toBe(true);
   });
@@ -245,7 +245,7 @@ describe('useEditorSettings', () => {
       result.handleEditorSelect(editorType, scope);
     });
 
-    expect(mockSetValue).not.toHaveBeenCalled();
+    expect(mockSetSetting).not.toHaveBeenCalled();
     expect(mockAddItem).not.toHaveBeenCalled();
     expect(result.isEditorDialogOpen).toBe(true);
   });
@@ -255,7 +255,7 @@ describe('useEditorSettings', () => {
 
     const errorMessage = 'Failed to save settings';
 
-    mockSetValue.mockImplementation(() => {
+    mockSetSetting.mockImplementation(() => {
       throw new Error(errorMessage);
     });
 

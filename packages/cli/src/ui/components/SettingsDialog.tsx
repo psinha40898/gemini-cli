@@ -82,7 +82,7 @@ export function SettingsDialog({
   // the original values of restart-required settings at mount time.
   const [state, dispatch] = useReducer(
     settingsDialogReducer,
-    settings.state.merged,
+    settings.settings.merged,
     createInitialState,
   );
 
@@ -149,7 +149,7 @@ export function SettingsDialog({
 
   // Settings are now read directly from the snapshot - no overlay needed
   // since all changes (including restart-required) are saved immediately
-  const scopeSettings = settings.state.forScope(selectedScope).settings;
+  const scopeSettings = settings.settings.forScope(selectedScope).settings;
 
   const {
     editState,
@@ -202,7 +202,7 @@ export function SettingsDialog({
             newValue,
             selectedScope,
             scopeSettings,
-            settings.setValue,
+            settings.setSetting,
           );
 
           // Special handling for vim mode to sync with VimModeContext
@@ -252,7 +252,7 @@ export function SettingsDialog({
       parsed = editState.buffer;
     }
 
-    saveSetting(key, parsed, selectedScope, scopeSettings, settings.setValue);
+    saveSetting(key, parsed, selectedScope, scopeSettings, settings.setSetting);
 
     // Update restart-dirty tracking (adds if different from original, removes if reverted)
     if (requiresRestart(key)) {
@@ -523,7 +523,7 @@ export function SettingsDialog({
               toSaveValue,
               selectedScope,
               scopeSettings,
-              settings.setValue,
+              settings.setSetting,
             );
 
             // Update restart-dirty tracking (adds if different from original, removes if reverted)
@@ -623,8 +623,8 @@ export function SettingsDialog({
                 activeSettingIndex === idx + scrollOffset;
 
               const scopeSettings =
-                settings.state.forScope(selectedScope).settings;
-              const mergedSettings = settings.state.merged;
+                settings.settings.forScope(selectedScope).settings;
+              const mergedSettings = settings.settings.merged;
 
               let displayValue: string;
               if (editState.key === item.value) {
@@ -709,7 +709,7 @@ export function SettingsDialog({
               const scopeMessage = getScopeMessageForSetting(
                 item.value,
                 selectedScope,
-                settings.state,
+                settings.settings,
               );
 
               return (

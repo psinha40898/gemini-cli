@@ -126,7 +126,7 @@ async function addMcpServer(
 
   mcpServers[name] = newServer as MCPServerConfig;
 
-  settings.setValue(settingsScope, 'mcpServers', mcpServers);
+  settings.setSetting(settingsScope, 'mcpServers', mcpServers);
 
   if (isExistingServer) {
     debugLogger.log(`MCP server "${name}" updated in ${scope} settings.`);

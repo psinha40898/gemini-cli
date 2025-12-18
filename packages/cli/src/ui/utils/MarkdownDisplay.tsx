@@ -35,7 +35,7 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
   terminalWidth,
   renderMarkdown = true,
 }) => {
-  const { state: settingsSnapshot } = useSettings();
+  const { settings } = useSettings();
   const isAlternateBuffer = useAlternateBuffer();
   const responseColor = theme.text.response ?? theme.text.primary;
 
@@ -49,7 +49,7 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
       language: 'markdown',
       availableHeight: isAlternateBuffer ? undefined : availableTerminalHeight,
       maxWidth: terminalWidth - CODE_BLOCK_PREFIX_PADDING,
-      settings: settingsSnapshot,
+      settings,
       hideLineNumbers: true,
     });
     return (
@@ -331,7 +331,7 @@ const RenderCodeBlockInternal: React.FC<RenderCodeBlockProps> = ({
   availableTerminalHeight,
   terminalWidth,
 }) => {
-  const { state: settingsSnapshot } = useSettings();
+  const { settings } = useSettings();
   const isAlternateBuffer = useAlternateBuffer();
   const MIN_LINES_FOR_MESSAGE = 1; // Minimum lines to show before the "generating more" message
   const RESERVED_LINES = 2; // Lines reserved for the message itself and potential padding
@@ -365,7 +365,7 @@ const RenderCodeBlockInternal: React.FC<RenderCodeBlockProps> = ({
         language: lang,
         availableHeight: availableTerminalHeight,
         maxWidth: terminalWidth - CODE_BLOCK_PREFIX_PADDING,
-        settings: settingsSnapshot,
+        settings,
       });
       return (
         <Box paddingLeft={CODE_BLOCK_PREFIX_PADDING} flexDirection="column">
@@ -382,7 +382,7 @@ const RenderCodeBlockInternal: React.FC<RenderCodeBlockProps> = ({
     language: lang,
     availableHeight: isAlternateBuffer ? undefined : availableTerminalHeight,
     maxWidth: terminalWidth - CODE_BLOCK_PREFIX_PADDING,
-    settings: settingsSnapshot,
+    settings,
   });
 
   return (

@@ -114,7 +114,7 @@ vi.mock('./config/settings.js', () => ({
       security: { auth: {} },
       ui: {},
     },
-    setValue: vi.fn(),
+    setSetting: vi.fn(),
     forScope: () => ({ settings: {}, originalSettings: {}, path: '' }),
     errors: [],
   }),
@@ -280,7 +280,7 @@ describe('gemini.tsx main function', () => {
         security: { auth: {} },
         ui: {},
       },
-      setValue: vi.fn(),
+      setSetting: vi.fn(),
       forScope: () => ({ settings: {}, originalSettings: {}, path: '' }),
     } as never);
     try {
@@ -512,7 +512,7 @@ describe('gemini.tsx main function kitty protocol', () => {
         security: { auth: {} },
         ui: {},
       },
-      setValue: vi.fn(),
+      setSetting: vi.fn(),
       forScope: () => ({ settings: {}, originalSettings: {}, path: '' }),
     } as never);
     vi.mocked(parseArguments).mockResolvedValue({
@@ -571,7 +571,7 @@ describe('gemini.tsx main function kitty protocol', () => {
         security: { auth: {} },
         ui: {},
       },
-      setValue: vi.fn(),
+      setSetting: vi.fn(),
       forScope: () => ({ settings: {}, originalSettings: {}, path: '' }),
       errors: [],
     } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -656,7 +656,7 @@ describe('gemini.tsx main function kitty protocol', () => {
         security: { auth: {} },
         ui: {},
       },
-      setValue: vi.fn(),
+      setSetting: vi.fn(),
       forScope: () => ({ settings: {}, originalSettings: {}, path: '' }),
       errors: [],
     } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -723,7 +723,7 @@ describe('gemini.tsx main function kitty protocol', () => {
         security: { auth: {} },
         ui: { theme: 'non-existent-theme' },
       },
-      setValue: vi.fn(),
+      setSetting: vi.fn(),
       forScope: () => ({ settings: {}, originalSettings: {}, path: '' }),
       errors: [],
     } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -804,7 +804,7 @@ describe('gemini.tsx main function kitty protocol', () => {
 
     vi.mocked(loadSettings).mockReturnValue({
       merged: { advanced: {}, security: { auth: {} }, ui: { theme: 'test' } },
-      setValue: vi.fn(),
+      setSetting: vi.fn(),
       forScope: () => ({ settings: {}, originalSettings: {}, path: '' }),
       errors: [],
     } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -882,7 +882,7 @@ describe('gemini.tsx main function kitty protocol', () => {
 
     vi.mocked(loadSettings).mockReturnValue({
       merged: { advanced: {}, security: { auth: {} }, ui: {} },
-      setValue: vi.fn(),
+      setSetting: vi.fn(),
       forScope: () => ({ settings: {}, originalSettings: {}, path: '' }),
       errors: [],
     } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -954,7 +954,7 @@ describe('gemini.tsx main function kitty protocol', () => {
 
     vi.mocked(loadSettings).mockReturnValue({
       merged: { advanced: {}, security: { auth: {} }, ui: {} },
-      setValue: vi.fn(),
+      setSetting: vi.fn(),
       forScope: () => ({ settings: {}, originalSettings: {}, path: '' }),
       errors: [],
     } as any); // eslint-disable-line @typescript-eslint/no-explicit-any

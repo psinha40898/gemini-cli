@@ -17,12 +17,9 @@ import { FileCommandLoader } from './services/FileCommandLoader.js';
 import { McpPromptLoader } from './services/McpPromptLoader.js';
 import type { CommandContext } from './ui/commands/types.js';
 import { createNonInteractiveUI } from './ui/noninteractive/nonInteractiveUi.js';
-import type {
-  LoadedSettings,
-  LoadableSettingScope,
-} from './config/settings.js';
-import type { SettingsState } from './ui/contexts/SettingsContext.js';
+import type { LoadedSettings } from './config/settings.js';
 import type { SessionStatsState } from './ui/contexts/SessionContext.js';
+import { createSettingsState } from './ui/contexts/SettingsContext.js';
 
 /**
  * Processes a slash command in a non-interactive environment.
@@ -67,14 +64,8 @@ export const handleSlashCommand = async (
       const context: CommandContext = {
         services: {
           config,
-          settings: settings as unknown as SettingsState,
-          setValue: (
-            scope: LoadableSettingScope,
-            key: string,
-            value: unknown,
-          ) => {
-            settings.setValue(scope, key, value);
-          },
+          settings: createSettingsState(settings),
+          setSetting: settings.setSetting.bind(settings),
           git: undefined,
           logger,
         },

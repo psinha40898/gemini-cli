@@ -231,8 +231,8 @@ export const renderWithProviders = (
 
   // Wrap LoadedSettings in SettingsContextValue format for the context provider
   const settingsContextValue: SettingsContextValue = {
-    state: finalSettings as unknown as SettingsState,
-    setValue: vi.fn(),
+    settings: finalSettings as unknown as SettingsState,
+    setSetting: vi.fn(),
   };
 
   const finalUiState = {

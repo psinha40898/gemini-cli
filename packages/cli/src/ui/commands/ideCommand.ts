@@ -210,7 +210,7 @@ export const ideCommand = async (): Promise<SlashCommand> => {
         Date.now(),
       );
       if (result.success) {
-        context.services.setValue(SettingScope.User, 'ide.enabled', true);
+        context.services.setSetting(SettingScope.User, 'ide.enabled', true);
         // Poll for up to 5 seconds for the extension to activate.
         for (let i = 0; i < 10; i++) {
           await setIdeModeAndSyncConnection(context.services.config!, true, {
@@ -253,7 +253,7 @@ export const ideCommand = async (): Promise<SlashCommand> => {
     kind: CommandKind.BUILT_IN,
     autoExecute: true,
     action: async (context: CommandContext) => {
-      context.services.setValue(SettingScope.User, 'ide.enabled', true);
+      context.services.setSetting(SettingScope.User, 'ide.enabled', true);
       await setIdeModeAndSyncConnection(context.services.config!, true);
       const { messageType, content } = getIdeStatusMessage(ideClient);
       context.ui.addItem(
@@ -272,7 +272,7 @@ export const ideCommand = async (): Promise<SlashCommand> => {
     kind: CommandKind.BUILT_IN,
     autoExecute: true,
     action: async (context: CommandContext) => {
-      context.services.setValue(SettingScope.User, 'ide.enabled', false);
+      context.services.setSetting(SettingScope.User, 'ide.enabled', false);
       await setIdeModeAndSyncConnection(context.services.config!, false);
       const { messageType, content } = getIdeStatusMessage(ideClient);
       context.ui.addItem(

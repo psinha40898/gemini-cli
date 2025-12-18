@@ -43,7 +43,7 @@ export interface CommandContext {
     // TODO(abhipatel12): Ensure that config is never null.
     config: Config | null;
     settings: SettingsState;
-    setValue: SettingsContextValue['setValue'];
+    setSetting: SettingsContextValue['setSetting'];
     git: GitService | undefined;
     logger: Logger;
   };

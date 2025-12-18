@@ -36,7 +36,7 @@ const mockedLoadSettings = loadSettings as Mock;
 const mockedFs = vi.mocked(fs);
 
 describe('migrate command', () => {
-  let mockSetValue: Mock;
+  let mockSetSetting: Mock;
   let debugLoggerLogSpy: MockInstance;
   let debugLoggerErrorSpy: MockInstance;
   let originalCwd: () => string;
@@ -44,7 +44,7 @@ describe('migrate command', () => {
   beforeEach(() => {
     vi.resetAllMocks();
 
-    mockSetValue = vi.fn();
+    mockSetSetting = vi.fn();
     debugLoggerLogSpy = vi
       .spyOn(debugLogger, 'log')
       .mockImplementation(() => {});
@@ -60,7 +60,7 @@ describe('migrate command', () => {
       merged: {
         hooks: {},
       },
-      setValue: mockSetValue,
+      setSetting: mockSetSetting,
       workspace: { path: '/test/project/.gemini' },
     });
   });
@@ -78,7 +78,7 @@ describe('migrate command', () => {
     expect(debugLoggerErrorSpy).toHaveBeenCalledWith(
       'No Claude Code settings found in .claude directory. Expected settings.json or settings.local.json',
     );
-    expect(mockSetValue).not.toHaveBeenCalled();
+    expect(mockSetSetting).not.toHaveBeenCalled();
   });
 
   it('should migrate hooks from settings.json when it exists', async () => {
@@ -107,7 +107,7 @@ describe('migrate command', () => {
 
     await handleMigrateFromClaude();
 
-    expect(mockSetValue).toHaveBeenCalledWith(
+    expect(mockSetSetting).toHaveBeenCalledWith(
       SettingScope.Workspace,
       'hooks',
       expect.objectContaining({
@@ -162,7 +162,7 @@ describe('migrate command', () => {
       expect.stringContaining('settings.local.json'),
       'utf-8',
     );
-    expect(mockSetValue).toHaveBeenCalledWith(
+    expect(mockSetSetting).toHaveBeenCalledWith(
       SettingScope.Workspace,
       'hooks',
       expect.objectContaining({
@@ -191,7 +191,7 @@ describe('migrate command', () => {
 
     await handleMigrateFromClaude();
 
-    const migratedHooks = mockSetValue.mock.calls[0][2];
+    const migratedHooks = mockSetSetting.mock.calls[0][2];
 
     expect(migratedHooks).toHaveProperty('BeforeTool');
     expect(migratedHooks).toHaveProperty('AfterTool');
@@ -220,7 +220,7 @@ describe('migrate command', () => {
 
     await handleMigrateFromClaude();
 
-    const migratedHooks = mockSetValue.mock.calls[0][2];
+    const migratedHooks = mockSetSetting.mock.calls[0][2];
     expect(migratedHooks.BeforeTool[0].matcher).toBe(
       'replace|run_shell_command|read_file|write_file|glob|grep',
     );
@@ -247,7 +247,7 @@ describe('migrate command', () => {
 
     await handleMigrateFromClaude();
 
-    const migratedHooks = mockSetValue.mock.calls[0][2];
+    const migratedHooks = mockSetSetting.mock.calls[0][2];
     expect(migratedHooks.BeforeTool[0].hooks[0].command).toBe(
       'cd $GEMINI_PROJECT_DIR && ls',
     );
@@ -270,7 +270,7 @@ describe('migrate command', () => {
 
     await handleMigrateFromClaude();
 
-    const migratedHooks = mockSetValue.mock.calls[0][2];
+    const migratedHooks = mockSetSetting.mock.calls[0][2];
     expect(migratedHooks.BeforeTool[0].sequential).toBe(true);
   });
 
@@ -296,7 +296,7 @@ describe('migrate command', () => {
 
     await handleMigrateFromClaude();
 
-    const migratedHooks = mockSetValue.mock.calls[0][2];
+    const migratedHooks = mockSetSetting.mock.calls[0][2];
     expect(migratedHooks.BeforeTool[0].hooks[0].timeout).toBe(60);
   });
 
@@ -321,7 +321,7 @@ describe('migrate command', () => {
           ],
         },
       },
-      setValue: mockSetValue,
+      setSetting: mockSetSetting,
       workspace: { path: '/test/project/.gemini' },
     });
 
@@ -330,7 +330,7 @@ describe('migrate command', () => {
 
     await handleMigrateFromClaude();
 
-    const migratedHooks = mockSetValue.mock.calls[0][2];
+    const migratedHooks = mockSetSetting.mock.calls[0][2];
     expect(migratedHooks).toHaveProperty('BeforeTool');
     expect(migratedHooks).toHaveProperty('AfterTool');
     expect(migratedHooks.AfterTool[0].hooks[0].command).toBe('echo "existing"');
@@ -360,7 +360,7 @@ describe('migrate command', () => {
 
     await handleMigrateFromClaude();
 
-    expect(mockSetValue).toHaveBeenCalledWith(
+    expect(mockSetSetting).toHaveBeenCalledWith(
       SettingScope.Workspace,
       'hooks',
       expect.objectContaining({
@@ -378,7 +378,7 @@ describe('migrate command', () => {
     expect(debugLoggerErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining('Error reading'),
     );
-    expect(mockSetValue).not.toHaveBeenCalled();
+    expect(mockSetSetting).not.toHaveBeenCalled();
   });
 
   it('should log info when no hooks are found in Claude settings', async () => {
@@ -394,7 +394,7 @@ describe('migrate command', () => {
     expect(debugLoggerLogSpy).toHaveBeenCalledWith(
       'No hooks found in Claude Code settings to migrate.',
     );
-    expect(mockSetValue).not.toHaveBeenCalled();
+    expect(mockSetSetting).not.toHaveBeenCalled();
   });
 
   it('should handle setValue errors gracefully', async () => {
@@ -410,7 +410,7 @@ describe('migrate command', () => {
 
     mockedFs.existsSync.mockReturnValue(true);
     mockedFs.readFileSync.mockReturnValue(JSON.stringify(claudeSettings));
-    mockSetValue.mockImplementation(() => {
+    mockSetSetting.mockImplementation(() => {
       throw new Error('Failed to save');
     });
 
@@ -442,7 +442,7 @@ describe('migrate command', () => {
 
     await handleMigrateFromClaude();
 
-    const migratedHooks = mockSetValue.mock.calls[0][2];
+    const migratedHooks = mockSetSetting.mock.calls[0][2];
     expect(migratedHooks.BeforeTool[0].matcher).toBe('replace');
     expect(migratedHooks.BeforeTool[0].hooks[0].type).toBe('command');
   });
@@ -463,7 +463,7 @@ describe('migrate command', () => {
 
     await handleMigrateFromClaude();
 
-    const migratedHooks = mockSetValue.mock.calls[0][2];
+    const migratedHooks = mockSetSetting.mock.calls[0][2];
     expect(migratedHooks.BeforeTool[0].hooks).toEqual([]);
   });
 
@@ -484,7 +484,7 @@ describe('migrate command', () => {
 
     await handleMigrateFromClaude();
 
-    const migratedHooks = mockSetValue.mock.calls[0][2];
+    const migratedHooks = mockSetSetting.mock.calls[0][2];
     expect(migratedHooks).not.toHaveProperty('BeforeTool');
     expect(migratedHooks).toHaveProperty('AfterTool');
   });

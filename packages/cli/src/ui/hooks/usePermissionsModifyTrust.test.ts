@@ -65,7 +65,7 @@ describe('usePermissionsModifyTrust', () => {
     mockedCwd.mockReturnValue('/test/dir');
     // Mock useSettings to return SettingsContextValue format
     mockedUseSettings.mockReturnValue({
-      state: {
+      settings: {
         merged: {
           security: {
             folderTrust: {
@@ -74,7 +74,7 @@ describe('usePermissionsModifyTrust', () => {
           },
         },
       },
-      setValue: vi.fn(),
+      setSetting: vi.fn(),
     });
     mockedIsWorkspaceTrusted.mockReturnValue({
       isTrusted: undefined,

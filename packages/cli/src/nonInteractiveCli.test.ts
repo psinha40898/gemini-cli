@@ -179,7 +179,7 @@ describe('runNonInteractive', () => {
       user: { path: '', settings: {} },
       workspace: { path: '', settings: {} },
       errors: [],
-      setValue: vi.fn(),
+      setSetting: vi.fn(),
       merged: {
         security: {
           auth: {
@@ -191,6 +191,19 @@ describe('runNonInteractive', () => {
       migratedInMemoryScopes: new Set(),
       forScope: vi.fn(),
       computeMergedSettings: vi.fn(),
+      getSnapshot: vi.fn().mockReturnValue({
+        system: { path: '', settings: {} },
+        systemDefaults: { path: '', settings: {} },
+        user: { path: '', settings: {} },
+        workspace: { path: '', settings: {} },
+        merged: {
+          security: {
+            auth: {
+              enforcedType: undefined,
+            },
+          },
+        },
+      }),
     } as unknown as LoadedSettings;
 
     const { handleAtCommand } = await import(

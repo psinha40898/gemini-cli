@@ -331,13 +331,17 @@ export function saveSetting(
   value: SettingsValue,
   scope: LoadableSettingScope,
   scopeSettings: Settings | DeepReadonlySettings,
-  setValue: (scope: LoadableSettingScope, key: string, value: unknown) => void,
+  setSetting: (
+    scope: LoadableSettingScope,
+    key: string,
+    value: unknown,
+  ) => void,
 ): void {
   if (!shouldWriteSetting(key, value, scopeSettings)) {
     return;
   }
 
-  setValue(scope, key, value);
+  setSetting(scope, key, value);
 }
 
 /**

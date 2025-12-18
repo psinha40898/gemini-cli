@@ -29,7 +29,7 @@ interface UseEditorSettingsReturn {
 }
 
 export const useEditorSettings = (
-  setValue: SettingsContextValue['setValue'],
+  setSetting: SettingsContextValue['setSetting'],
   setEditorError: (error: string | null) => void,
   addItem: UseHistoryManagerReturn['addItem'],
 ): UseEditorSettingsReturn => {
@@ -50,7 +50,7 @@ export const useEditorSettings = (
       }
 
       try {
-        setValue(scope, SettingPaths.General.PreferredEditor, editorType);
+        setSetting(scope, SettingPaths.General.PreferredEditor, editorType);
         addItem(
           {
             type: MessageType.INFO,
@@ -64,7 +64,7 @@ export const useEditorSettings = (
         setEditorError(`Failed to set editor preference: ${error}`);
       }
     },
-    [setValue, setEditorError, addItem],
+    [setSetting, setEditorError, addItem],
   );
 
   const exitEditorDialog = useCallback(() => {

@@ -102,7 +102,7 @@ async function enableAction(
 
   // Update settings (setValue automatically saves)
   try {
-    context.services.setValue(
+    context.services.setSetting(
       SettingScope.User,
       'hooks.disabled',
       newDisabledHooks,
@@ -169,7 +169,7 @@ async function disableAction(
 
     // Update settings (setValue automatically saves)
     try {
-      context.services.setValue(
+      context.services.setSetting(
         SettingScope.User,
         'hooks.disabled',
         newDisabledHooks,

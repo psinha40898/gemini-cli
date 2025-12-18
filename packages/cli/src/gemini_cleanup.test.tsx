@@ -60,7 +60,7 @@ vi.mock('./config/settings.js', async (importOriginal) => {
     ...actual,
     loadSettings: vi.fn().mockReturnValue({
       merged: { advanced: {}, security: { auth: {} }, ui: {} },
-      setValue: vi.fn(),
+      setSetting: vi.fn(),
       forScope: () => ({ settings: {}, originalSettings: {}, path: '' }),
       errors: [],
     }),
@@ -171,7 +171,7 @@ describe('gemini.tsx main function cleanup', () => {
 
     vi.mocked(loadSettings).mockReturnValue({
       merged: { advanced: {}, security: { auth: {} }, ui: {} },
-      setValue: vi.fn(),
+      setSetting: vi.fn(),
       forScope: () => ({ settings: {}, originalSettings: {}, path: '' }),
       errors: [],
     } as any); // eslint-disable-line @typescript-eslint/no-explicit-any

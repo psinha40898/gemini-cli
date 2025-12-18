@@ -236,7 +236,7 @@ export async function handleMigrateFromClaude() {
 
   // Update settings (setValue automatically saves)
   try {
-    settings.setValue(SettingScope.Workspace, 'hooks', mergedHooks);
+    settings.setSetting(SettingScope.Workspace, 'hooks', mergedHooks);
 
     debugLogger.log('✓ Hooks successfully migrated to .gemini/settings.json');
     debugLogger.log(

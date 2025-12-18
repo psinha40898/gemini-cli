@@ -6,6 +6,7 @@
 
 import React, { useContext, useMemo, useSyncExternalStore } from 'react';
 import type {
+  DeepReadonly,
   LoadableSettingScope,
   LoadedSettings,
   LoadedSettingsSnapshot,
@@ -13,38 +14,42 @@ import type {
 } from '../../config/settings.js';
 import { SettingScope } from '../../config/settings.js';
 
-type Primitive = string | number | boolean | bigint | symbol | null | undefined;
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyFunction = (...args: any[]) => any;
-
-type DeepReadonlyObject<T> = {
-  readonly [K in keyof T]: DeepReadonly<T[K]>;
-};
-
-export type DeepReadonly<T> = T extends Primitive
-  ? T
-  : T extends AnyFunction
-    ? T
-    : T extends Date
-      ? T
-      : T extends Map<infer K, infer V>
-        ? ReadonlyMap<DeepReadonly<K>, DeepReadonly<V>>
-        : T extends Set<infer U>
-          ? ReadonlySet<DeepReadonly<U>>
-          : T extends Array<infer U>
-            ? ReadonlyArray<DeepReadonly<U>>
-            : T extends object
-              ? DeepReadonlyObject<T>
-              : T;
-
 export type SettingsState = DeepReadonly<LoadedSettingsSnapshot> & {
   forScope: (scope: LoadableSettingScope) => DeepReadonly<SettingsFile>;
 };
 
+/**
+ * Creates a SettingsState from a LoadedSettings instance.
+ * Used by SettingsProvider (React) and non-interactive CLI (non-React).
+ */
+export function createSettingsState(settings: LoadedSettings): SettingsState {
+  const snapshot = settings.getSnapshot();
+  return {
+    ...snapshot,
+    forScope: (scope: LoadableSettingScope) => {
+      switch (scope) {
+        case SettingScope.User:
+          return snapshot.user;
+        case SettingScope.Workspace:
+          return snapshot.workspace;
+        case SettingScope.System:
+          return snapshot.system;
+        case SettingScope.SystemDefaults:
+          return snapshot.systemDefaults;
+        default:
+          throw new Error(`Invalid scope: ${scope}`);
+      }
+    },
+  };
+}
+
 export interface SettingsContextValue {
-  state: SettingsState;
-  setValue: (scope: LoadableSettingScope, key: string, value: unknown) => void;
+  settings: SettingsState;
+  setSetting: (
+    scope: LoadableSettingScope,
+    key: string,
+    value: unknown,
+  ) => void;
 }
 
 export const SettingsContext = React.createContext<
@@ -61,10 +66,9 @@ export function SettingsProvider({
   const snapshot = useSyncExternalStore(
     (listener) => value.subscribe(listener),
     () => value.getSnapshot(),
-    () => value.getSnapshot(),
   );
 
-  const state: SettingsState = useMemo(
+  const settings: SettingsState = useMemo(
     () => ({
       ...snapshot,
       forScope: (scope: LoadableSettingScope) => {
@@ -87,10 +91,10 @@ export function SettingsProvider({
 
   const api: SettingsContextValue = useMemo(
     () => ({
-      state,
-      setValue: value.setValue.bind(value),
+      settings,
+      setSetting: value.setSetting.bind(value),
     }),
-    [state, value],
+    [settings, value],
   );
 
   return (

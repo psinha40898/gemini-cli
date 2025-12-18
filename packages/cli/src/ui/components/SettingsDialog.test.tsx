@@ -266,8 +266,8 @@ const renderDialog = (
   // Wrap settings in SettingsContextValue format
   const mockSetValue = vi.fn();
   const settingsContextValue: SettingsContextValue = {
-    state: settings as unknown as SettingsState,
-    setValue: mockSetValue,
+    settings: settings as unknown as SettingsState,
+    setSetting: mockSetValue,
   };
   return {
     ...render(
@@ -457,7 +457,7 @@ describe('SettingsDialog', () => {
 
         const settings = createMockSettings();
         if (initialValue !== undefined) {
-          settings.setValue(SettingScope.User, 'ui.theme', initialValue);
+          settings.setSetting(SettingScope.User, 'ui.theme', initialValue);
         }
 
         const onSelect = vi.fn();
@@ -692,8 +692,8 @@ describe('SettingsDialog', () => {
 
       // Wrap settings in SettingsContextValue format
       const settingsContextValue: SettingsContextValue = {
-        state: settings as unknown as SettingsState,
-        setValue: vi.fn(),
+        settings: settings as unknown as SettingsState,
+        setSetting: vi.fn(),
       };
       const { stdin, unmount } = render(
         <SettingsContext.Provider value={settingsContextValue}>
@@ -1117,8 +1117,8 @@ describe('SettingsDialog', () => {
       let settings = createMockSettings({ 'a.string.setting': 'initial' });
       const onSelect = vi.fn();
       let settingsContextValue: SettingsContextValue = {
-        state: settings as unknown as SettingsState,
-        setValue: vi.fn(),
+        settings: settings as unknown as SettingsState,
+        setSetting: vi.fn(),
       };
 
       const { stdin, unmount, rerender } = render(
@@ -1147,8 +1147,8 @@ describe('SettingsDialog', () => {
         {},
       );
       settingsContextValue = {
-        state: settings as unknown as SettingsState,
-        setValue: vi.fn(),
+        settings: settings as unknown as SettingsState,
+        setSetting: vi.fn(),
       };
       rerender(
         <KeypressProvider>

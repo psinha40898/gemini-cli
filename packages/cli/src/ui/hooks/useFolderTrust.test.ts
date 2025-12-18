@@ -47,7 +47,7 @@ describe('useFolderTrust', () => {
           },
         },
       },
-      setValue: vi.fn(),
+      setSetting: vi.fn(),
     } as unknown as LoadedSettings;
 
     mockTrustedFolders = {
@@ -215,7 +215,7 @@ describe('useFolderTrust', () => {
 
     await waitFor(() => {
       expect(mockTrustedFolders.setValue).not.toHaveBeenCalled();
-      expect(mockSettings.setValue).not.toHaveBeenCalled();
+      expect(mockSettings.setSetting).not.toHaveBeenCalled();
       expect(result.current.isFolderTrustDialogOpen).toBe(true);
       expect(onTrustChange).toHaveBeenCalledWith(undefined);
     });

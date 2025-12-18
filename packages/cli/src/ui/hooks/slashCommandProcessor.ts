@@ -72,7 +72,7 @@ interface SlashCommandProcessorActions {
 export const useSlashCommandProcessor = (
   config: Config | null,
   settings: SettingsState,
-  setValue: SettingsContextValue['setValue'],
+  setSetting: SettingsContextValue['setSetting'],
   addItem: UseHistoryManagerReturn['addItem'],
   clearItems: UseHistoryManagerReturn['clearItems'],
   loadHistory: UseHistoryManagerReturn['loadHistory'],
@@ -198,7 +198,7 @@ export const useSlashCommandProcessor = (
       services: {
         config,
         settings,
-        setValue,
+        setSetting,
         git: gitService,
         logger,
       },
@@ -235,7 +235,7 @@ export const useSlashCommandProcessor = (
       alternateBuffer,
       config,
       settings,
-      setValue,
+      setSetting,
       gitService,
       logger,
       loadHistory,

@@ -4,20 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { LoadableSettingScope } from '../../config/settings.js';
+import type { LoadableSettingScope , DeepReadonly } from '../../config/settings.js';
 import { SettingScope } from '../../config/settings.js';
 import type { Settings } from '../../config/settingsSchema.js';
-import type { DeepReadonly } from '../contexts/SettingsContext.js';
 import {
   getDialogSettingKeys,
   getEffectiveValue,
   requiresRestart,
 } from '../../utils/settingsUtils.js';
 import { checkExhaustive } from '../../utils/checks.js';
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export interface SettingsDialogState {
   // Navigation
@@ -59,10 +54,6 @@ export type SettingsDialogAction =
   // Restart-required tracking
   | { type: 'UPDATE_RESTART_DIRTY'; key: string; newValue: unknown };
 
-// ============================================================================
-// Initial State Factory
-// ============================================================================
-
 export function createInitialState(
   mergedAtMount: Settings | DeepReadonly<Settings>,
 ): SettingsDialogState {
@@ -85,10 +76,6 @@ export function createInitialState(
     restartOriginalValues,
   };
 }
-
-// ============================================================================
-// Reducer
-// ============================================================================
 
 export function settingsDialogReducer(
   state: SettingsDialogState,

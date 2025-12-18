@@ -31,7 +31,7 @@ async function removeMcpServer(
 
   delete mcpServers[name];
 
-  settings.setValue(settingsScope, 'mcpServers', mcpServers);
+  settings.setSetting(settingsScope, 'mcpServers', mcpServers);
 
   debugLogger.log(`Server "${name}" removed from ${scope} settings.`);
 }

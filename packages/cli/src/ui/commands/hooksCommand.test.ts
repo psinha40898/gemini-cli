@@ -29,7 +29,7 @@ describe('hooksCommand', () => {
       };
     };
   };
-  let mockSetValue: ReturnType<typeof vi.fn>;
+  let mockSetSetting: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -56,14 +56,14 @@ describe('hooksCommand', () => {
         },
       },
     };
-    mockSetValue = vi.fn();
+    mockSetSetting = vi.fn();
 
     // Create mock context with config and settings
     mockContext = createMockCommandContext({
       services: {
         config: mockConfig,
         settings: mockSettings,
-        setValue: mockSetValue,
+        setSetting: mockSetSetting,
       },
     });
   });
@@ -279,7 +279,7 @@ describe('hooksCommand', () => {
 
       const result = await enableCmd.action(mockContext, 'test-hook');
 
-      expect(mockSetValue).toHaveBeenCalledWith(
+      expect(mockSetSetting).toHaveBeenCalledWith(
         expect.any(String),
         'hooks.disabled',
         ['other-hook'],
@@ -296,7 +296,7 @@ describe('hooksCommand', () => {
     });
 
     it('should handle error when enabling hook fails', async () => {
-      mockSetValue.mockImplementationOnce(() => {
+      mockSetSetting.mockImplementationOnce(() => {
         throw new Error('Failed to save settings');
       });
 
@@ -391,7 +391,7 @@ describe('hooksCommand', () => {
 
       const result = await disableCmd.action(mockContext, 'test-hook');
 
-      expect(mockSetValue).toHaveBeenCalledWith(
+      expect(mockSetSetting).toHaveBeenCalledWith(
         expect.any(String),
         'hooks.disabled',
         ['test-hook'],
@@ -427,7 +427,7 @@ describe('hooksCommand', () => {
 
       const result = await disableCmd.action(mockContext, 'test-hook');
 
-      expect(mockSetValue).not.toHaveBeenCalled();
+      expect(mockSetSetting).not.toHaveBeenCalled();
       expect(mockHookSystem.setHookEnabled).not.toHaveBeenCalled();
       expect(result).toEqual({
         type: 'message',
@@ -440,7 +440,7 @@ describe('hooksCommand', () => {
       mockSettings.merged.hooks = {
         disabled: [],
       };
-      mockSetValue.mockImplementationOnce(() => {
+      mockSetSetting.mockImplementationOnce(() => {
         throw new Error('Failed to save settings');
       });
 
