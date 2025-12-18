@@ -616,18 +616,20 @@ describe('SettingsDialog', () => {
     });
 
     it('should show different values for different scopes', () => {
+      // User has vimMode: true, which differs from default (false)
       const settings = createMockSettings(
-        { vimMode: true }, // User settings
-        { vimMode: false }, // System settings
-        { autoUpdate: false }, // Workspace settings
+        { general: { vimMode: true } }, // User settings
+        {}, // System settings
+        {}, // Workspace settings
       );
       const onSelect = vi.fn();
 
       const { lastFrame } = renderDialog(settings, onSelect);
 
-      // Should show user scope values initially
       const output = lastFrame();
-      expect(output).toContain('Settings');
+      // Vim Mode should show 'true' with an asterisk (modified from default)
+      expect(output).toContain('Vim Mode');
+      expect(output).toMatch(/true\*/);
     });
   });
 
@@ -720,18 +722,23 @@ describe('SettingsDialog', () => {
 
   describe('Specific Settings Behavior', () => {
     it('should show correct display values for settings with different states', () => {
+      // vimMode is set to true in user scope (differs from default false)
       const settings = createMockSettings(
-        { vimMode: true, hideTips: false }, // User settings
-        { hideWindowTitle: true }, // System settings
-        { ideMode: false }, // Workspace settings
+        { general: { vimMode: true } }, // User settings - modified
+        {}, // System settings
+        {}, // Workspace settings
       );
       const onSelect = vi.fn();
 
       const { lastFrame } = renderDialog(settings, onSelect);
 
       const output = lastFrame();
-      // Should contain settings labels
-      expect(output).toContain('Settings');
+      // Vim Mode is set in user scope, so should show true with asterisk
+      expect(output).toContain('Vim Mode');
+      expect(output).toMatch(/true\*/);
+      // Dialog structure should be present
+      expect(output).toContain('Apply To');
+      expect(output).toContain('User Settings');
     });
 
     it('should handle immediate settings save for non-restart-required settings', async () => {
@@ -781,24 +788,28 @@ describe('SettingsDialog', () => {
 
   describe('Settings Display Values', () => {
     it('should show correct values for inherited settings', () => {
+      // No user settings - values come from defaults
       const settings = createMockSettings(
-        {},
-        { vimMode: true, hideWindowTitle: false }, // System settings
-        {},
+        {}, // User settings - empty
+        {}, // System settings
+        {}, // Workspace settings
       );
       const onSelect = vi.fn();
 
       const { lastFrame } = renderDialog(settings, onSelect);
 
       const output = lastFrame();
-      // Settings should show inherited values
-      expect(output).toContain('Settings');
+      // Vim Mode should show default value (false) without asterisk (not modified)
+      expect(output).toContain('Vim Mode');
+      // Default values don't have asterisk - just the value
+      expect(output).toMatch(/Vim Mode[^*]*false[^*]/);
     });
 
     it('should show override indicator for overridden settings', () => {
+      // User explicitly sets vimMode to true (differs from schema default of false)
       const settings = createMockSettings(
-        { vimMode: false }, // User overrides
-        { vimMode: true }, // System default
+        { general: { vimMode: true } }, // User overrides default
+        {}, // System settings
         {},
       );
       const onSelect = vi.fn();
@@ -806,8 +817,9 @@ describe('SettingsDialog', () => {
       const { lastFrame } = renderDialog(settings, onSelect);
 
       const output = lastFrame();
-      // Should show settings with override indicators
-      expect(output).toContain('Settings');
+      // The asterisk (*) indicates the setting is modified from default
+      expect(output).toContain('Vim Mode');
+      expect(output).toMatch(/true\*/);
     });
   });
 
