@@ -17,7 +17,7 @@ import {
 import { render } from '../test-utils/render.js';
 import { waitFor } from '../test-utils/async.js';
 import { cleanup } from 'ink-testing-library';
-import { act, useContext } from 'react';
+import { act, useContext, type ReactElement } from 'react';
 import { AppContainer } from './AppContainer.js';
 import {
   SettingsContext,
@@ -75,6 +75,14 @@ vi.mock('@google/gemini-cli-core', async (importOriginal) => {
     })),
     enableMouseEvents: vi.fn(),
     disableMouseEvents: vi.fn(),
+    FileDiscoveryService: vi.fn().mockImplementation(() => ({
+      initialize: vi.fn(),
+    })),
+    startupProfiler: {
+      flush: vi.fn(),
+      start: vi.fn(),
+      end: vi.fn(),
+    },
   };
 });
 import ansiEscapes from 'ansi-escapes';
@@ -355,7 +363,7 @@ describe('AppContainer State Management', () => {
       // Add other properties if AppContainer uses them
     });
     mockedUseLogger.mockReturnValue({
-      getPreviousUserMessages: vi.fn().mockReturnValue(new Promise(() => {})),
+      getPreviousUserMessages: vi.fn().mockResolvedValue([]),
     });
     mockedUseInputHistoryStore.mockReturnValue({
       inputHistory: [],
@@ -372,6 +380,8 @@ describe('AppContainer State Management', () => {
 
     // Mock config's getTargetDir to return consistent workspace directory
     vi.spyOn(mockConfig, 'getTargetDir').mockReturnValue('/test/workspace');
+    vi.spyOn(mockConfig, 'initialize').mockResolvedValue(undefined);
+    vi.spyOn(mockConfig, 'getDebugMode').mockReturnValue(false);
 
     mockExtensionManager = vi.mockObject({
       getExtensions: vi.fn().mockReturnValue([]),
@@ -414,17 +424,25 @@ describe('AppContainer State Management', () => {
 
   describe('Basic Rendering', () => {
     it('renders without crashing with minimal props', async () => {
-      const { unmount } = renderAppContainer();
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer();
+        unmount = result.unmount;
+      });
       await waitFor(() => expect(capturedUIState).toBeTruthy());
-      unmount();
+      unmount!();
     });
 
     it('renders with startup warnings', async () => {
       const startupWarnings = ['Warning 1', 'Warning 2'];
 
-      const { unmount } = renderAppContainer({ startupWarnings });
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer({ startupWarnings });
+        unmount = result.unmount;
+      });
       await waitFor(() => expect(capturedUIState).toBeTruthy());
-      unmount();
+      unmount!();
     });
   });
 
@@ -435,11 +453,15 @@ describe('AppContainer State Management', () => {
         themeError: 'Failed to load theme',
       };
 
-      const { unmount } = renderAppContainer({
-        initResult: initResultWithError,
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer({
+          initResult: initResultWithError,
+        });
+        unmount = result.unmount;
       });
       await waitFor(() => expect(capturedUIState).toBeTruthy());
-      unmount();
+      unmount!();
     });
 
     it('handles debug mode state', () => {
@@ -454,29 +476,45 @@ describe('AppContainer State Management', () => {
 
   describe('Context Providers', () => {
     it('provides AppContext with correct values', async () => {
-      const { unmount } = renderAppContainer({ version: '2.0.0' });
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer({ version: '2.0.0' });
+        unmount = result.unmount;
+      });
       await waitFor(() => expect(capturedUIState).toBeTruthy());
 
       // Should render and unmount cleanly
-      expect(() => unmount()).not.toThrow();
+      expect(() => unmount!()).not.toThrow();
     });
 
     it('provides UIStateContext with state management', async () => {
-      const { unmount } = renderAppContainer();
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer();
+        unmount = result.unmount;
+      });
       await waitFor(() => expect(capturedUIState).toBeTruthy());
-      unmount();
+      unmount!();
     });
 
     it('provides UIActionsContext with action handlers', async () => {
-      const { unmount } = renderAppContainer();
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer();
+        unmount = result.unmount;
+      });
       await waitFor(() => expect(capturedUIState).toBeTruthy());
-      unmount();
+      unmount!();
     });
 
     it('provides ConfigContext with config object', async () => {
-      const { unmount } = renderAppContainer();
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer();
+        unmount = result.unmount;
+      });
       await waitFor(() => expect(capturedUIState).toBeTruthy());
-      unmount();
+      unmount!();
     });
   });
 
@@ -491,9 +529,13 @@ describe('AppContainer State Management', () => {
         },
       } as unknown as LoadedSettings;
 
-      const { unmount } = renderAppContainer({ settings: settingsAllHidden });
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer({ settings: settingsAllHidden });
+        unmount = result.unmount;
+      });
       await waitFor(() => expect(capturedUIState).toBeTruthy());
-      unmount();
+      unmount!();
     });
 
     it('handles settings with memory usage enabled', async () => {
@@ -506,9 +548,13 @@ describe('AppContainer State Management', () => {
         },
       } as unknown as LoadedSettings;
 
-      const { unmount } = renderAppContainer({ settings: settingsWithMemory });
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer({ settings: settingsWithMemory });
+        unmount = result.unmount;
+      });
       await waitFor(() => expect(capturedUIState).toBeTruthy());
-      unmount();
+      unmount!();
     });
   });
 
@@ -516,9 +562,13 @@ describe('AppContainer State Management', () => {
     it.each(['1.0.0', '2.1.3-beta', '3.0.0-nightly'])(
       'handles version format: %s',
       async (version) => {
-        const { unmount } = renderAppContainer({ version });
+        let unmount: () => void;
+        await act(async () => {
+          const result = renderAppContainer({ version });
+          unmount = result.unmount;
+        });
         await waitFor(() => expect(capturedUIState).toBeTruthy());
-        unmount();
+        unmount!();
       },
     );
   });
@@ -540,9 +590,13 @@ describe('AppContainer State Management', () => {
         merged: {},
       } as LoadedSettings;
 
-      const { unmount } = renderAppContainer({ settings: undefinedSettings });
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer({ settings: undefinedSettings });
+        unmount = result.unmount;
+      });
       await waitFor(() => expect(capturedUIState).toBeTruthy());
-      unmount();
+      unmount!();
     });
   });
 
@@ -871,12 +925,16 @@ describe('AppContainer State Management', () => {
   describe('Quota and Fallback Integration', () => {
     it('passes a null proQuotaRequest to UIStateContext by default', async () => {
       // The default mock from beforeEach already sets proQuotaRequest to null
-      const { unmount } = renderAppContainer();
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer();
+        unmount = result.unmount;
+      });
       await waitFor(() => {
         // Assert that the context value is as expected
         expect(capturedUIState.proQuotaRequest).toBeNull();
       });
-      unmount();
+      unmount!();
     });
 
     it('passes a valid proQuotaRequest to UIStateContext when provided by the hook', async () => {
@@ -892,12 +950,16 @@ describe('AppContainer State Management', () => {
       });
 
       // Act: Render the container
-      const { unmount } = renderAppContainer();
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer();
+        unmount = result.unmount;
+      });
       await waitFor(() => {
         // Assert: The mock request is correctly passed through the context
         expect(capturedUIState.proQuotaRequest).toEqual(mockRequest);
       });
-      unmount();
+      unmount!();
     });
 
     it('passes the handleProQuotaChoice function to UIActionsContext', async () => {
@@ -909,7 +971,11 @@ describe('AppContainer State Management', () => {
       });
 
       // Act: Render the container
-      const { unmount } = renderAppContainer();
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer();
+        unmount = result.unmount;
+      });
       await waitFor(() => {
         // Assert: The action in the context is the mock handler we provided
         expect(capturedUIActions.handleProQuotaChoice).toBe(mockHandler);
@@ -920,7 +986,7 @@ describe('AppContainer State Management', () => {
         capturedUIActions.handleProQuotaChoice('retry_later');
       });
       expect(mockHandler).toHaveBeenCalledWith('retry_later');
-      unmount();
+      unmount!();
     });
   });
 
@@ -1338,13 +1404,17 @@ describe('AppContainer State Management', () => {
         activePtyId: 'some-id',
       });
 
-      const { unmount } = renderAppContainer();
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer();
+        unmount = result.unmount;
+      });
       await waitFor(() => expect(resizePtySpy).toHaveBeenCalled());
       const lastCall =
         resizePtySpy.mock.calls[resizePtySpy.mock.calls.length - 1];
       // Check the height argument specifically
       expect(lastCall[2]).toBe(1);
-      unmount();
+      unmount!();
     });
   });
 
@@ -1683,11 +1753,15 @@ describe('AppContainer State Management', () => {
         closeModelDialog: vi.fn(),
       });
 
-      const { unmount } = renderAppContainer();
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer();
+        unmount = result.unmount;
+      });
       await waitFor(() => expect(capturedUIState).toBeTruthy());
 
       expect(capturedUIState.isModelDialogOpen).toBe(true);
-      unmount();
+      unmount!();
     });
 
     it('should provide model dialog actions in the UIActionsContext', async () => {
@@ -1699,7 +1773,11 @@ describe('AppContainer State Management', () => {
         closeModelDialog: mockCloseModelDialog,
       });
 
-      const { unmount } = renderAppContainer();
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer();
+        unmount = result.unmount;
+      });
       await waitFor(() => expect(capturedUIState).toBeTruthy());
 
       // Verify that the actions are correctly passed through context
@@ -1707,13 +1785,17 @@ describe('AppContainer State Management', () => {
         capturedUIActions.closeModelDialog();
       });
       expect(mockCloseModelDialog).toHaveBeenCalled();
-      unmount();
+      unmount!();
     });
   });
 
   describe('CoreEvents Integration', () => {
     it('subscribes to UserFeedback and drains backlog on mount', async () => {
-      const { unmount } = renderAppContainer();
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer();
+        unmount = result.unmount;
+      });
       await waitFor(() => expect(capturedUIState).toBeTruthy());
 
       expect(mockCoreEvents.on).toHaveBeenCalledWith(
@@ -1721,14 +1803,18 @@ describe('AppContainer State Management', () => {
         expect.any(Function),
       );
       expect(mockCoreEvents.drainBacklogs).toHaveBeenCalledTimes(1);
-      unmount();
+      unmount!();
     });
 
     it('unsubscribes from UserFeedback on unmount', async () => {
-      const { unmount } = renderAppContainer();
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer();
+        unmount = result.unmount;
+      });
       await waitFor(() => expect(capturedUIState).toBeTruthy());
 
-      unmount();
+      unmount!();
 
       expect(mockCoreEvents.off).toHaveBeenCalledWith(
         CoreEvent.UserFeedback,
@@ -1737,7 +1823,11 @@ describe('AppContainer State Management', () => {
     });
 
     it('adds history item when UserFeedback event is received', async () => {
-      const { unmount } = renderAppContainer();
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer();
+        unmount = result.unmount;
+      });
       await waitFor(() => expect(capturedUIState).toBeTruthy());
 
       // Get the registered handler
@@ -1762,14 +1852,18 @@ describe('AppContainer State Management', () => {
         }),
         expect.any(Number),
       );
-      unmount();
+      unmount!();
     });
 
     it('updates currentModel when ModelChanged event is received', async () => {
       // Arrange: Mock initial model
       vi.spyOn(mockConfig, 'getModel').mockReturnValue('initial-model');
 
-      const { unmount } = renderAppContainer();
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer();
+        unmount = result.unmount;
+      });
       await waitFor(() => {
         expect(capturedUIState?.currentModel).toBe('initial-model');
       });
@@ -1781,13 +1875,15 @@ describe('AppContainer State Management', () => {
       expect(handler).toBeDefined();
 
       // Act: Simulate ModelChanged event
+      // Update config mock to return new model since the handler reads from config
+      vi.spyOn(mockConfig, 'getModel').mockReturnValue('new-model');
       act(() => {
         handler({ model: 'new-model' });
       });
 
       // Assert: Verify model is updated
       expect(capturedUIState.currentModel).toBe('new-model');
-      unmount();
+      unmount!();
     });
   });
 
@@ -1810,10 +1906,14 @@ describe('AppContainer State Management', () => {
       });
 
       // The main assertion is that the render does not throw.
-      const { unmount } = renderAppContainer();
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer();
+        unmount = result.unmount;
+      });
 
       await waitFor(() => expect(resizePtySpy).toHaveBeenCalled());
-      unmount();
+      unmount!();
     });
   });
   describe('Banner Text', () => {
@@ -1823,10 +1923,14 @@ describe('AppContainer State Management', () => {
         authType: AuthType.USE_GEMINI,
         apiKey: 'fake-key',
       });
-      const { unmount } = renderAppContainer();
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer();
+        unmount = result.unmount;
+      });
       await waitFor(() => {
         expect(capturedUIState.bannerData.defaultText).toBeDefined();
-        unmount();
+        unmount!();
       });
     });
   });
@@ -1849,7 +1953,11 @@ describe('AppContainer State Management', () => {
     });
 
     it('clears the prompt when onCancelSubmit is called with shouldRestorePrompt=false', async () => {
-      const { unmount } = renderAppContainer();
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer();
+        unmount = result.unmount;
+      });
       await waitFor(() => expect(capturedUIState).toBeTruthy());
 
       const { onCancelSubmit } = extractUseGeminiStreamArgs(
@@ -1862,7 +1970,7 @@ describe('AppContainer State Management', () => {
 
       expect(mockSetText).toHaveBeenCalledWith('');
 
-      unmount();
+      unmount!();
     });
 
     it('restores the prompt when onCancelSubmit is called with shouldRestorePrompt=true (or undefined)', async () => {
@@ -1873,7 +1981,11 @@ describe('AppContainer State Management', () => {
         initializeFromLogger: vi.fn(),
       });
 
-      const { unmount } = renderAppContainer();
+      let unmount: () => void;
+      await act(async () => {
+        const result = renderAppContainer();
+        unmount = result.unmount;
+      });
       await waitFor(() =>
         expect(capturedUIState.userMessages).toContain('previous message'),
       );
@@ -1888,7 +2000,7 @@ describe('AppContainer State Management', () => {
 
       expect(mockSetText).toHaveBeenCalledWith('previous message');
 
-      unmount();
+      unmount!();
     });
 
     it('input history is independent from conversation history (survives /clear)', async () => {
@@ -1901,7 +2013,13 @@ describe('AppContainer State Management', () => {
         initializeFromLogger: vi.fn(),
       });
 
-      const { unmount } = renderAppContainer();
+      let rerender: (tree: ReactElement) => void;
+      let unmount;
+      await act(async () => {
+        const result = renderAppContainer();
+        rerender = result.rerender;
+        unmount = result.unmount;
+      });
 
       // Verify userMessages is populated from inputHistory
       await waitFor(() =>
@@ -1919,12 +2037,17 @@ describe('AppContainer State Management', () => {
         loadHistory: vi.fn(),
       });
 
+      await act(async () => {
+        // Rerender to apply the new mock.
+        rerender(getAppContainer());
+      });
+
       // Verify that userMessages still contains the input history
       // (it should not be affected by clearing conversation history)
       expect(capturedUIState.userMessages).toContain('first prompt');
       expect(capturedUIState.userMessages).toContain('second prompt');
 
-      unmount();
+      unmount!();
     });
   });
 
@@ -1939,7 +2062,11 @@ describe('AppContainer State Management', () => {
       // Clear previous calls
       mocks.mockStdout.write.mockClear();
 
-      const { unmount } = renderAppContainer();
+      let compUnmount: () => void = () => {};
+      await act(async () => {
+        const { unmount } = renderAppContainer();
+        compUnmount = unmount;
+      });
 
       // Allow async effects to run
       await waitFor(() => expect(capturedUIState).toBeTruthy());
@@ -1955,7 +2082,7 @@ describe('AppContainer State Management', () => {
       );
 
       expect(clearTerminalCalls).toHaveLength(0);
-      unmount();
+      compUnmount();
     });
   });
 });
