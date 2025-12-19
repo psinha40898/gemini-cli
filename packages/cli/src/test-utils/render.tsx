@@ -14,7 +14,7 @@ import { KeypressProvider } from '../ui/contexts/KeypressContext.js';
 import {
   SettingsContext,
   type SettingsContextValue,
-  type SettingsState,
+  createSettingsState,
 } from '../ui/contexts/SettingsContext.js';
 import { ShellFocusContext } from '../ui/contexts/ShellFocusContext.js';
 import { UIStateContext, type UIState } from '../ui/contexts/UIStateContext.js';
@@ -231,10 +231,9 @@ export const renderWithProviders = (
 
   const mainAreaWidth = calculateMainAreaWidth(terminalWidth, finalSettings);
 
-  // Wrap LoadedSettings in SettingsContextValue format for the context provider
   const settingsContextValue: SettingsContextValue = {
-    settings: finalSettings as unknown as SettingsState,
-    setSetting: vi.fn(),
+    settings: createSettingsState(finalSettings),
+    setSetting: finalSettings.setSetting.bind(finalSettings),
   };
 
   const finalUiState = {

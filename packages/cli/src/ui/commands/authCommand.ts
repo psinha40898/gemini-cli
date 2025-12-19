@@ -31,7 +31,7 @@ const authLogoutCommand: SlashCommand = {
   action: async (context, _args): Promise<LogoutActionReturn> => {
     await clearCachedCredentialFile();
     // Clear the selected auth type so user sees the auth selection menu
-    context.services.settings.setValue(
+    context.services.setSetting(
       SettingScope.User,
       'security.auth.selectedType',
       undefined,

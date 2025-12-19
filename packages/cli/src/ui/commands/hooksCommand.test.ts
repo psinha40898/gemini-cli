@@ -260,15 +260,17 @@ describe('hooksCommand', () => {
     });
 
     it('should enable a hook and update settings', async () => {
-      // Update the context's settings with disabled hooks
-      // Must update context.services.settings directly since createMockCommandContext creates a copy
-      (
-        mockContext.services.settings as unknown as {
-          merged: { hooks?: { disabled?: string[] } };
-        }
-      ).merged.hooks = {
+      // Set up settings with disabled hooks before creating context
+      mockSettings.merged.hooks = {
         disabled: ['test-hook', 'other-hook'],
       };
+      mockContext = createMockCommandContext({
+        services: {
+          config: mockConfig,
+          settings: mockSettings,
+          setSetting: mockSetSetting,
+        },
+      });
 
       const enableCmd = hooksCommand.subCommands!.find(
         (cmd) => cmd.name === 'enable',
@@ -426,15 +428,17 @@ describe('hooksCommand', () => {
     });
 
     it('should return info when hook is already disabled', async () => {
-      // Update the context's settings with the hook already disabled
-      // Must update context.services.settings directly since createMockCommandContext creates a copy
-      (
-        mockContext.services.settings as unknown as {
-          merged: { hooks?: { disabled?: string[] } };
-        }
-      ).merged.hooks = {
+      // Set up settings with hook already disabled before creating context
+      mockSettings.merged.hooks = {
         disabled: ['test-hook'],
       };
+      mockContext = createMockCommandContext({
+        services: {
+          config: mockConfig,
+          settings: mockSettings,
+          setSetting: mockSetSetting,
+        },
+      });
 
       const disableCmd = hooksCommand.subCommands!.find(
         (cmd) => cmd.name === 'disable',

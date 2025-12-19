@@ -79,7 +79,7 @@ export function SettingsDialog({
   // The reducer handles the bulk of Dialog state
   // The current settings scope, currently focused menu (settings or scope), responsive height, search state, and setting changes that require a restart.
   // Note: createInitialState only runs once (React's useReducer guarantee)
-  // capturing the original values of restart-required settings at mount time.
+  // capturing the initial values of restart-required settings at mount time.
   const [state, dispatch] = useReducer(
     settingsDialogReducer,
     settings.settings.merged,
@@ -216,7 +216,7 @@ export function SettingsDialog({
             config?.setPreviewFeatures(newValue as boolean);
           }
 
-          // Update restart-dirty tracking (adds if different from original, removes if reverted)
+          // Update restart-dirty tracking (adds if different from initial, removes if reverted)
           if (requiresRestart(key)) {
             dispatch({ type: 'UPDATE_RESTART_DIRTY', key, newValue });
           }
@@ -254,7 +254,7 @@ export function SettingsDialog({
 
     saveSetting(key, parsed, selectedScope, scopeSettings, settings.setSetting);
 
-    // Update restart-dirty tracking (adds if different from original, removes if reverted)
+    // Update restart-dirty tracking (adds if different from initial, removes if reverted)
     if (requiresRestart(key)) {
       dispatch({ type: 'UPDATE_RESTART_DIRTY', key, newValue: parsed });
     }
@@ -342,7 +342,7 @@ export function SettingsDialog({
     maxVisibleItems = Math.max(1, Math.floor(availableHeightForSettings / 2));
   }
 
-  // Use the calculated maxVisibleItems or fall back to the original maxItemsToShow
+  // Use the calculated maxVisibleItems or fall back to the initial maxItemsToShow
   const effectiveMaxItemsToShow = availableTerminalHeight
     ? Math.min(maxVisibleItems, items.length)
     : maxItemsToShow;
@@ -526,7 +526,7 @@ export function SettingsDialog({
               settings.setSetting,
             );
 
-            // Update restart-dirty tracking (adds if different from original, removes if reverted)
+            // Update restart-dirty tracking (adds if different from initial, removes if reverted)
             if (requiresRestart(currentSetting.value)) {
               dispatch({
                 type: 'UPDATE_RESTART_DIRTY',

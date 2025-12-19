@@ -29,8 +29,6 @@ describe('authCommand', () => {
         },
       },
     });
-    // Add setValue mock to settings
-    mockContext.services.settings.setValue = vi.fn();
     vi.clearAllMocks();
   });
 
@@ -87,7 +85,7 @@ describe('authCommand', () => {
 
       await logoutCommand!.action!(mockContext, '');
 
-      expect(mockContext.services.settings.setValue).toHaveBeenCalledWith(
+      expect(mockContext.services.setSetting).toHaveBeenCalledWith(
         SettingScope.User,
         'security.auth.selectedType',
         undefined,

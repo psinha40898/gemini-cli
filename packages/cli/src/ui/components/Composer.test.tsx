@@ -156,7 +156,7 @@ const createMockSettings = (merged = {}) => ({
     merged: {
       ui: {
         hideFooter: false,
-        hideContextSummary: false,
+        showMemoryUsage: false,
         ...merged,
       },
     },

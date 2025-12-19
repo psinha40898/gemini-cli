@@ -99,7 +99,6 @@ describe('App', () => {
     new Set<SettingScope>(),
   );
 
-  // Wrap LoadedSettings in SettingsContextValue format
   const mockSettingsContextValue: SettingsContextValue = {
     settings: mockLoadedSettings as unknown as SettingsState,
     setSetting: vi.fn(),

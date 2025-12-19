@@ -267,10 +267,10 @@ describe('settingsDialogReducer', () => {
   });
 
   describe('UPDATE_RESTART_DIRTY', () => {
-    it('should add key to restartRequiredChangedKeys when value differs from original', () => {
+    it('should add key to restartRequiredChangedKeys when value differs from initial', () => {
       const state = {
         ...initialState,
-        restartRequiredInitialSettings: new Map([['test.setting', 'original']]),
+        restartRequiredInitialSettings: new Map([['test.setting', 'initial']]),
       };
       const action: SettingsDialogAction = {
         type: 'UPDATE_RESTART_DIRTY',
@@ -282,16 +282,16 @@ describe('settingsDialogReducer', () => {
       expect(result.restartRequiredChangedKeys.has('test.setting')).toBe(true);
     });
 
-    it('should remove key from restartRequiredChangedKeys when value matches original', () => {
+    it('should remove key from restartRequiredChangedKeys when value matches initial', () => {
       const state = {
         ...initialState,
         restartRequiredChangedKeys: new Set(['test.setting']),
-        restartRequiredInitialSettings: new Map([['test.setting', 'original']]),
+        restartRequiredInitialSettings: new Map([['test.setting', 'initial']]),
       };
       const action: SettingsDialogAction = {
         type: 'UPDATE_RESTART_DIRTY',
         key: 'test.setting',
-        newValue: 'original',
+        newValue: 'initial',
       };
       const result = settingsDialogReducer(state, action);
       expect(result.restartRequiredChangedKeys.size).toBe(0);
@@ -302,7 +302,7 @@ describe('settingsDialogReducer', () => {
       const state = {
         ...initialState,
         restartRequiredChangedKeys: new Set(['test.setting']),
-        restartRequiredInitialSettings: new Map([['test.setting', 'original']]),
+        restartRequiredInitialSettings: new Map([['test.setting', 'initial']]),
       };
       const action: SettingsDialogAction = {
         type: 'UPDATE_RESTART_DIRTY',
@@ -316,12 +316,12 @@ describe('settingsDialogReducer', () => {
     it('should return same state when dirty status unchanged (still clean)', () => {
       const state = {
         ...initialState,
-        restartRequiredInitialSettings: new Map([['test.setting', 'original']]),
+        restartRequiredInitialSettings: new Map([['test.setting', 'initial']]),
       };
       const action: SettingsDialogAction = {
         type: 'UPDATE_RESTART_DIRTY',
         key: 'test.setting',
-        newValue: 'original',
+        newValue: 'initial',
       };
       const result = settingsDialogReducer(state, action);
       expect(result).toBe(state);
@@ -346,7 +346,7 @@ describe('settingsDialogReducer', () => {
       let result = settingsDialogReducer(state, action1);
       expect(result.restartRequiredChangedKeys.size).toBe(2);
 
-      // Revert setting1 to original
+      // Revert setting1 to initial
       const action2: SettingsDialogAction = {
         type: 'UPDATE_RESTART_DIRTY',
         key: 'setting1',
@@ -371,7 +371,7 @@ describe('settingsDialogReducer', () => {
   });
 
   describe('state immutability', () => {
-    it('should not mutate the original state', () => {
+    it('should not mutate the initial state', () => {
       const action: SettingsDialogAction = {
         type: 'SET_FOCUS',
         section: 'scope',
