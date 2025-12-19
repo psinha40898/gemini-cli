@@ -234,7 +234,7 @@ export async function handleMigrateFromClaude() {
     (settings.merged.hooks as Record<string, unknown>) || {};
   const mergedHooks = { ...existingHooks, ...migratedHooks };
 
-  // Update settings (setValue automatically saves)
+  // Update settings (setSetting automatically saves)
   try {
     settings.setSetting(SettingScope.Workspace, 'hooks', mergedHooks);
 

@@ -32,7 +32,7 @@ interface ThemeDialogProps {
 
   /** Callback function when a theme is highlighted */
   onHighlight: (themeName: string | undefined) => void;
-  /** The settings object */
+  /** The settings snapshot */
   settings: SettingsState;
   availableTerminalHeight?: number;
   terminalWidth: number;
