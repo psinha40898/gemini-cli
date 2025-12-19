@@ -27,7 +27,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SettingsDialog } from './SettingsDialog.js';
 import { LoadedSettings, SettingScope } from '../../config/settings.js';
 import { VimModeProvider } from '../contexts/VimModeContext.js';
-import { SettingsContext } from '../contexts/SettingsContext.js';
+import {
+  SettingsContext,
+  createSettingsState,
+} from '../contexts/SettingsContext.js';
 import type {
   SettingsContextValue,
   SettingsState,
@@ -265,10 +268,10 @@ const renderDialog = (
     availableTerminalHeight?: number;
   },
 ) => {
-  // Wrap settings in SettingsContextValue format
+  // Create proper SettingsState using the helper instead of unsafe cast
   const mockSetValue = vi.fn();
   const settingsContextValue: SettingsContextValue = {
-    settings: settings as unknown as SettingsState,
+    settings: createSettingsState(settings),
     setSetting: mockSetValue,
   };
   return {
@@ -694,9 +697,9 @@ describe('SettingsDialog', () => {
       const settings = createMockSettings();
       const onSelect = vi.fn();
 
-      // Wrap settings in SettingsContextValue format
+      // Create proper SettingsState using the helper instead of unsafe cast
       const settingsContextValue: SettingsContextValue = {
-        settings: settings as unknown as SettingsState,
+        settings: createSettingsState(settings),
         setSetting: vi.fn(),
       };
       const { stdin, unmount } = render(
