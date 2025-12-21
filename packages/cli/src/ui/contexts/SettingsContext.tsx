@@ -9,6 +9,7 @@ import type {
   LoadedSettings,
   LoadedSettingsSnapshot,
   LoadableSettingScope,
+  SettingsFile,
 } from '../../config/settings.js';
 import { SettingScope } from '../../config/settings.js';
 
@@ -34,7 +35,7 @@ export const useSettings = (): LoadedSettings => {
  * Extends the snapshot with a forScope helper method.
  */
 export interface SettingsState extends LoadedSettingsSnapshot {
-  forScope: (scope: LoadableSettingScope) => LoadedSettingsSnapshot['user'];
+  forScope: (scope: LoadableSettingScope) => SettingsFile;
 }
 
 /**

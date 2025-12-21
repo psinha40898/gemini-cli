@@ -5,15 +5,15 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SettingScope } from '../config/settings.js';
-import type { LoadedSettings } from '../config/settings.js';
+import { SettingScope } from '../../config/settings.js';
+import type { LoadedSettings } from '../../config/settings.js';
 import {
   getScopeItems,
   getScopeMessageForSetting,
 } from './dialogScopeUtils.js';
-import { settingExistsInScope } from './settingsUtils.js';
+import { settingExistsInScope } from '../../utils/settingsUtils.js';
 
-vi.mock('../config/settings', () => ({
+vi.mock('../../config/settings', () => ({
   SettingScope: {
     User: 'user',
     Workspace: 'workspace',
@@ -23,7 +23,7 @@ vi.mock('../config/settings', () => ({
     ['user', 'workspace', 'system'].includes(scope),
 }));
 
-vi.mock('./settingsUtils', () => ({
+vi.mock('../../utils/settingsUtils', () => ({
   settingExistsInScope: vi.fn(),
 }));
 

@@ -16,7 +16,7 @@ import { useSettingsStore } from '../contexts/SettingsContext.js';
 import {
   getScopeItems,
   getScopeMessageForSetting,
-} from '../../utils/dialogScopeUtils.js';
+} from '../utils/dialogScopeUtils.js';
 import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
 import {
   getDialogSettingKeys,
