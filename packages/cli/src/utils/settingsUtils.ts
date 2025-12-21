@@ -418,6 +418,41 @@ export function saveModifiedSettings(
 }
 
 /**
+ * Check if a setting value should be written (not default or already exists in scope)
+ */
+function shouldWriteSetting(
+  key: string,
+  value: SettingsValue,
+  scopeSettings: Settings,
+): boolean {
+  const existsInOriginalFile = settingExistsInScope(key, scopeSettings);
+  const isDefault = value === getDefaultValue(key);
+  return existsInOriginalFile || !isDefault;
+}
+
+/**
+ * Save a single setting to the appropriate scope
+ * Only writes if the value differs from default or already exists in scope
+ */
+export function saveSetting(
+  key: string,
+  value: SettingsValue,
+  scope: LoadableSettingScope,
+  scopeSettings: Settings,
+  setSetting: (
+    scope: LoadableSettingScope,
+    key: string,
+    value: unknown,
+  ) => void,
+): void {
+  if (!shouldWriteSetting(key, value, scopeSettings)) {
+    return;
+  }
+
+  setSetting(scope, key, value);
+}
+
+/**
  * Get the display value for a setting, showing current scope value with default change indicator
  */
 export function getDisplayValue(
