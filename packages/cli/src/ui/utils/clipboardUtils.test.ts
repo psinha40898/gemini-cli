@@ -58,9 +58,8 @@ describe('clipboardUtils', () => {
       const result = await saveClipboardImage(mockStorage);
 
       if (process.platform === 'darwin' || process.platform === 'win32') {
-        // On macOS/Windows, we can't easily force failure here without more complex mocking,
-        // but we verify the call structure matches.
-        expect(true).toBe(true);
+        // On macOS/Windows, might return null due to various errors
+        expect(result === null || typeof result === 'string').toBe(true);
       } else {
         // On other platforms, should always return null
         expect(result).toBe(null);
