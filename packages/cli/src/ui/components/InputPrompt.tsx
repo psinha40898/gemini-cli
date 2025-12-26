@@ -24,7 +24,7 @@ import { useKeypress } from '../hooks/useKeypress.js';
 import { keyMatchers, Command } from '../keyMatchers.js';
 import type { CommandContext, SlashCommand } from '../commands/types.js';
 import type { Config } from '@google/gemini-cli-core';
-import { ApprovalMode } from '@google/gemini-cli-core';
+import { ApprovalMode, escapePath } from '@google/gemini-cli-core';
 import {
   parseInputForHighlighting,
   parseSegmentsFromTokens,
@@ -323,7 +323,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
           });
 
           // Insert @path reference at cursor position
-          const insertText = `@${imagePath}`;
+          const insertText = `@${escapePath(imagePath)}`;
           const currentText = buffer.text;
           const offset = buffer.getOffset();
 

@@ -6,13 +6,12 @@
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import type {
-  Storage} from '@google/gemini-cli-core';
+import type { Storage } from '@google/gemini-cli-core';
 import {
   debugLogger,
   spawnAsync,
   unescapePath,
-  escapePath
+  escapePath,
 } from '@google/gemini-cli-core';
 
 /**
