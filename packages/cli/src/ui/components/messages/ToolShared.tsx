@@ -7,6 +7,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { ToolCallStatus } from '../../types.js';
+import { TransformedText } from '../TransformedText.js';
 import { GeminiRespondingSpinner } from '../GeminiRespondingSpinner.js';
 import {
   SHELL_COMMAND_NAME,
@@ -103,7 +104,9 @@ export const ToolInfo: React.FC<ToolInfoProps> = ({
         <Text color={nameColor} bold>
           {name}
         </Text>{' '}
-        <Text color={theme.text.secondary}>{description}</Text>
+        <TransformedText color={theme.text.secondary}>
+          {description}
+        </TransformedText>
       </Text>
     </Box>
   );

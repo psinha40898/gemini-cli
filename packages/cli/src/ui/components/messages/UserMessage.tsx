@@ -9,6 +9,7 @@ import { Text, Box } from 'ink';
 import { theme } from '../../semantic-colors.js';
 import { SCREEN_READER_USER_PREFIX } from '../../textConstants.js';
 import { isSlashCommand as checkIsSlashCommand } from '../../utils/commandUtils.js';
+import { TransformedText } from '../TransformedText.js';
 
 interface UserMessageProps {
   text: string;
@@ -36,9 +37,9 @@ export const UserMessage: React.FC<UserMessageProps> = ({ text, width }) => {
         </Text>
       </Box>
       <Box flexGrow={1}>
-        <Text wrap="wrap" color={textColor}>
+        <TransformedText wrap="wrap" color={textColor}>
           {text}
-        </Text>
+        </TransformedText>
       </Box>
     </Box>
   );
