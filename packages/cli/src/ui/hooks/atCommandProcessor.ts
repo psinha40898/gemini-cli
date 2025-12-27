@@ -23,6 +23,7 @@ import { Buffer } from 'node:buffer';
 import type { HistoryItem, IndividualToolCallDisplay } from '../types.js';
 import { ToolCallStatus } from '../types.js';
 import type { UseHistoryManagerReturn } from './useHistoryManager.js';
+import { getTransformedImagePath } from '../components/shared/text-buffer.js';
 
 interface HandleAtCommandParams {
   query: string;
@@ -115,6 +116,19 @@ function parseAllAtCommands(query: string): AtCommandPart[] {
   return parts.filter(
     (part) => !(part.type === 'text' && part.content.trim() === ''),
   );
+}
+
+/**
+ * Transforms image paths in display strings to their collapsed form.
+ * e.g., `.gemini-clipboard/clipboard-123.png` → `[Image ...123.png]`
+ */
+function transformDisplayString(text: string): string {
+  // Match image file paths (with or without @ prefix)
+  const imageFileRegex = /`([^`]*\.(?:png|jpg|jpeg|gif|webp|svg|bmp))`/gi;
+  return text.replace(imageFileRegex, (_match, filePath: string) => {
+    const transformed = getTransformedImagePath(`@${filePath}`);
+    return `\`${transformed}\``;
+  });
 }
 
 /**
@@ -534,14 +548,16 @@ export async function handleAtCommand({
   try {
     invocation = readManyFilesTool.build(toolArgs);
     const result = await invocation.execute(signal);
+    const displayText =
+      typeof result.returnDisplay === 'string'
+        ? result.returnDisplay
+        : `Successfully read: ${fileLabelsForDisplay.join(', ')}`;
     readManyFilesDisplay = {
       callId: `client-read-${userMessageTimestamp}`,
       name: readManyFilesTool.displayName,
       description: invocation.getDescription(),
       status: ToolCallStatus.Success,
-      resultDisplay:
-        result.returnDisplay ||
-        `Successfully read: ${fileLabelsForDisplay.join(', ')}`,
+      resultDisplay: transformDisplayString(displayText),
       confirmationDetails: undefined,
     };
 
@@ -612,7 +628,9 @@ export async function handleAtCommand({
         invocation?.getDescription() ??
         'Error attempting to execute tool to read files',
       status: ToolCallStatus.Error,
-      resultDisplay: `Error reading files (${fileLabelsForDisplay.join(', ')}): ${getErrorMessage(error)}`,
+      resultDisplay: transformDisplayString(
+        `Error reading files (${fileLabelsForDisplay.join(', ')}): ${getErrorMessage(error)}`,
+      ),
       confirmationDetails: undefined,
     };
     addItem(
