@@ -335,6 +335,10 @@ export interface ConfigParameters {
   enableAgents?: boolean;
   experimentalJitContext?: boolean;
   onModelChange?: (model: string) => void;
+  autoFallback?: {
+    enabled: boolean;
+    type: 'gemini-api-key' | 'vertex-ai';
+  };
 }
 
 export class Config {
@@ -465,6 +469,10 @@ export class Config {
   private readonly experimentalJitContext: boolean;
   private contextManager?: ContextManager;
   private terminalBackground: string | undefined = undefined;
+  private readonly autoFallback: {
+    enabled: boolean;
+    type: 'gemini-api-key' | 'vertex-ai';
+  };
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -627,6 +635,10 @@ export class Config {
     this.projectHooks = params.projectHooks;
     this.experiments = params.experiments;
     this.onModelChange = params.onModelChange;
+    this.autoFallback = params.autoFallback ?? {
+      enabled: false,
+      type: 'gemini-api-key',
+    };
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -875,6 +887,13 @@ export class Config {
 
   getModel(): string {
     return this.model;
+  }
+
+  getAutoFallback(): {
+    enabled: boolean;
+    type: 'gemini-api-key' | 'vertex-ai';
+  } {
+    return this.autoFallback;
   }
 
   setModel(newModel: string, isFallbackModel: boolean = false): void {

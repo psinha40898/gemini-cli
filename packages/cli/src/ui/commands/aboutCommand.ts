@@ -13,6 +13,7 @@ import {
   UserAccountManager,
   debugLogger,
   getVersion,
+  AuthType,
 } from '@google/gemini-cli-core';
 
 export const aboutCommand: SlashCommand = {
@@ -32,8 +33,24 @@ export const aboutCommand: SlashCommand = {
     }
     const modelVersion = context.services.config?.getModel() || 'Unknown';
     const cliVersion = await getVersion();
-    const selectedAuthType =
+    let selectedAuthType =
       context.services.settings.merged.security?.auth?.selectedType || '';
+
+    const activeAuthType =
+      context.services.config?.getContentGeneratorConfig().authType;
+    if (
+      activeAuthType === AuthType.USE_GEMINI &&
+      selectedAuthType === 'google'
+    ) {
+      selectedAuthType =
+        'OAuth (fallback: Gemini API Key) -> active this session';
+    } else if (
+      activeAuthType === AuthType.USE_VERTEX_AI &&
+      selectedAuthType === 'google'
+    ) {
+      selectedAuthType = 'OAuth (fallback: Vertex AI) -> active this session';
+    }
+
     const gcpProject = process.env['GOOGLE_CLOUD_PROJECT'] || '';
     const ideClient = await getIdeClientName(context);
 

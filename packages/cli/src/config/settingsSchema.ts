@@ -1292,6 +1292,38 @@ const SETTINGS_SCHEMA = {
             description: 'Whether to use an external authentication flow.',
             showInDialog: false,
           },
+          autoFallback: {
+            type: 'object',
+            label: 'Auto Fallback',
+            category: 'Security',
+            requiresRestart: false,
+            default: { enabled: false, type: 'gemini-api-key' as const },
+            description:
+              'Automatically switch to an alternative auth method when OAuth quota is exceeded.',
+            showInDialog: false,
+            properties: {
+              enabled: {
+                type: 'boolean',
+                label: 'Enable Auto Fallback',
+                category: 'Security',
+                requiresRestart: false,
+                default: false,
+                description:
+                  'Automatically fall back to API key or Vertex AI when OAuth quota is exceeded.',
+                showInDialog: false,
+              },
+              type: {
+                type: 'string',
+                label: 'Fallback Type',
+                category: 'Security',
+                requiresRestart: false,
+                default: 'gemini-api-key' as 'gemini-api-key' | 'vertex-ai',
+                description:
+                  'The type of authentication to fall back to when OAuth quota is exceeded.',
+                showInDialog: false,
+              },
+            },
+          },
         },
       },
     },
