@@ -1300,7 +1300,7 @@ const SETTINGS_SCHEMA = {
             default: { enabled: false, type: 'gemini-api-key' as const },
             description:
               'Automatically switch to an alternative auth method when OAuth quota is exceeded.',
-            showInDialog: false,
+            showInDialog: true,
             properties: {
               enabled: {
                 type: 'boolean',
