@@ -181,7 +181,7 @@ describe('aboutCommand', () => {
             merged: {
               security: {
                 auth: {
-                  selectedType: 'google',
+                  selectedType: AuthType.LOGIN_WITH_GOOGLE,
                 },
               },
             },
@@ -222,7 +222,7 @@ describe('aboutCommand', () => {
             merged: {
               security: {
                 auth: {
-                  selectedType: 'google',
+                  selectedType: AuthType.LOGIN_WITH_GOOGLE,
                 },
               },
             },
@@ -263,7 +263,7 @@ describe('aboutCommand', () => {
             merged: {
               security: {
                 auth: {
-                  selectedType: 'google',
+                  selectedType: AuthType.LOGIN_WITH_GOOGLE,
                 },
               },
             },
@@ -283,7 +283,7 @@ describe('aboutCommand', () => {
 
       expect(mockContext.ui.addItem).toHaveBeenCalledWith(
         expect.objectContaining({
-          selectedAuthType: 'google',
+          selectedAuthType: AuthType.LOGIN_WITH_GOOGLE,
         }),
         expect.any(Number),
       );

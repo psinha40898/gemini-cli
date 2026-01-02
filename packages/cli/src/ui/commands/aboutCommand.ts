@@ -40,13 +40,15 @@ export const aboutCommand: SlashCommand = {
       context.services.config?.getContentGeneratorConfig().authType;
     if (
       activeAuthType === AuthType.USE_GEMINI &&
-      selectedAuthType === 'google'
+      (selectedAuthType === AuthType.LOGIN_WITH_GOOGLE ||
+        selectedAuthType.startsWith('oauth'))
     ) {
       selectedAuthType =
         'OAuth (fallback: Gemini API Key) -> active this session';
     } else if (
       activeAuthType === AuthType.USE_VERTEX_AI &&
-      selectedAuthType === 'google'
+      (selectedAuthType === AuthType.LOGIN_WITH_GOOGLE ||
+        selectedAuthType.startsWith('oauth'))
     ) {
       selectedAuthType = 'OAuth (fallback: Vertex AI) -> active this session';
     }
