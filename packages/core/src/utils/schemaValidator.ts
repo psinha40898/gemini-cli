@@ -47,4 +47,16 @@ export class SchemaValidator {
     }
     return null;
   }
+
+  /**
+   * Validates that a schema object is a valid JSON Schema.
+   * Returns null if valid, error string if invalid.
+   */
+  static validateSchema(schema: unknown): string | null {
+    if (!schema) {
+      return null;
+    }
+    const isValid = ajValidator.validateSchema(schema);
+    return isValid ? null : ajValidator.errorsText(ajValidator.errors);
+  }
 }

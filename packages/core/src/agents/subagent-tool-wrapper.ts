@@ -12,7 +12,6 @@ import {
 } from '../tools/tools.js';
 import type { Config } from '../config/config.js';
 import type { AgentDefinition, AgentInputs } from './types.js';
-import { convertInputConfigToJsonSchema } from './schema-utils.js';
 import { LocalSubagentInvocation } from './local-invocation.js';
 import { RemoteAgentInvocation } from './remote-invocation.js';
 import type { MessageBus } from '../confirmation-bus/message-bus.js';
@@ -40,9 +39,7 @@ export class SubagentToolWrapper extends BaseDeclarativeTool<
     private readonly config: Config,
     messageBus?: MessageBus,
   ) {
-    const parameterSchema = convertInputConfigToJsonSchema(
-      definition.inputConfig,
-    );
+    const parameterSchema = definition.inputConfig.inputSchema;
 
     super(
       definition.name,

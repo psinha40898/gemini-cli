@@ -7,7 +7,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SubagentToolWrapper } from './subagent-tool-wrapper.js';
 import { LocalSubagentInvocation } from './local-invocation.js';
-import { convertInputConfigToJsonSchema } from './schema-utils.js';
 import { makeFakeConfig } from '../test-utils/config.js';
 import type { LocalAgentDefinition, AgentInputs } from './types.js';
 import type { Config } from '../config/config.js';
@@ -16,12 +15,8 @@ import type { MessageBus } from '../confirmation-bus/message-bus.js';
 
 // Mock dependencies to isolate the SubagentToolWrapper class
 vi.mock('./local-invocation.js');
-vi.mock('./schema-utils.js');
 
 const MockedLocalSubagentInvocation = vi.mocked(LocalSubagentInvocation);
-const mockConvertInputConfigToJsonSchema = vi.mocked(
-  convertInputConfigToJsonSchema,
-);
 
 // Define reusable test data
 let mockConfig: Config;
@@ -32,13 +27,13 @@ const mockDefinition: LocalAgentDefinition = {
   displayName: 'Test Agent Display Name',
   description: 'An agent for testing.',
   inputConfig: {
-    inputs: {
-      goal: { type: 'string', required: true, description: 'The goal.' },
-      priority: {
-        type: 'number',
-        required: false,
-        description: 'The priority.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        goal: { type: 'string', description: 'The goal.' },
+        priority: { type: 'number', description: 'The priority.' },
       },
+      required: ['goal'],
     },
   },
   modelConfig: { model: 'gemini-test-model', temp: 0, top_p: 1 },
@@ -59,20 +54,9 @@ describe('SubagentToolWrapper', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockConfig = makeFakeConfig();
-    // Provide a mock implementation for the schema conversion utility
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    mockConvertInputConfigToJsonSchema.mockReturnValue(mockSchema as any);
   });
 
   describe('constructor', () => {
-    it('should call convertInputConfigToJsonSchema with the correct agent inputConfig', () => {
-      new SubagentToolWrapper(mockDefinition, mockConfig);
-
-      expect(convertInputConfigToJsonSchema).toHaveBeenCalledExactlyOnceWith(
-        mockDefinition.inputConfig,
-      );
-    });
-
     it('should correctly configure the tool properties from the agent definition', () => {
       const wrapper = new SubagentToolWrapper(mockDefinition, mockConfig);
 

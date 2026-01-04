@@ -35,9 +35,13 @@ describe('DelegateToAgentTool', () => {
     promptConfig: {},
     modelConfig: { model: 'test-model', temp: 0, top_p: 0 },
     inputConfig: {
-      inputs: {
-        arg1: { type: 'string', description: 'Argument 1', required: true },
-        arg2: { type: 'number', description: 'Argument 2', required: false },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          arg1: { type: 'string', description: 'Argument 1' },
+          arg2: { type: 'number', description: 'Argument 2' },
+        },
+        required: ['arg1'],
       },
     },
     runConfig: { max_turns: 1, max_time_minutes: 1 },
@@ -140,12 +144,15 @@ describe('DelegateToAgentTool', () => {
       ...mockAgentDef,
       name: 'invalid_agent',
       inputConfig: {
-        inputs: {
-          agent_name: {
-            type: 'string',
-            description: 'Conflict',
-            required: true,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            agent_name: {
+              type: 'string',
+              description: 'Conflict',
+            },
           },
+          required: ['agent_name'],
         },
       },
     };

@@ -277,10 +277,13 @@ describe('toml-loader', () => {
           max_time_minutes: 5,
         },
         inputConfig: {
-          inputs: {
-            query: {
-              type: 'string',
-              required: false,
+          inputSchema: {
+            type: 'object',
+            properties: {
+              query: {
+                type: 'string',
+                description: 'The task for the agent.',
+              },
             },
           },
         },

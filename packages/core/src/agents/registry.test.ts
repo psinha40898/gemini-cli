@@ -45,7 +45,7 @@ const MOCK_AGENT_V1: AgentDefinition = {
   kind: 'local',
   name: 'MockAgent',
   description: 'Mock Description V1',
-  inputConfig: { inputs: {} },
+  inputConfig: { inputSchema: { type: 'object', properties: {} } },
   modelConfig: { model: 'test', temp: 0, top_p: 1 },
   runConfig: { max_time_minutes: 1 },
   promptConfig: { systemPrompt: 'test' },
@@ -270,7 +270,7 @@ describe('AgentRegistry', () => {
         name: 'RemoteAgent',
         description: 'A remote agent',
         agentCardUrl: 'https://example.com/card',
-        inputConfig: { inputs: {} },
+        inputConfig: { inputSchema: { type: 'object', properties: {} } },
       };
 
       vi.mocked(A2AClientManager.getInstance).mockReturnValue({
@@ -293,7 +293,7 @@ describe('AgentRegistry', () => {
         name: 'RemoteAgent',
         description: 'A remote agent',
         agentCardUrl: 'https://example.com/card',
-        inputConfig: { inputs: {} },
+        inputConfig: { inputSchema: { type: 'object', properties: {} } },
       };
 
       vi.mocked(A2AClientManager.getInstance).mockReturnValue({

@@ -21,8 +21,10 @@ describe('IntrospectionAgent', () => {
   });
 
   it('should have correctly configured inputs and outputs', () => {
-    expect(localAgent.inputConfig.inputs['question']).toBeDefined();
-    expect(localAgent.inputConfig.inputs['question'].required).toBe(true);
+    expect(localAgent.inputConfig.inputSchema.properties).toHaveProperty(
+      'question',
+    );
+    expect(localAgent.inputConfig.inputSchema.required).toContain('question');
 
     expect(localAgent.outputConfig?.outputName).toBe('report');
     expect(localAgent.outputConfig?.description).toBeDefined();

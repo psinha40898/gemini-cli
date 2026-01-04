@@ -236,12 +236,15 @@ export async function parseAgentToml(
 export function tomlToAgentDefinition(
   toml: TomlAgentDefinition,
 ): AgentDefinition {
+  // Default inputConfig with a single optional 'query' parameter
   const inputConfig = {
-    inputs: {
-      query: {
-        type: 'string' as const,
-        description: 'The task for the agent.',
-        required: false,
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        query: {
+          type: 'string' as const,
+          description: 'The task for the agent.',
+        },
       },
     },
   };

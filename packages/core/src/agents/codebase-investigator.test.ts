@@ -22,8 +22,8 @@ describe('CodebaseInvestigatorAgent', () => {
     );
     expect(CodebaseInvestigatorAgent.description).toBeDefined();
     expect(
-      CodebaseInvestigatorAgent.inputConfig.inputs['objective'].required,
-    ).toBe(true);
+      CodebaseInvestigatorAgent.inputConfig.inputSchema.required,
+    ).toContain('objective');
     expect(CodebaseInvestigatorAgent.outputConfig?.outputName).toBe('report');
     expect(CodebaseInvestigatorAgent.modelConfig?.model).toBe(
       DEFAULT_GEMINI_MODEL,

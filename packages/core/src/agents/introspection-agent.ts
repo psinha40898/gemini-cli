@@ -31,12 +31,15 @@ export const IntrospectionAgent: AgentDefinition<
   description:
     'Specialized in answering questions about yourself (Gemini CLI): features, documentation, and current runtime configuration.',
   inputConfig: {
-    inputs: {
-      question: {
-        description: 'The specific question about Gemini CLI.',
-        type: 'string',
-        required: true,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        question: {
+          type: 'string',
+          description: 'The specific question about Gemini CLI.',
+        },
       },
+      required: ['question'],
     },
   },
   outputConfig: {

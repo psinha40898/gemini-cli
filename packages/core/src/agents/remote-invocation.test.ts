@@ -25,7 +25,7 @@ describe('RemoteAgentInvocation', () => {
     displayName: 'Test Remote Agent',
     agentCardUrl: 'https://example.com/agent-card',
     inputConfig: {
-      inputs: {},
+      inputSchema: { type: 'object', properties: {} },
     },
   };
 
