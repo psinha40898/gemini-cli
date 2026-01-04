@@ -12,6 +12,7 @@ import {
   parseAgentToml,
   tomlToAgentDefinition,
   loadAgentsFromDirectory,
+  loadBundledAgent,
   AgentLoadError,
 } from './toml-loader.js';
 import { GEMINI_MODEL_ALIAS_PRO } from '../config/models.js';
@@ -320,6 +321,116 @@ describe('toml-loader', () => {
       const result = tomlToAgentDefinition(toml) as LocalAgentDefinition;
       expect(result.modelConfig.model).toBe('auto');
     });
+
+    it('should convert TOML with custom inputs to AgentDefinition', () => {
+      const toml = {
+        kind: 'local' as const,
+        name: 'custom-inputs-agent',
+        description: 'An agent with custom inputs',
+        inputs: {
+          objective: {
+            type: 'string' as const,
+            description: 'The objective to accomplish',
+            required: true,
+          },
+          max_iterations: {
+            type: 'integer' as const,
+            description: 'Maximum number of iterations',
+            required: false,
+          },
+        },
+        prompts: {
+          system_prompt: 'You are a custom agent.',
+          query: 'Work on: ${objective}',
+        },
+      };
+
+      const result = tomlToAgentDefinition(toml) as LocalAgentDefinition;
+      expect(result.inputConfig.inputs).toHaveProperty('objective');
+      expect(result.inputConfig.inputs['objective']).toEqual({
+        type: 'string',
+        description: 'The objective to accomplish',
+        required: true,
+      });
+      expect(result.inputConfig.inputs).toHaveProperty('max_iterations');
+      expect(result.inputConfig.inputs['max_iterations']).toEqual({
+        type: 'integer',
+        description: 'Maximum number of iterations',
+        required: false,
+      });
+      // Should NOT have default 'query' input when custom inputs are defined
+      expect(result.inputConfig.inputs).not.toHaveProperty('query');
+    });
+
+    it('should convert TOML with output schema to AgentDefinition', () => {
+      const toml = {
+        kind: 'local' as const,
+        name: 'output-schema-agent',
+        description: 'An agent with output schema',
+        output: {
+          name: 'report',
+          description: 'The final report',
+          schema: {
+            type: 'object' as const,
+            required: ['summary', 'findings'],
+            properties: {
+              summary: {
+                type: 'string' as const,
+                description: 'A summary of findings',
+              },
+              findings: {
+                type: 'array' as const,
+                items: { type: 'string' as const },
+              },
+            },
+          },
+        },
+        prompts: {
+          system_prompt: 'You are an agent with structured output.',
+        },
+      };
+
+      const result = tomlToAgentDefinition(toml) as LocalAgentDefinition;
+      expect(result.outputConfig).toBeDefined();
+      expect(result.outputConfig?.outputName).toBe('report');
+      expect(result.outputConfig?.description).toBe('The final report');
+      // The schema should be a Zod schema that can validate
+      expect(result.outputConfig?.schema).toBeDefined();
+
+      // Test the generated Zod schema validates correct data
+      const validData = {
+        summary: 'Test summary',
+        findings: ['Finding 1', 'Finding 2'],
+      };
+      const parseResult = result.outputConfig?.schema.safeParse(validData);
+      expect(parseResult?.success).toBe(true);
+
+      // Test validation fails for invalid data
+      const invalidData = {
+        summary: 123, // should be string
+      };
+      const invalidResult = result.outputConfig?.schema.safeParse(invalidData);
+      expect(invalidResult?.success).toBe(false);
+    });
+
+    it('should include thinkingBudget from model config', () => {
+      const toml = {
+        kind: 'local' as const,
+        name: 'thinking-agent',
+        description: 'An agent with thinking budget',
+        model: {
+          model: 'gemini-2.0-flash',
+          temperature: 0.5,
+          thinking_budget: 1024,
+        },
+        prompts: {
+          system_prompt: 'You are a thinking agent.',
+        },
+      };
+
+      const result = tomlToAgentDefinition(toml) as LocalAgentDefinition;
+      expect(result.modelConfig.thinkingBudget).toBe(1024);
+    });
   });
 
   describe('loadAgentsFromDirectory', () => {
@@ -368,6 +479,36 @@ describe('toml-loader', () => {
       const result = await loadAgentsFromDirectory(tempDir);
       expect(result.agents).toHaveLength(0);
       expect(result.errors).toHaveLength(1);
+    });
+  });
+
+  describe('loadBundledAgent', () => {
+    it('should load the bundled codebase-investigator agent', async () => {
+      const agent = await loadBundledAgent('codebase-investigator');
+      expect(agent).toBeDefined();
+      expect(agent?.name).toBe('codebase_investigator');
+      expect(agent?.kind).toBe('local');
+
+      if (agent?.kind === 'local') {
+        // Verify custom inputs
+        expect(agent.inputConfig.inputs).toHaveProperty('objective');
+        expect(agent.inputConfig.inputs['objective'].required).toBe(true);
+
+        // Verify output config
+        expect(agent.outputConfig).toBeDefined();
+        expect(agent.outputConfig?.outputName).toBe('report');
+
+        // Verify tools
+        expect(agent.toolConfig?.tools).toContain('list_directory');
+        expect(agent.toolConfig?.tools).toContain('read_file');
+        expect(agent.toolConfig?.tools).toContain('glob');
+        expect(agent.toolConfig?.tools).toContain('search_file_content');
+      }
+    });
+
+    it('should return undefined for non-existent bundled agent', async () => {
+      const agent = await loadBundledAgent('non-existent-agent');
+      expect(agent).toBeUndefined();
     });
   });
 });

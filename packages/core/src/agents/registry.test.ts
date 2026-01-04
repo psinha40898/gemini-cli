@@ -21,10 +21,38 @@ import {
 } from '../config/models.js';
 import * as tomlLoader from './toml-loader.js';
 
+// Mock codebase investigator agent for testing
+const MOCK_CODEBASE_INVESTIGATOR: LocalAgentDefinition = {
+  kind: 'local',
+  name: 'codebase_investigator',
+  description: 'Mock codebase investigator',
+  inputConfig: {
+    inputs: {
+      objective: {
+        type: 'string',
+        description: 'The objective',
+        required: true,
+      },
+    },
+  },
+  modelConfig: { model: 'inherit', temp: 0.1, top_p: 0.95, thinkingBudget: -1 },
+  runConfig: { max_time_minutes: 5, max_turns: 15 },
+  promptConfig: { systemPrompt: 'You are codebase investigator.' },
+  toolConfig: {
+    tools: ['list_directory', 'read_file', 'glob', 'search_file_content'],
+  },
+};
+
 vi.mock('./toml-loader.js', () => ({
   loadAgentsFromDirectory: vi
     .fn()
     .mockResolvedValue({ agents: [], errors: [] }),
+  loadBundledAgent: vi.fn().mockImplementation((name: string) => {
+    if (name === 'codebase-investigator') {
+      return Promise.resolve(MOCK_CODEBASE_INVESTIGATOR);
+    }
+    return Promise.resolve(undefined);
+  }),
 }));
 
 vi.mock('./a2a-client-manager.js', () => ({
@@ -68,6 +96,16 @@ describe('AgentRegistry', () => {
       agents: [],
       errors: [],
     });
+    // Reset loadBundledAgent mock to return a fresh copy of the mock agent
+    vi.mocked(tomlLoader.loadBundledAgent).mockImplementation(
+      (name: string) => {
+        if (name === 'codebase-investigator') {
+          // Return a fresh copy to avoid mutation issues
+          return Promise.resolve({ ...MOCK_CODEBASE_INVESTIGATOR });
+        }
+        return Promise.resolve(undefined);
+      },
+    );
   });
 
   afterEach(() => {

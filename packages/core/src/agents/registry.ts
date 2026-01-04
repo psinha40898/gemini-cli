@@ -7,9 +7,8 @@
 import { Storage } from '../config/storage.js';
 import { coreEvents, CoreEvent } from '../utils/events.js';
 import type { Config } from '../config/config.js';
-import type { AgentDefinition } from './types.js';
-import { loadAgentsFromDirectory } from './toml-loader.js';
-import { CodebaseInvestigatorAgent } from './codebase-investigator.js';
+import type { AgentDefinition, LocalAgentDefinition } from './types.js';
+import { loadAgentsFromDirectory, loadBundledAgent } from './toml-loader.js';
 import { IntrospectionAgent } from './introspection-agent.js';
 import { A2AClientManager } from './a2a-client-manager.js';
 import { type z } from 'zod';
@@ -45,7 +44,7 @@ export class AgentRegistry {
    * Discovers and loads agents.
    */
   async initialize(): Promise<void> {
-    this.loadBuiltInAgents();
+    await this.loadBuiltInAgents();
 
     coreEvents.on(CoreEvent.ModelChanged, () => {
       this.refreshAgents().catch((e) => {
@@ -103,45 +102,53 @@ export class AgentRegistry {
     }
   }
 
-  private loadBuiltInAgents(): void {
+  private async loadBuiltInAgents(): Promise<void> {
     const investigatorSettings = this.config.getCodebaseInvestigatorSettings();
     const introspectionSettings = this.config.getIntrospectionAgentSettings();
 
     // Only register the agent if it's enabled in the settings.
     if (investigatorSettings?.enabled) {
-      let model;
-      const settingsModel = investigatorSettings.model;
-      // Check if the user explicitly set a model in the settings.
-      if (settingsModel && settingsModel !== GEMINI_MODEL_ALIAS_AUTO) {
-        model = settingsModel;
-      } else {
-        // Use Preview Flash model if the main model is any of the preview models
-        // If the main model is not preview model, use default pro model.
-        model = isPreviewModel(this.config.getModel())
-          ? PREVIEW_GEMINI_FLASH_MODEL
-          : DEFAULT_GEMINI_MODEL;
-      }
+      // Load codebase investigator from bundled TOML
+      const baseAgent = await loadBundledAgent('codebase-investigator');
+      if (baseAgent && baseAgent.kind === 'local') {
+        let model;
+        const settingsModel = investigatorSettings.model;
+        // Check if the user explicitly set a model in the settings.
+        if (settingsModel && settingsModel !== GEMINI_MODEL_ALIAS_AUTO) {
+          model = settingsModel;
+        } else {
+          // Use Preview Flash model if the main model is any of the preview models
+          // If the main model is not preview model, use default pro model.
+          model = isPreviewModel(this.config.getModel())
+            ? PREVIEW_GEMINI_FLASH_MODEL
+            : DEFAULT_GEMINI_MODEL;
+        }
 
-      const agentDef = {
-        ...CodebaseInvestigatorAgent,
-        modelConfig: {
-          ...CodebaseInvestigatorAgent.modelConfig,
-          model,
-          thinkingBudget:
-            investigatorSettings.thinkingBudget ??
-            CodebaseInvestigatorAgent.modelConfig.thinkingBudget,
-        },
-        runConfig: {
-          ...CodebaseInvestigatorAgent.runConfig,
-          max_time_minutes:
-            investigatorSettings.maxTimeMinutes ??
-            CodebaseInvestigatorAgent.runConfig.max_time_minutes,
-          max_turns:
-            investigatorSettings.maxNumTurns ??
-            CodebaseInvestigatorAgent.runConfig.max_turns,
-        },
-      };
-      this.registerLocalAgent(agentDef);
+        // Apply settings overrides to the TOML-loaded agent
+        const agentDef: LocalAgentDefinition = {
+          ...baseAgent,
+          modelConfig: {
+            ...baseAgent.modelConfig,
+            model,
+            thinkingBudget:
+              investigatorSettings.thinkingBudget ??
+              baseAgent.modelConfig.thinkingBudget,
+          },
+          runConfig: {
+            ...baseAgent.runConfig,
+            max_time_minutes:
+              investigatorSettings.maxTimeMinutes ??
+              baseAgent.runConfig.max_time_minutes,
+            max_turns:
+              investigatorSettings.maxNumTurns ?? baseAgent.runConfig.max_turns,
+          },
+        };
+        this.registerLocalAgent(agentDef);
+      } else {
+        debugLogger.warn(
+          '[AgentRegistry] Failed to load bundled codebase-investigator agent',
+        );
+      }
     }
 
     // Register the introspection agent if it's explicitly enabled.
@@ -151,7 +158,7 @@ export class AgentRegistry {
   }
 
   private async refreshAgents(): Promise<void> {
-    this.loadBuiltInAgents();
+    await this.loadBuiltInAgents();
     await Promise.allSettled(
       Array.from(this.agents.values()).map((agent) =>
         this.registerAgent(agent),
