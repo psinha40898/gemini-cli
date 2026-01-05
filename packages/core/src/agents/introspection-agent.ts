@@ -8,6 +8,7 @@ import type { AgentDefinition } from './types.js';
 import { GET_INTERNAL_DOCS_TOOL_NAME } from '../tools/tool-names.js';
 import { GEMINI_MODEL_ALIAS_FLASH } from '../config/models.js';
 import { z } from 'zod';
+import { zodToJsonSchema, type JsonSchema7Type } from 'zod-to-json-schema';
 
 const IntrospectionReportSchema = z.object({
   answer: z
@@ -18,13 +19,16 @@ const IntrospectionReportSchema = z.object({
     .describe('The documentation files used to answer the question.'),
 });
 
+// Convert Zod schema to JSON Schema for runtime validation
+const IntrospectionReportJsonSchema = zodToJsonSchema(
+  IntrospectionReportSchema,
+) as JsonSchema7Type;
+
 /**
  * An agent specialized in answering questions about Gemini CLI itself,
  * using its own documentation and runtime state.
  */
-export const IntrospectionAgent: AgentDefinition<
-  typeof IntrospectionReportSchema
-> = {
+export const IntrospectionAgent: AgentDefinition = {
   name: 'introspection_agent',
   kind: 'local',
   displayName: 'Introspection Agent',
@@ -42,7 +46,7 @@ export const IntrospectionAgent: AgentDefinition<
   outputConfig: {
     outputName: 'report',
     description: 'The final answer and sources as a JSON object.',
-    schema: IntrospectionReportSchema,
+    schema: IntrospectionReportJsonSchema,
   },
 
   processOutput: (output) => JSON.stringify(output, null, 2),

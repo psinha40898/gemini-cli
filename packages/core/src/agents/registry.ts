@@ -12,7 +12,6 @@ import { loadAgentsFromDirectory } from './toml-loader.js';
 import { CodebaseInvestigatorAgent } from './codebase-investigator.js';
 import { IntrospectionAgent } from './introspection-agent.js';
 import { A2AClientManager } from './a2a-client-manager.js';
-import { type z } from 'zod';
 import { debugLogger } from '../utils/debugLogger.js';
 import {
   DEFAULT_GEMINI_MODEL,
@@ -25,9 +24,7 @@ import type { ModelConfigAlias } from '../services/modelConfigService.js';
 /**
  * Returns the model config alias for a given agent definition.
  */
-export function getModelConfigAlias<TOutput extends z.ZodTypeAny>(
-  definition: AgentDefinition<TOutput>,
-): string {
+export function getModelConfigAlias(definition: AgentDefinition): string {
   return `${definition.name}-config`;
 }
 
@@ -36,8 +33,7 @@ export function getModelConfigAlias<TOutput extends z.ZodTypeAny>(
  * AgentDefinitions.
  */
 export class AgentRegistry {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private readonly agents = new Map<string, AgentDefinition<any>>();
+  private readonly agents = new Map<string, AgentDefinition>();
 
   constructor(private readonly config: Config) {}
 
@@ -164,9 +160,7 @@ export class AgentRegistry {
    * it will be overwritten, respecting the precedence established by the
    * initialization order.
    */
-  protected async registerAgent<TOutput extends z.ZodTypeAny>(
-    definition: AgentDefinition<TOutput>,
-  ): Promise<void> {
+  protected async registerAgent(definition: AgentDefinition): Promise<void> {
     if (definition.kind === 'local') {
       this.registerLocalAgent(definition);
     } else if (definition.kind === 'remote') {
@@ -177,9 +171,7 @@ export class AgentRegistry {
   /**
    * Registers a local agent definition synchronously.
    */
-  protected registerLocalAgent<TOutput extends z.ZodTypeAny>(
-    definition: AgentDefinition<TOutput>,
-  ): void {
+  protected registerLocalAgent(definition: AgentDefinition): void {
     if (definition.kind !== 'local') {
       return;
     }
@@ -229,8 +221,8 @@ export class AgentRegistry {
   /**
    * Registers a remote agent definition asynchronously.
    */
-  protected async registerRemoteAgent<TOutput extends z.ZodTypeAny>(
-    definition: AgentDefinition<TOutput>,
+  protected async registerRemoteAgent(
+    definition: AgentDefinition,
   ): Promise<void> {
     if (definition.kind !== 'remote') {
       return;

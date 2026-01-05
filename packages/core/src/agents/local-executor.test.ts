@@ -35,7 +35,7 @@ import {
 import type { Config } from '../config/config.js';
 import { MockTool } from '../test-utils/mock-tool.js';
 import { getDirectoryContextString } from '../utils/environmentContext.js';
-import { z } from 'zod';
+import type { JsonSchema7Type } from 'zod-to-json-schema';
 import { promptIdContext } from '../utils/promptIdContext.js';
 import {
   logAgentStart,
@@ -194,17 +194,19 @@ const getMockMessageParams = (callIndex: number) => {
 let mockConfig: Config;
 let parentToolRegistry: ToolRegistry;
 
+// Default JSON Schema for test output validation
+const DEFAULT_OUTPUT_SCHEMA: JsonSchema7Type = { type: 'string' };
+
 /**
  * Type-safe helper to create agent definitions for tests.
  */
-
-const createTestDefinition = <TOutput extends z.ZodTypeAny = z.ZodUnknown>(
+const createTestDefinition = (
   tools: Array<string | MockTool> = [LS_TOOL_NAME],
-  runConfigOverrides: Partial<LocalAgentDefinition<TOutput>['runConfig']> = {},
+  runConfigOverrides: Partial<LocalAgentDefinition['runConfig']> = {},
   outputConfigMode: 'default' | 'none' = 'default',
-  schema: TOutput = z.string() as unknown as TOutput,
-): LocalAgentDefinition<TOutput> => {
-  let outputConfig: OutputConfig<TOutput> | undefined;
+  schema: JsonSchema7Type = DEFAULT_OUTPUT_SCHEMA,
+): LocalAgentDefinition => {
+  let outputConfig: OutputConfig | undefined;
 
   if (outputConfigMode === 'default') {
     outputConfig = {
@@ -997,11 +999,16 @@ describe('LocalAgentExecutor', () => {
 
   describe('Edge Cases and Error Handling', () => {
     it('should report an error if complete_task output fails schema validation', async () => {
+      // JSON Schema with minLength constraint for validation testing
+      const schemaWithMinLength: JsonSchema7Type = {
+        type: 'string',
+        minLength: 10,
+      };
       const definition = createTestDefinition(
         [],
         {},
         'default',
-        z.string().min(10), // The schema is for the output value itself
+        schemaWithMinLength,
       );
       const executor = await LocalAgentExecutor.create(
         definition,
@@ -1031,9 +1038,6 @@ describe('LocalAgentExecutor', () => {
 
       expect(mockSendMessageStream).toHaveBeenCalledTimes(2);
 
-      const expectedError =
-        'Output validation failed: {"formErrors":["String must contain at least 10 character(s)"],"fieldErrors":{}}';
-
       // Check that the error was reported in the activity stream
       expect(activities).toContainEqual(
         expect.objectContaining({
@@ -1053,7 +1057,9 @@ describe('LocalAgentExecutor', () => {
         expect.objectContaining({
           functionResponse: expect.objectContaining({
             name: TASK_COMPLETE_TOOL_NAME,
-            response: { error: expectedError },
+            response: {
+              error: expect.stringContaining('Output validation failed'),
+            },
             id: 'call1',
           }),
         }),

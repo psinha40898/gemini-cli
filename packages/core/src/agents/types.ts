@@ -10,7 +10,7 @@
 
 import type { Content, FunctionDeclaration } from '@google/genai';
 import type { AnyDeclarativeTool } from '../tools/tools.js';
-import { type z } from 'zod';
+import type { JsonSchema7Type } from 'zod-to-json-schema';
 
 /**
  * Describes the possible termination modes for an agent.
@@ -50,22 +50,17 @@ export interface SubagentActivityEvent {
 
 /**
  * The base definition for an agent.
- * @template TOutput The specific Zod schema for the agent's final output object.
  */
-export interface BaseAgentDefinition<
-  TOutput extends z.ZodTypeAny = z.ZodUnknown,
-> {
+export interface BaseAgentDefinition {
   /** Unique identifier for the agent. */
   name: string;
   displayName?: string;
   description: string;
   inputConfig: InputConfig;
-  outputConfig?: OutputConfig<TOutput>;
+  outputConfig?: OutputConfig;
 }
 
-export interface LocalAgentDefinition<
-  TOutput extends z.ZodTypeAny = z.ZodUnknown,
-> extends BaseAgentDefinition<TOutput> {
+export interface LocalAgentDefinition extends BaseAgentDefinition {
   kind: 'local';
 
   // Local agent required configs
@@ -80,22 +75,18 @@ export interface LocalAgentDefinition<
    * An optional function to process the raw output from the agent's final tool
    * call into a string format.
    *
-   * @param output The raw output value from the `complete_task` tool, now strongly typed with TOutput.
+   * @param output The raw output value from the `complete_task` tool.
    * @returns A string representation of the final output.
    */
-  processOutput?: (output: z.infer<TOutput>) => string;
+  processOutput?: (output: unknown) => string;
 }
 
-export interface RemoteAgentDefinition<
-  TOutput extends z.ZodTypeAny = z.ZodUnknown,
-> extends BaseAgentDefinition<TOutput> {
+export interface RemoteAgentDefinition extends BaseAgentDefinition {
   kind: 'remote';
   agentCardUrl: string;
 }
 
-export type AgentDefinition<TOutput extends z.ZodTypeAny = z.ZodUnknown> =
-  | LocalAgentDefinition<TOutput>
-  | RemoteAgentDefinition<TOutput>;
+export type AgentDefinition = LocalAgentDefinition | RemoteAgentDefinition;
 
 /**
  * Configures the initial prompt for the agent.
@@ -153,7 +144,7 @@ export interface InputConfig {
 /**
  * Configures the expected outputs for the agent.
  */
-export interface OutputConfig<T extends z.ZodTypeAny> {
+export interface OutputConfig {
   /**
    * The name of the final result parameter. This will be the name of the
    * argument in the `submit_final_output` tool (e.g., "report", "answer").
@@ -165,11 +156,10 @@ export interface OutputConfig<T extends z.ZodTypeAny> {
    */
   description: string;
   /**
-   * Optional JSON schema for the output. If provided, it will be used as the
-   * schema for the tool's argument, allowing for structured output enforcement.
-   * Defaults to { type: 'string' }.
+   * JSON Schema for the output. Used for validation and as the schema for the
+   * tool's argument, allowing for structured output enforcement.
    */
-  schema: T;
+  schema: JsonSchema7Type;
 }
 
 /**

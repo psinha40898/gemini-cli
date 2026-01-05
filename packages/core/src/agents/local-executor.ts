@@ -41,8 +41,7 @@ import type {
 import { AgentTerminateMode } from './types.js';
 import { templateString } from './utils.js';
 import { parseThought } from '../utils/thoughtUtils.js';
-import { type z } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
+import { SchemaValidator } from '../utils/schemaValidator.js';
 import { debugLogger } from '../utils/debugLogger.js';
 import { getModelConfigAlias } from './registry.js';
 import { getVersion } from '../utils/version.js';
@@ -72,8 +71,8 @@ type AgentTurnResult =
  * This executor runs the agent in a loop, calling tools until it calls the
  * mandatory `complete_task` tool to signal completion.
  */
-export class LocalAgentExecutor<TOutput extends z.ZodTypeAny> {
-  readonly definition: LocalAgentDefinition<TOutput>;
+export class LocalAgentExecutor {
+  readonly definition: LocalAgentDefinition;
 
   private readonly agentId: string;
   private readonly toolRegistry: ToolRegistry;
@@ -93,11 +92,11 @@ export class LocalAgentExecutor<TOutput extends z.ZodTypeAny> {
    * @param onActivity An optional callback to receive activity events.
    * @returns A promise that resolves to a new `LocalAgentExecutor` instance.
    */
-  static async create<TOutput extends z.ZodTypeAny>(
-    definition: LocalAgentDefinition<TOutput>,
+  static async create(
+    definition: LocalAgentDefinition,
     runtimeContext: Config,
     onActivity?: ActivityCallback,
-  ): Promise<LocalAgentExecutor<TOutput>> {
+  ): Promise<LocalAgentExecutor> {
     // Create an isolated tool registry for this agent instance.
     const agentToolRegistry = new ToolRegistry(
       runtimeContext,
@@ -147,7 +146,7 @@ export class LocalAgentExecutor<TOutput extends z.ZodTypeAny> {
    * instantiate the class.
    */
   private constructor(
-    definition: LocalAgentDefinition<TOutput>,
+    definition: LocalAgentDefinition,
     runtimeContext: Config,
     toolRegistry: ToolRegistry,
     parentPromptId: string | undefined,
@@ -742,11 +741,14 @@ export class LocalAgentExecutor<TOutput extends z.ZodTypeAny> {
           const outputName = outputConfig.outputName;
           if (args[outputName] !== undefined) {
             const outputValue = args[outputName];
-            const validationResult = outputConfig.schema.safeParse(outputValue);
+            const validationError = SchemaValidator.validate(
+              outputConfig.schema,
+              outputValue,
+            );
 
-            if (!validationResult.success) {
+            if (validationError) {
               taskCompleted = false; // Validation failed, revoke completion
-              const error = `Output validation failed: ${JSON.stringify(validationResult.error.flatten())}`;
+              const error = `Output validation failed: ${validationError}`;
               syncResponseParts.push({
                 functionResponse: {
                   name: TASK_COMPLETE_TOOL_NAME,
@@ -762,7 +764,7 @@ export class LocalAgentExecutor<TOutput extends z.ZodTypeAny> {
               continue;
             }
 
-            const validatedOutput = validationResult.data;
+            const validatedOutput = outputValue;
             if (this.definition.processOutput) {
               submittedOutput = this.definition.processOutput(validatedOutput);
             } else {
@@ -977,12 +979,12 @@ export class LocalAgentExecutor<TOutput extends z.ZodTypeAny> {
     };
 
     if (outputConfig) {
-      const jsonSchema = zodToJsonSchema(outputConfig.schema);
+      // outputConfig.schema is already JSON Schema, extract relevant parts
       const {
         $schema: _$schema,
         definitions: _definitions,
         ...schema
-      } = jsonSchema;
+      } = outputConfig.schema as Record<string, unknown>;
       completeTool.parameters!.properties![outputConfig.outputName] =
         schema as Schema;
       completeTool.parameters!.required!.push(outputConfig.outputName);

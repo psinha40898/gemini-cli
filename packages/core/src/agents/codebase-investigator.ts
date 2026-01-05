@@ -13,6 +13,7 @@ import {
 } from '../tools/tool-names.js';
 import { DEFAULT_GEMINI_MODEL } from '../config/models.js';
 import { z } from 'zod';
+import { zodToJsonSchema, type JsonSchema7Type } from 'zod-to-json-schema';
 
 // Define a type that matches the outputConfig schema for type safety.
 const CodebaseInvestigationReportSchema = z.object({
@@ -37,13 +38,16 @@ const CodebaseInvestigationReportSchema = z.object({
     .describe('A list of relevant files and the key symbols within them.'),
 });
 
+// Convert Zod schema to JSON Schema for runtime validation
+const CodebaseInvestigationReportJsonSchema = zodToJsonSchema(
+  CodebaseInvestigationReportSchema,
+) as JsonSchema7Type;
+
 /**
  * A Proof-of-Concept subagent specialized in analyzing codebase structure,
  * dependencies, and technologies.
  */
-export const CodebaseInvestigatorAgent: LocalAgentDefinition<
-  typeof CodebaseInvestigationReportSchema
-> = {
+export const CodebaseInvestigatorAgent: LocalAgentDefinition = {
   name: 'codebase_investigator',
   kind: 'local',
   displayName: 'Codebase Investigator Agent',
@@ -63,10 +67,9 @@ export const CodebaseInvestigatorAgent: LocalAgentDefinition<
   outputConfig: {
     outputName: 'report',
     description: 'The final investigation report as a JSON object.',
-    schema: CodebaseInvestigationReportSchema,
+    schema: CodebaseInvestigationReportJsonSchema,
   },
 
-  // The 'output' parameter is now strongly typed as CodebaseInvestigationReportSchema
   processOutput: (output) => JSON.stringify(output, null, 2),
 
   modelConfig: {

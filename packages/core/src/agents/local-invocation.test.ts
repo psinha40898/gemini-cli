@@ -14,7 +14,6 @@ import { makeFakeConfig } from '../test-utils/config.js';
 import { ToolErrorType } from '../tools/tool-error.js';
 import type { Config } from '../config/config.js';
 import type { MessageBus } from '../confirmation-bus/message-bus.js';
-import { type z } from 'zod';
 import { createMockMessageBus } from '../test-utils/mock-message-bus.js';
 
 vi.mock('./local-executor.js');
@@ -23,7 +22,7 @@ const MockLocalAgentExecutor = vi.mocked(LocalAgentExecutor);
 
 let mockConfig: Config;
 
-const testDefinition: LocalAgentDefinition<z.ZodUnknown> = {
+const testDefinition: LocalAgentDefinition = {
   kind: 'local',
   name: 'MockAgent',
   description: 'A mock agent.',
@@ -39,7 +38,7 @@ const testDefinition: LocalAgentDefinition<z.ZodUnknown> = {
 };
 
 describe('LocalSubagentInvocation', () => {
-  let mockExecutorInstance: Mocked<LocalAgentExecutor<z.ZodUnknown>>;
+  let mockExecutorInstance: Mocked<LocalAgentExecutor>;
   let mockMessageBus: MessageBus;
 
   beforeEach(() => {
@@ -50,11 +49,9 @@ describe('LocalSubagentInvocation', () => {
     mockExecutorInstance = {
       run: vi.fn(),
       definition: testDefinition,
-    } as unknown as Mocked<LocalAgentExecutor<z.ZodUnknown>>;
+    } as unknown as Mocked<LocalAgentExecutor>;
 
-    MockLocalAgentExecutor.create.mockResolvedValue(
-      mockExecutorInstance as unknown as LocalAgentExecutor<z.ZodTypeAny>,
-    );
+    MockLocalAgentExecutor.create.mockResolvedValue(mockExecutorInstance);
   });
 
   it('should pass the messageBus to the parent constructor', () => {
