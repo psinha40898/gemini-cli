@@ -741,7 +741,7 @@ export class LocalAgentExecutor {
           const outputName = outputConfig.outputName;
           if (args[outputName] !== undefined) {
             const outputValue = args[outputName];
-            const validationError = SchemaValidator.validate(
+            const validationError = SchemaValidator.validateAny(
               outputConfig.schema,
               outputValue,
             );

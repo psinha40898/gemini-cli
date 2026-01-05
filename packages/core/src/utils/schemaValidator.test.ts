@@ -122,4 +122,78 @@ describe('SchemaValidator', () => {
     };
     expect(SchemaValidator.validate(schema, params)).not.toBeNull();
   });
+
+  describe('validateAny', () => {
+    it('should allow any value if schema is undefined', () => {
+      expect(SchemaValidator.validateAny(undefined, 'hello')).toBeNull();
+      expect(SchemaValidator.validateAny(undefined, 123)).toBeNull();
+      expect(SchemaValidator.validateAny(undefined, null)).toBeNull();
+    });
+
+    it('validates string values against string schema', () => {
+      const schema = { type: 'string' };
+      expect(SchemaValidator.validateAny(schema, 'hello')).toBeNull();
+      expect(SchemaValidator.validateAny(schema, 123)).not.toBeNull();
+    });
+
+    it('validates string values with minLength constraint', () => {
+      const schema = { type: 'string', minLength: 10 };
+      expect(SchemaValidator.validateAny(schema, 'short')).not.toBeNull();
+      expect(
+        SchemaValidator.validateAny(schema, 'this is long enough'),
+      ).toBeNull();
+    });
+
+    it('validates object values', () => {
+      const schema = {
+        type: 'object',
+        properties: { name: { type: 'string' } },
+        required: ['name'],
+      };
+      expect(SchemaValidator.validateAny(schema, { name: 'test' })).toBeNull();
+      expect(SchemaValidator.validateAny(schema, {})).not.toBeNull();
+    });
+
+    it('validates number values', () => {
+      const schema = { type: 'number', minimum: 0 };
+      expect(SchemaValidator.validateAny(schema, 5)).toBeNull();
+      expect(SchemaValidator.validateAny(schema, -1)).not.toBeNull();
+    });
+  });
+
+  describe('validateSchema', () => {
+    it('should allow undefined schema', () => {
+      expect(SchemaValidator.validateSchema(undefined)).toBeNull();
+    });
+
+    it('validates a correct schema', () => {
+      const schema = {
+        type: 'object',
+        properties: {
+          foo: { type: 'string' },
+        },
+      };
+      expect(SchemaValidator.validateSchema(schema)).toBeNull();
+    });
+
+    it('rejects an incorrect schema', () => {
+      const schema = {
+        type: 'object',
+        properties: {
+          foo: { type: 'invalid-type' },
+        },
+      };
+      const error = SchemaValidator.validateSchema(schema);
+      expect(error).not.toBeNull();
+      expect(error).toContain('schema/properties/foo/type');
+    });
+
+    it('rejects a schema with missing required fields in meta-schema', () => {
+      // In JSON Schema, 'type' must be a valid string or array of strings
+      const schema = {
+        type: 123,
+      };
+      expect(SchemaValidator.validateSchema(schema)).not.toBeNull();
+    });
+  });
 });
