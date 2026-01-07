@@ -118,11 +118,14 @@ describe('useQuotaAndFallback', () => {
       return setFallbackHandlerSpy.mock.calls[0][0] as FallbackModelHandler;
     };
 
-    it('should return null and take no action if authType is not LOGIN_WITH_GOOGLE', async () => {
-      // Override the default mock from beforeEach for this specific test
-      vi.spyOn(mockConfig, 'getContentGeneratorConfig').mockReturnValue({
-        authType: AuthType.USE_GEMINI,
-      });
+    // Note: The authType check was moved to the core handler (packages/core/src/fallback/handler.ts)
+    // because auto-fallback changes authType before calling the UI handler. The core handler
+    // verifies the user was originally on OAuth before calling us.
+
+    it('should return null if contentGeneratorConfig is missing', async () => {
+      vi.spyOn(mockConfig, 'getContentGeneratorConfig').mockReturnValue(
+        undefined as unknown as ReturnType<Config['getContentGeneratorConfig']>,
+      );
 
       const handler = getRegisteredHandler();
       const result = await handler('gemini-pro', 'gemini-flash', new Error());
