@@ -52,10 +52,10 @@ export function useQuotaAndFallback({
     ): Promise<FallbackIntent | null> => {
       // Fallbacks are currently only handled for OAuth users.
       const contentGeneratorConfig = config.getContentGeneratorConfig();
-      if (
-        !contentGeneratorConfig ||
-        contentGeneratorConfig.authType !== AuthType.LOGIN_WITH_GOOGLE
-      ) {
+      // Note: We don't check authType here because:
+      // 1. The core handler already verified this was an OAuth user before calling us
+      // 2. If auto-fallback succeeded, authType may have already changed to USE_GEMINI
+      if (!contentGeneratorConfig) {
         return null;
       }
 

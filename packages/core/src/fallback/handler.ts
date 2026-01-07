@@ -54,8 +54,7 @@ export async function handleFallback(
             status: 'success',
             authType: 'gemini-api-key',
           };
-        } catch (e) {
-          debugLogger.warn('Auto-fallback to Gemini API key failed:', e);
+        } catch (_e) {
           autoFallbackStatus = { status: 'not-attempted' };
         }
       } else {
@@ -69,8 +68,7 @@ export async function handleFallback(
         try {
           await config.refreshAuth(AuthType.USE_VERTEX_AI);
           autoFallbackStatus = { status: 'success', authType: 'vertex-ai' };
-        } catch (e) {
-          debugLogger.warn('Auto-fallback to Vertex AI failed:', e);
+        } catch (_e) {
           autoFallbackStatus = { status: 'not-attempted' };
         }
       } else {
@@ -115,29 +113,35 @@ export async function handleFallback(
       selectedFallbackModel === failedModel ||
       !selectedPolicy
     ) {
-      return null;
+      // If auto-fallback to a different auth succeeded, still call the handler
+      // to show the success message and trigger retry with the same model.
+      if (autoFallbackStatus.status === 'success') {
+        fallbackModel = failedModel;
+      } else {
+        return null;
+      }
+    } else {
+      fallbackModel = selectedFallbackModel;
+
+      // failureKind is already declared and calculated above
+      const action = resolvePolicyAction(failureKind, selectedPolicy);
+
+      if (action === 'silent') {
+        applyAvailabilityTransition(getAvailabilityContext, failureKind);
+        return processIntent(config, 'retry_always', fallbackModel);
+      }
+
+      // This will be used in the future when FallbackRecommendation is passed through UI
+      const recommendation: FallbackRecommendation = {
+        ...selection,
+        selectedModel: fallbackModel,
+        action,
+        failureKind,
+        failedPolicy,
+        selectedPolicy,
+      };
+      void recommendation;
     }
-
-    fallbackModel = selectedFallbackModel;
-
-    // failureKind is already declared and calculated above
-    const action = resolvePolicyAction(failureKind, selectedPolicy);
-
-    if (action === 'silent') {
-      applyAvailabilityTransition(getAvailabilityContext, failureKind);
-      return processIntent(config, 'retry_always', fallbackModel);
-    }
-
-    // This will be used in the future when FallbackRecommendation is passed through UI
-    const recommendation: FallbackRecommendation = {
-      ...selection,
-      selectedModel: fallbackModel,
-      action,
-      failureKind,
-      failedPolicy,
-      selectedPolicy,
-    };
-    void recommendation;
   }
 
   const handler = config.getFallbackModelHandler();
@@ -162,8 +166,7 @@ export async function handleFallback(
     }
 
     return await processIntent(config, intent, fallbackModel);
-  } catch (handlerError) {
-    debugLogger.error('Fallback handler failed:', handlerError);
+  } catch (_handlerError) {
     return null;
   }
 }

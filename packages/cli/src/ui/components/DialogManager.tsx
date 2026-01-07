@@ -65,8 +65,9 @@ export const DialogManager = ({
         userTier={uiState.userTier}
         hasApiKey={!!process.env['GEMINI_API_KEY']}
         hasVertexAI={
-          !!process.env['GOOGLE_CLOUD_PROJECT'] &&
-          !!process.env['GOOGLE_CLOUD_LOCATION']
+          !!process.env['GOOGLE_API_KEY'] ||
+          (!!process.env['GOOGLE_CLOUD_PROJECT'] &&
+            !!process.env['GOOGLE_CLOUD_LOCATION'])
         }
       />
     );
