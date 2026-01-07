@@ -54,7 +54,8 @@ export async function handleFallback(
             status: 'success',
             authType: 'gemini-api-key',
           };
-        } catch (_e) {
+        } catch (e) {
+          debugLogger.warn('Auto-fallback to Gemini API key failed:', e);
           autoFallbackStatus = { status: 'not-attempted' };
         }
       } else {
@@ -68,7 +69,8 @@ export async function handleFallback(
         try {
           await config.refreshAuth(AuthType.USE_VERTEX_AI);
           autoFallbackStatus = { status: 'success', authType: 'vertex-ai' };
-        } catch (_e) {
+        } catch (e) {
+          debugLogger.warn('Auto-fallback to Vertex AI failed:', e);
           autoFallbackStatus = { status: 'not-attempted' };
         }
       } else {
@@ -166,7 +168,8 @@ export async function handleFallback(
     }
 
     return await processIntent(config, intent, fallbackModel);
-  } catch (_handlerError) {
+  } catch (handlerError) {
+    debugLogger.error('Fallback handler failed:', handlerError);
     return null;
   }
 }
