@@ -764,12 +764,12 @@ export function SettingsDialog({
               if (
                 typeof defaultValue === 'number' ||
                 typeof defaultValue === 'string' ||
-                typeof defaultValue === 'boolean' // Enum values can technically be booleans in some cases, though usually string/number
+                typeof defaultValue === 'boolean'
               ) {
                 setPendingSettings((prev) =>
                   setPendingSettingValueAny(
                     currentSetting.value,
-                    defaultValue as SettingsValue,
+                    defaultValue,
                     prev,
                   ),
                 );
