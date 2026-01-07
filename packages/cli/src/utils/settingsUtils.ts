@@ -445,7 +445,6 @@ export function getDisplayValue(
     if (option) {
       valueString = option.label;
     } else {
-      // Fallback to raw value if label not found (more informative than empty string)
       valueString = value === undefined || value === null ? '' : String(value);
     }
   }
