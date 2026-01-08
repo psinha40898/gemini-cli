@@ -9,8 +9,6 @@ import { Box, Text } from 'ink';
 import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
 import { theme } from '../semantic-colors.js';
 
-import { UserTierId } from '@google/gemini-cli-core';
-
 type DialogChoice =
   | 'retry_later'
   | 'retry_once'
@@ -26,7 +24,6 @@ interface ProQuotaDialogProps {
   isTerminalQuotaError: boolean;
   isModelNotFoundError?: boolean;
   onChoice: (choice: DialogChoice) => void;
-  userTier: UserTierId | undefined;
   hasVertexAI?: boolean;
   hasApiKey?: boolean;
 }
@@ -38,13 +35,9 @@ export function ProQuotaDialog({
   isTerminalQuotaError,
   isModelNotFoundError,
   onChoice,
-  userTier,
   hasVertexAI,
   hasApiKey,
 }: ProQuotaDialogProps): React.JSX.Element {
-  // Use actual user tier if available; otherwise, default to FREE tier behavior (safe default)
-  const isPaidTier =
-    userTier === UserTierId.LEGACY || userTier === UserTierId.STANDARD;
   let items: Array<{ label: string; value: DialogChoice; key: string }>;
 
   // Do not provide a fallback option if failed model and fallbackmodel are same.
@@ -61,22 +54,8 @@ export function ProQuotaDialog({
         key: 'retry_later',
       },
     ];
-  } else if (isModelNotFoundError || (isTerminalQuotaError && isPaidTier)) {
-    // out of quota
-    items = [
-      {
-        label: `Switch to ${fallbackModel}`,
-        value: 'retry_always',
-        key: 'retry_always',
-      },
-      {
-        label: `Stop`,
-        value: 'retry_later',
-        key: 'retry_later',
-      },
-    ];
-  } else if (isTerminalQuotaError && !isPaidTier) {
-    // free user gets an option to upgrade
+  } else if (isModelNotFoundError || isTerminalQuotaError) {
+    // free users and out of quota users on G1 pro and Cloud Console gets an option to upgrade
     items = [
       {
         label: `Switch to ${fallbackModel}`,
@@ -101,6 +80,11 @@ export function ProQuotaDialog({
         label: 'Keep trying',
         value: 'retry_once',
         key: 'retry_once',
+      },
+      {
+        label: `Switch to ${fallbackModel}`,
+        value: 'retry_always',
+        key: 'retry_always',
       },
       {
         label: 'Stop',

@@ -62,7 +62,6 @@ export const DialogManager = ({
         isTerminalQuotaError={uiState.proQuotaRequest.isTerminalQuotaError}
         isModelNotFoundError={!!uiState.proQuotaRequest.isModelNotFoundError}
         onChoice={uiActions.handleProQuotaChoice}
-        userTier={uiState.userTier}
         hasApiKey={!!process.env['GEMINI_API_KEY']}
         hasVertexAI={
           !!process.env['GOOGLE_API_KEY'] ||
