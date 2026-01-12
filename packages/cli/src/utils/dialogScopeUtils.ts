@@ -4,12 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type {
-  LoadableSettingScope,
-  LoadedSettings,
-} from '../config/settings.js';
+import type { LoadableSettingScope, Settings } from '../config/settings.js';
 import { isLoadableSettingScope, SettingScope } from '../config/settings.js';
 import { settingExistsInScope } from './settingsUtils.js';
+
+interface SettingsProvider {
+  forScope: (scope: LoadableSettingScope) => { settings: Settings };
+}
 
 /**
  * Shared scope labels for dialog components that need to display setting scopes
@@ -43,7 +44,7 @@ export function getScopeItems(): Array<{
 export function getScopeMessageForSetting(
   settingKey: string,
   selectedScope: LoadableSettingScope,
-  settings: LoadedSettings,
+  settings: SettingsProvider,
 ): string {
   const otherScopes = Object.values(SettingScope)
     .filter(isLoadableSettingScope)
