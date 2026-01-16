@@ -748,6 +748,18 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
         }
       }
 
+      // DEBUG: Log key info for return-like keys
+      if (
+        key.name === 'return' ||
+        key.name === 'enter' ||
+        key.sequence === '\r' ||
+        key.sequence === '\n'
+      ) {
+        debugLogger.log(
+          `[DEBUG KEY] name=${JSON.stringify(key.name)} ctrl=${key.ctrl} shift=${key.shift} meta=${key.meta} seq=${JSON.stringify(key.sequence)}`,
+        );
+      }
+
       if (keyMatchers[Command.SUBMIT](key)) {
         if (buffer.text.trim()) {
           // Check if a paste operation occurred recently to prevent accidental auto-submission
