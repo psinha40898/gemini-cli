@@ -525,7 +525,7 @@ function* emitKeys(
       name = 'return';
       meta = escaped;
     } else if (ch === '\n') {
-      // Enter, should have been called linefeed
+      // \n should trigger linefeed
       name = 'return';
       ctrl = true;
       meta = escaped;
