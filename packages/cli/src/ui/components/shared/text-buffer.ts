@@ -2223,6 +2223,18 @@ export function useTextBuffer({
     (key: Key): void => {
       const { sequence: input } = key;
 
+      // DEBUG: Log when handleInput receives return-like keys
+      if (
+        key.name === 'return' ||
+        key.name === 'enter' ||
+        input === '\r' ||
+        input === '\n'
+      ) {
+        debugLogger.log(
+          `[DEBUG TEXT-BUFFER] name=${JSON.stringify(key.name)} seq=${JSON.stringify(input)} ctrl=${key.ctrl}`,
+        );
+      }
+
       if (key.name === 'paste') {
         // Do not do any other processing on pastes so ensure we handle them
         // before all other cases.
