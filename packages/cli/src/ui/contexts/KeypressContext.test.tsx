@@ -123,6 +123,21 @@ describe('KeypressContext', () => {
       );
     });
 
+    it('should handle newline character (Line Feed) as Control+Enter', async () => {
+      const { keyHandler } = setupKeypressTest();
+
+      act(() => stdin.write('\n'));
+
+      expect(keyHandler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'return',
+          ctrl: true,
+          meta: false,
+          shift: false,
+        }),
+      );
+    });
+
     it.each([
       {
         modifier: 'Shift',

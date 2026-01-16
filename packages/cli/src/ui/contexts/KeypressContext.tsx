@@ -526,7 +526,8 @@ function* emitKeys(
       meta = escaped;
     } else if (ch === '\n') {
       // Enter, should have been called linefeed
-      name = 'enter';
+      name = 'return';
+      ctrl = true;
       meta = escaped;
     } else if (ch === '\t') {
       // tab
