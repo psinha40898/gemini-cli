@@ -29,16 +29,19 @@ import { LoadedSettings, SettingScope } from '../../config/settings.js';
 import { VimModeProvider } from '../contexts/VimModeContext.js';
 import { KeypressProvider } from '../contexts/KeypressContext.js';
 import { act } from 'react';
-import { saveModifiedSettings, TEST_ONLY } from '../../utils/settingsUtils.js';
+import {
+  saveModifiedSettings,
+  saveSetting,
+  TEST_ONLY,
+} from '../../utils/settingsUtils.js';
 import {
   getSettingsSchema,
   type SettingDefinition,
   type SettingsSchemaType,
 } from '../../config/settingsSchema.js';
-import { terminalCapabilityManager } from '../utils/terminalCapabilityManager.js';
 
 // Mock the VimModeContext
-const mockToggleVimEnabled = vi.fn().mockResolvedValue(undefined);
+const mockToggleVimEnabled = vi.fn();
 const mockSetVimMode = vi.fn();
 
 vi.mock('../contexts/UIStateContext.js', () => ({
@@ -131,10 +134,13 @@ vi.mock('../contexts/VimModeContext.js', async () => {
 });
 
 vi.mock('../../utils/settingsUtils.js', async () => {
-  const actual = await vi.importActual('../../utils/settingsUtils.js');
+  const actual = await vi.importActual<
+    typeof import('../../utils/settingsUtils.js')
+  >('../../utils/settingsUtils.js');
   return {
     ...actual,
     saveModifiedSettings: vi.fn(),
+    saveSetting: vi.fn(actual.saveSetting),
   };
 });
 
@@ -232,6 +238,8 @@ const TOOLS_SHELL_FAKE_SCHEMA: SettingsSchemaType = {
   },
 } as unknown as SettingsSchemaType;
 
+import { SettingsContext } from '../contexts/SettingsContext.js';
+
 // Helper function to render SettingsDialog with standard wrapper
 const renderDialog = (
   settings: LoadedSettings,
@@ -242,24 +250,20 @@ const renderDialog = (
   },
 ) =>
   render(
-    <KeypressProvider>
-      <SettingsDialog
-        settings={settings}
-        onSelect={onSelect}
-        onRestartRequest={options?.onRestartRequest}
-        availableTerminalHeight={options?.availableTerminalHeight}
-      />
-    </KeypressProvider>,
+    <SettingsContext.Provider value={settings}>
+      <KeypressProvider>
+        <SettingsDialog
+          onSelect={onSelect}
+          onRestartRequest={options?.onRestartRequest}
+          availableTerminalHeight={options?.availableTerminalHeight}
+        />
+      </KeypressProvider>
+    </SettingsContext.Provider>,
   );
 
 describe('SettingsDialog', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    vi.spyOn(
-      terminalCapabilityManager,
-      'isKittyProtocolEnabled',
-    ).mockReturnValue(true);
-    mockToggleVimEnabled.mockRejectedValue(undefined);
+    mockToggleVimEnabled.mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -309,23 +313,6 @@ describe('SettingsDialog', () => {
     });
   });
 
-  describe('Setting Descriptions', () => {
-    it('should render descriptions for settings that have them', () => {
-      const settings = createMockSettings();
-      const onSelect = vi.fn();
-
-      const { lastFrame } = renderDialog(settings, onSelect);
-
-      const output = lastFrame();
-      // 'general.vimMode' has description 'Enable Vim keybindings' in settingsSchema.ts
-      expect(output).toContain('Vim Mode');
-      expect(output).toContain('Enable Vim keybindings');
-      // 'general.enableAutoUpdate' has description 'Enable automatic updates.'
-      expect(output).toContain('Enable Auto Update');
-      expect(output).toContain('Enable automatic updates.');
-    });
-  });
-
   describe('Settings Navigation', () => {
     it.each([
       {
@@ -353,7 +340,7 @@ describe('SettingsDialog', () => {
       });
 
       await waitFor(() => {
-        expect(lastFrame()).toContain('Enable Auto Update');
+        expect(lastFrame()).toContain('Disable Auto Update');
       });
 
       // Navigate up
@@ -415,26 +402,17 @@ describe('SettingsDialog', () => {
         stdin.write(TerminalKeys.ENTER as string);
       });
       // Wait for the setting change to be processed
+      // Wait for the setting change to be processed
       await waitFor(() => {
-        expect(
-          vi.mocked(saveModifiedSettings).mock.calls.length,
-        ).toBeGreaterThan(0);
+        expect(vi.mocked(saveSetting)).toHaveBeenCalled();
       });
 
-      // Wait for the mock to be called
-      await waitFor(() => {
-        expect(vi.mocked(saveModifiedSettings)).toHaveBeenCalled();
-      });
-
-      expect(vi.mocked(saveModifiedSettings)).toHaveBeenCalledWith(
-        new Set<string>(['general.vimMode']),
-        expect.objectContaining({
-          general: expect.objectContaining({
-            vimMode: true,
-          }),
-        }),
-        expect.any(LoadedSettings),
+      expect(vi.mocked(saveSetting)).toHaveBeenCalledWith(
+        'general.vimMode',
+        true,
         SettingScope.User,
+        expect.anything(),
+        expect.any(Function),
       );
 
       unmount();
@@ -453,7 +431,7 @@ describe('SettingsDialog', () => {
           expectedValue: StringEnum.FOO,
         },
       ])('$name', async ({ initialValue, expectedValue }) => {
-        vi.mocked(saveModifiedSettings).mockClear();
+        vi.mocked(saveSetting).mockClear();
         vi.mocked(getSettingsSchema).mockReturnValue(ENUM_FAKE_SCHEMA);
 
         const settings = createMockSettings();
@@ -471,18 +449,15 @@ describe('SettingsDialog', () => {
         });
 
         await waitFor(() => {
-          expect(vi.mocked(saveModifiedSettings)).toHaveBeenCalled();
+          expect(vi.mocked(saveSetting)).toHaveBeenCalled();
         });
 
-        expect(vi.mocked(saveModifiedSettings)).toHaveBeenCalledWith(
-          new Set<string>(['ui.theme']),
-          expect.objectContaining({
-            ui: expect.objectContaining({
-              theme: expectedValue,
-            }),
-          }),
-          expect.any(LoadedSettings),
+        expect(vi.mocked(saveSetting)).toHaveBeenCalledWith(
+          'ui.theme',
+          expectedValue,
           SettingScope.User,
+          expect.anything(),
+          expect.any(Function),
         );
 
         unmount();
@@ -495,7 +470,7 @@ describe('SettingsDialog', () => {
 
       const { stdin, unmount } = renderDialog(settings, onSelect);
 
-      // Navigate to vim mode setting and toggle it
+      // Navigate to and toggle vim mode setting
       // This would require knowing the exact position, so we'll just test that the mock is called
       act(() => {
         stdin.write(TerminalKeys.ENTER as string); // Enter key
@@ -696,7 +671,9 @@ describe('SettingsDialog', () => {
       const { stdin, unmount } = render(
         <VimModeProvider settings={settings}>
           <KeypressProvider>
-            <SettingsDialog settings={settings} onSelect={onSelect} />
+            <SettingsContext.Provider value={settings}>
+              <SettingsDialog onSelect={onSelect} />
+            </SettingsContext.Provider>
           </KeypressProvider>
         </VimModeProvider>,
       );
@@ -833,8 +810,6 @@ describe('SettingsDialog', () => {
     ])(
       'should $name',
       async ({ toggleCount, shellSettings, expectedSiblings }) => {
-        vi.mocked(saveModifiedSettings).mockClear();
-
         vi.mocked(getSettingsSchema).mockReturnValue(TOOLS_SHELL_FAKE_SCHEMA);
 
         const settings = createMockSettings({
@@ -853,31 +828,22 @@ describe('SettingsDialog', () => {
           });
         }
 
-        await waitFor(() => {
-          expect(
-            vi.mocked(saveModifiedSettings).mock.calls.length,
-          ).toBeGreaterThan(0);
+        // Verify settings state directly
+        // The store handles updates synchronously in the test environment
+        const userSettings = settings.forScope(SettingScope.User).settings;
+        const actualShellSettings = (userSettings.tools?.shell ?? {}) as Record<
+          string,
+          unknown
+        >;
+
+        Object.entries(expectedSiblings).forEach(([key, value]) => {
+          expect(actualShellSettings[key]).toBe(value);
         });
 
-        const calls = vi.mocked(saveModifiedSettings).mock.calls;
-        calls.forEach((call) => {
-          const [modifiedKeys, pendingSettings] = call;
-
-          if (modifiedKeys.has('tools.shell.showColor')) {
-            const shellSettings = pendingSettings.tools?.shell as
-              | Record<string, unknown>
-              | undefined;
-
-            Object.entries(expectedSiblings).forEach(([key, value]) => {
-              expect(shellSettings?.[key]).toBe(value);
-              expect(modifiedKeys.has(`tools.shell.${key}`)).toBe(false);
-            });
-
-            expect(modifiedKeys.size).toBe(1);
-          }
-        });
-
-        expect(calls.length).toBeGreaterThan(0);
+        // Also check that the toggled setting is correct (toggleCount odd -> changed)
+        // initial showColor is false.
+        const expectedShowColor = toggleCount % 2 !== 0;
+        expect(actualShellSettings['showColor']).toBe(expectedShowColor);
 
         unmount();
       },
@@ -1078,9 +1044,11 @@ describe('SettingsDialog', () => {
       const onSelect = vi.fn();
 
       const { stdin, unmount, rerender } = render(
-        <KeypressProvider>
-          <SettingsDialog settings={settings} onSelect={onSelect} />
-        </KeypressProvider>,
+        <SettingsContext.Provider value={settings}>
+          <KeypressProvider>
+            <SettingsDialog onSelect={onSelect} />
+          </KeypressProvider>
+        </SettingsContext.Provider>,
       );
 
       // Navigate to the last setting
@@ -1103,9 +1071,11 @@ describe('SettingsDialog', () => {
         {},
       );
       rerender(
-        <KeypressProvider>
-          <SettingsDialog settings={settings} onSelect={onSelect} />
-        </KeypressProvider>,
+        <SettingsContext.Provider value={settings}>
+          <KeypressProvider>
+            <SettingsDialog onSelect={onSelect} />
+          </KeypressProvider>
+        </SettingsContext.Provider>,
       );
 
       // Press Escape to exit
@@ -1236,7 +1206,7 @@ describe('SettingsDialog', () => {
         expect(lastFrame()).toContain('nonexistentsetting');
         expect(lastFrame()).toContain('');
         expect(lastFrame()).not.toContain('Vim Mode'); // Should not contain any settings
-        expect(lastFrame()).not.toContain('Enable Auto Update'); // Should not contain any settings
+        expect(lastFrame()).not.toContain('Disable Auto Update'); // Should not contain any settings
       });
 
       unmount();
@@ -1263,7 +1233,7 @@ describe('SettingsDialog', () => {
         userSettings: {
           general: {
             vimMode: true,
-            enableAutoUpdate: false,
+            disableAutoUpdate: true,
             debugKeystrokeLogging: true,
             enablePromptCompletion: true,
           },
@@ -1274,7 +1244,7 @@ describe('SettingsDialog', () => {
             showLineNumbers: true,
             showCitations: true,
             accessibility: {
-              enableLoadingPhrases: false,
+              disableLoadingPhrases: true,
               screenReader: true,
             },
           },
@@ -1287,7 +1257,7 @@ describe('SettingsDialog', () => {
               respectGitIgnore: true,
               respectGeminiIgnore: true,
               enableRecursiveFileSearch: true,
-              enableFuzzySearch: true,
+              disableFuzzySearch: false,
             },
           },
           tools: {
@@ -1310,7 +1280,7 @@ describe('SettingsDialog', () => {
         userSettings: {
           general: {
             vimMode: false,
-            enableAutoUpdate: false,
+            disableAutoUpdate: true,
           },
           ui: {
             showMemoryUsage: true,
@@ -1348,7 +1318,7 @@ describe('SettingsDialog', () => {
         userSettings: {
           ui: {
             accessibility: {
-              enableLoadingPhrases: false,
+              disableLoadingPhrases: true,
               screenReader: true,
             },
             showMemoryUsage: true,
@@ -1370,7 +1340,7 @@ describe('SettingsDialog', () => {
               respectGitIgnore: false,
               respectGeminiIgnore: true,
               enableRecursiveFileSearch: false,
-              enableFuzzySearch: false,
+              disableFuzzySearch: true,
             },
             loadMemoryFromIncludeDirectories: true,
             discoveryMaxDirs: 100,
@@ -1409,7 +1379,7 @@ describe('SettingsDialog', () => {
         userSettings: {
           general: {
             vimMode: false,
-            enableAutoUpdate: true,
+            disableAutoUpdate: false,
             debugKeystrokeLogging: false,
             enablePromptCompletion: false,
           },
@@ -1420,7 +1390,7 @@ describe('SettingsDialog', () => {
             showLineNumbers: false,
             showCitations: false,
             accessibility: {
-              enableLoadingPhrases: true,
+              disableLoadingPhrases: false,
               screenReader: false,
             },
           },
@@ -1433,7 +1403,7 @@ describe('SettingsDialog', () => {
               respectGitIgnore: false,
               respectGeminiIgnore: false,
               enableRecursiveFileSearch: false,
-              enableFuzzySearch: true,
+              disableFuzzySearch: false,
             },
           },
           tools: {
