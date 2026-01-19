@@ -17,11 +17,6 @@ export const SettingsContext = React.createContext<LoadedSettings | undefined>(
   undefined,
 );
 
-/**
- * Original hook - returns LoadedSettings directly.
- * Does NOT trigger re-renders on settings changes.
- * Use this for components that only read settings at render time.
- */
 export const useSettings = (): LoadedSettings => {
   const context = useContext(SettingsContext);
   if (context === undefined) {
@@ -63,7 +58,6 @@ export const useSettingsStore = (): SettingsStoreValue => {
 
   const snapshot = useSyncExternalStore(
     (listener) => store.subscribe(listener),
-    () => store.getSnapshot(),
     () => store.getSnapshot(),
   );
 
