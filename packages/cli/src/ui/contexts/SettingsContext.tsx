@@ -25,17 +25,10 @@ export const useSettings = (): LoadedSettings => {
   return context;
 };
 
-/**
- * The state shape returned by useSettingsStore.
- * Extends the snapshot with a forScope helper method.
- */
 export interface SettingsState extends LoadedSettingsSnapshot {
   forScope: (scope: LoadableSettingScope) => SettingsFile;
 }
 
-/**
- * The value returned by useSettingsStore hook.
- */
 export interface SettingsStoreValue {
   settings: SettingsState;
   setSetting: (
@@ -45,17 +38,15 @@ export interface SettingsStoreValue {
   ) => void;
 }
 
-/**
- * Reactive hook - triggers re-renders when settings change.
- * Use this for components that need to update when settings are modified
- * (e.g., SettingsDialog).
- */
+// Components that call this hook will re render when a settings change event is emitted
 export const useSettingsStore = (): SettingsStoreValue => {
   const store = useContext(SettingsContext);
   if (store === undefined) {
     throw new Error('useSettingsStore must be used within a SettingsProvider');
   }
 
+  // React passes a listener fn into the subscribe function
+  // When the listener runs, it re renders the component if the snapshot changed
   const snapshot = useSyncExternalStore(
     (listener) => store.subscribe(listener),
     () => store.getSnapshot(),

@@ -357,19 +357,14 @@ export class LoadedSettings {
     };
   }
 
-  /**
-   * Subscribe to settings changes via the event bus.
-   * For use with useSyncExternalStore.
-   */
+  // Passing this along with getSnapshot to useSyncExternalStore allows for idiomatic reactivity on settings changes
+  // React will pass a listener fn into this subscribe fn
+  // that listener fn will perform an object identity check on the snapshot and trigger a React re render if the snapshot has changed
   subscribe(listener: () => void): () => void {
     coreEvents.on(CoreEvent.SettingsChanged, listener);
     return () => coreEvents.off(CoreEvent.SettingsChanged, listener);
   }
 
-  /**
-   * Get an immutable snapshot of current settings state.
-   * For use with useSyncExternalStore.
-   */
   getSnapshot(): LoadedSettingsSnapshot {
     return this._snapshot;
   }
