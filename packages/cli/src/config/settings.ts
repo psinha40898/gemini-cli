@@ -10,6 +10,7 @@ import { platform } from 'node:os';
 import * as dotenv from 'dotenv';
 import process from 'node:process';
 import {
+  CoreEvent,
   FatalConfigError,
   GEMINI_DIR,
   getErrorMessage,
@@ -263,6 +264,20 @@ export function createTestMergedSettings(
   ) as MergedSettings;
 }
 
+/**
+ * An immutable snapshot of settings state.
+ * Used with useSyncExternalStore for reactive updates.
+ */
+export interface LoadedSettingsSnapshot {
+  system: SettingsFile;
+  systemDefaults: SettingsFile;
+  user: SettingsFile;
+  workspace: SettingsFile;
+  isTrusted: boolean;
+  errors: SettingsError[];
+  merged: MergedSettings;
+}
+
 export class LoadedSettings {
   constructor(
     system: SettingsFile,
@@ -279,6 +294,7 @@ export class LoadedSettings {
     this.isTrusted = isTrusted;
     this.errors = errors;
     this._merged = this.computeMergedSettings();
+    this._snapshot = this.computeSnapshot();
   }
 
   readonly system: SettingsFile;
@@ -289,6 +305,7 @@ export class LoadedSettings {
   readonly errors: SettingsError[];
 
   private _merged: MergedSettings;
+  private _snapshot: LoadedSettingsSnapshot;
   private _remoteAdminSettings: Partial<Settings> | undefined;
 
   get merged(): MergedSettings {
@@ -322,6 +339,41 @@ export class LoadedSettings {
     return merged;
   }
 
+  private computeSnapshot(): LoadedSettingsSnapshot {
+    const cloneSettingsFile = (file: SettingsFile): SettingsFile => ({
+      path: file.path,
+      rawJson: file.rawJson,
+      settings: structuredClone(file.settings),
+      originalSettings: structuredClone(file.originalSettings),
+    });
+    return {
+      system: cloneSettingsFile(this.system),
+      systemDefaults: cloneSettingsFile(this.systemDefaults),
+      user: cloneSettingsFile(this.user),
+      workspace: cloneSettingsFile(this.workspace),
+      isTrusted: this.isTrusted,
+      errors: [...this.errors],
+      merged: structuredClone(this._merged),
+    };
+  }
+
+  /**
+   * Subscribe to settings changes via the event bus.
+   * For use with useSyncExternalStore.
+   */
+  subscribe(listener: () => void): () => void {
+    coreEvents.on(CoreEvent.SettingsChanged, listener);
+    return () => coreEvents.off(CoreEvent.SettingsChanged, listener);
+  }
+
+  /**
+   * Get an immutable snapshot of current settings state.
+   * For use with useSyncExternalStore.
+   */
+  getSnapshot(): LoadedSettingsSnapshot {
+    return this._snapshot;
+  }
+
   forScope(scope: LoadableSettingScope): SettingsFile {
     switch (scope) {
       case SettingScope.User:
@@ -342,6 +394,7 @@ export class LoadedSettings {
     setNestedProperty(settingsFile.settings, key, value);
     setNestedProperty(settingsFile.originalSettings, key, value);
     this._merged = this.computeMergedSettings();
+    this._snapshot = this.computeSnapshot();
     saveSettings(settingsFile);
     coreEvents.emitSettingsChanged();
   }
