@@ -45,13 +45,14 @@ const createMockConfig = (overrides = {}) => ({
   })),
   getSkillManager: vi.fn().mockImplementation(() => ({
     getSkills: vi.fn(() => ['skill1', 'skill2']),
+    getDisplayableSkills: vi.fn(() => ['skill1', 'skill2']),
   })),
   ...overrides,
 });
 
 const createMockSettings = (merged = {}) => ({
   merged: {
-    hooks: { notifications: true },
+    hooksConfig: { notifications: true },
     ui: { hideContextSummary: false },
     ...merged,
   },
@@ -184,7 +185,7 @@ describe('StatusDisplay', () => {
       activeHooks: [{ name: 'hook', eventName: 'event' }],
     });
     const settings = createMockSettings({
-      hooks: { notifications: false },
+      hooksConfig: { notifications: false },
     });
     const { lastFrame } = renderStatusDisplay(
       { hideContextSummary: false },

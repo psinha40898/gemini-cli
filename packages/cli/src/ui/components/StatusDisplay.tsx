@@ -25,7 +25,7 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({
   const config = useConfig();
 
   if (process.env['GEMINI_SYSTEM_MD']) {
-    return <Text color={theme.status.error}>|⌐■_■| </Text>;
+    return <Text color={theme.status.error}>|⌐■_■|</Text>;
   }
 
   if (uiState.ctrlCPressedOnce) {
@@ -45,7 +45,7 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({
   }
 
   if (uiState.showEscapePrompt) {
-    return <Text color={theme.text.secondary}>Press Esc again to clear.</Text>;
+    return <Text color={theme.text.secondary}>Press Esc again to rewind.</Text>;
   }
 
   if (uiState.queueErrorMessage) {
@@ -54,12 +54,12 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({
 
   if (
     uiState.activeHooks.length > 0 &&
-    (settings.merged.hooks?.notifications ?? true)
+    settings.merged.hooksConfig.notifications
   ) {
     return <HookStatusDisplay activeHooks={uiState.activeHooks} />;
   }
 
-  if (!settings.merged.ui?.hideContextSummary && !hideContextSummary) {
+  if (!settings.merged.ui.hideContextSummary && !hideContextSummary) {
     return (
       <ContextSummaryDisplay
         ideContext={uiState.ideContextState}
@@ -69,7 +69,7 @@ export const StatusDisplay: React.FC<StatusDisplayProps> = ({
         blockedMcpServers={
           config.getMcpClientManager()?.getBlockedMcpServers() ?? []
         }
-        skillCount={config.getSkillManager().getSkills().length}
+        skillCount={config.getSkillManager().getDisplayableSkills().length}
       />
     );
   }

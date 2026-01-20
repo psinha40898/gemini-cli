@@ -16,7 +16,9 @@ import {
   KeypressProvider,
   useKeypressContext,
   ESC_TIMEOUT,
+  FAST_RETURN_TIMEOUT,
 } from './KeypressContext.js';
+import { terminalCapabilityManager } from '../utils/terminalCapabilityManager.js';
 import { useStdin } from 'ink';
 import { EventEmitter } from 'node:events';
 
@@ -152,6 +154,83 @@ describe('KeypressContext', () => {
         );
       },
     );
+
+    it('should recognize \n (LF) as ctrl+j', async () => {
+      const { keyHandler } = setupKeypressTest();
+
+      act(() => stdin.write('\n'));
+
+      expect(keyHandler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'j',
+          ctrl: true,
+          meta: false,
+          shift: false,
+        }),
+      );
+    });
+
+    it('should recognize \\x1b\\n as Alt+Enter (return with meta)', async () => {
+      const { keyHandler } = setupKeypressTest();
+
+      act(() => stdin.write('\x1b\n'));
+
+      expect(keyHandler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'return',
+          ctrl: false,
+          meta: true,
+          shift: false,
+        }),
+      );
+    });
+  });
+
+  describe('Fast return buffering', () => {
+    let kittySpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      kittySpy = vi
+        .spyOn(terminalCapabilityManager, 'isKittyProtocolEnabled')
+        .mockReturnValue(false);
+    });
+
+    afterEach(() => kittySpy.mockRestore());
+
+    it('should buffer return key pressed quickly after another key', async () => {
+      const { keyHandler } = setupKeypressTest();
+
+      act(() => stdin.write('a'));
+      expect(keyHandler).toHaveBeenLastCalledWith(
+        expect.objectContaining({ name: 'a' }),
+      );
+
+      act(() => stdin.write('\r'));
+
+      expect(keyHandler).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          name: 'return',
+          sequence: '\r',
+          insertable: true,
+        }),
+      );
+    });
+
+    it('should NOT buffer return key if delay is long enough', async () => {
+      const { keyHandler } = setupKeypressTest();
+
+      act(() => stdin.write('a'));
+
+      vi.advanceTimersByTime(FAST_RETURN_TIMEOUT + 1);
+
+      act(() => stdin.write('\r'));
+
+      expect(keyHandler).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          name: 'return',
+        }),
+      );
+    });
   });
 
   describe('Escape key handling', () => {
@@ -335,7 +414,7 @@ describe('KeypressContext', () => {
 
       expect(keyHandler).toHaveBeenCalledWith(
         expect.objectContaining({
-          paste: true,
+          name: 'paste',
           sequence: pastedText,
         }),
       );
@@ -356,7 +435,6 @@ describe('KeypressContext', () => {
         expect(keyHandler).toHaveBeenCalledWith(
           expect.objectContaining({
             name: 'paste',
-            paste: true,
             sequence: 'Hello OSC 52',
           }),
         );
@@ -383,7 +461,6 @@ describe('KeypressContext', () => {
         expect(keyHandler).toHaveBeenCalledWith(
           expect.objectContaining({
             name: 'paste',
-            paste: true,
             sequence: 'Split Paste',
           }),
         );
@@ -405,7 +482,6 @@ describe('KeypressContext', () => {
         expect(keyHandler).toHaveBeenCalledWith(
           expect.objectContaining({
             name: 'paste',
-            paste: true,
             sequence: 'Terminated by ST',
           }),
         );
@@ -678,7 +754,6 @@ describe('KeypressContext', () => {
                 ctrl: false,
                 meta: true,
                 shift: false,
-                paste: false,
               },
             };
           } else if (terminal === 'MacTerminal') {
@@ -694,7 +769,6 @@ describe('KeypressContext', () => {
                 ctrl: false,
                 meta: true,
                 shift: false,
-                paste: false,
               },
             };
           } else {
@@ -710,7 +784,6 @@ describe('KeypressContext', () => {
                 ctrl: false,
                 meta: true, // Always expect meta:true after conversion
                 shift: false,
-                paste: false,
                 sequence: accentedChar,
               },
             };
@@ -785,7 +858,6 @@ describe('KeypressContext', () => {
       expect.objectContaining({
         name: 'undefined',
         sequence: INCOMPLETE_KITTY_SEQUENCE,
-        paste: false,
       }),
     );
   });
@@ -804,7 +876,6 @@ describe('KeypressContext', () => {
     expect(keyHandler).toHaveBeenCalledWith(
       expect.objectContaining({
         sequence: '\x1b[m',
-        paste: false,
       }),
     );
   });
