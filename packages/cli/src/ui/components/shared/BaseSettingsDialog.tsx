@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useCallback } from 'react';
 import { Box, Text } from 'ink';
 import chalk from 'chalk';
 import { theme } from '../../semantic-colors.js';
@@ -13,14 +13,14 @@ import { getScopeItems } from '../../../utils/dialogScopeUtils.js';
 import { RadioButtonSelect } from './RadioButtonSelect.js';
 import { TextInput } from './TextInput.js';
 import type { TextBuffer } from './text-buffer.js';
-import {
-  cpSlice,
-  cpLen,
-  stripUnsafeCharacters,
-  cpIndexToOffset,
-} from '../../utils/textUtils.js';
+import { cpSlice, cpLen, cpIndexToOffset } from '../../utils/textUtils.js';
 import { useKeypress, type Key } from '../../hooks/useKeypress.js';
 import { keyMatchers, Command } from '../../keyMatchers.js';
+import {
+  useDialogNavigation,
+  type FocusSection,
+} from '../../hooks/useDialogNavigation.js';
+import { useInlineEditor } from '../../hooks/useInlineEditor.js';
 
 /**
  * Represents a single item in the settings dialog.
@@ -127,66 +127,27 @@ export function BaseSettingsDialog({
   onKeyPress,
   footerContent,
 }: BaseSettingsDialogProps): React.JSX.Element {
-  // Internal state
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [scrollOffset, setScrollOffset] = useState(0);
-  const [focusSection, setFocusSection] = useState<'settings' | 'scope'>(
-    'settings',
-  );
-  const [editingKey, setEditingKey] = useState<string | null>(null);
-  const [editBuffer, setEditBuffer] = useState('');
-  const [editCursorPos, setEditCursorPos] = useState(0);
-  const [cursorVisible, setCursorVisible] = useState(true);
+  // Navigation state (activeIndex, scrollOffset, focusSection)
+  const nav = useDialogNavigation({
+    items,
+    maxVisible: maxItemsToShow,
+    showScopeSelector,
+  });
 
-  const prevItemsRef = useRef(items);
+  // Inline editor state (editingKey, buffer, cursorPos, cursorVisible)
+  const editor = useInlineEditor();
 
-  // Preserve focus when items change (e.g., search filter)
-  useEffect(() => {
-    const prevItems = prevItemsRef.current;
-    if (prevItems !== items) {
-      const prevActiveItem = prevItems[activeIndex];
-      if (prevActiveItem) {
-        const newIndex = items.findIndex((i) => i.key === prevActiveItem.key);
-        if (newIndex !== -1) {
-          // Item still exists in the filtered list, keep focus on it
-          setActiveIndex(newIndex);
-          // Adjust scroll offset to ensure the item is visible
-          let newScroll = scrollOffset;
-          if (newIndex < scrollOffset) newScroll = newIndex;
-          else if (newIndex >= scrollOffset + maxItemsToShow)
-            newScroll = newIndex - maxItemsToShow + 1;
-
-          const maxScroll = Math.max(0, items.length - maxItemsToShow);
-          setScrollOffset(Math.min(newScroll, maxScroll));
-        } else {
-          // Item was filtered out, reset to the top
-          setActiveIndex(0);
-          setScrollOffset(0);
-        }
-      } else {
-        setActiveIndex(0);
-        setScrollOffset(0);
-      }
-      prevItemsRef.current = items;
-    }
-  }, [items, activeIndex, scrollOffset, maxItemsToShow]);
-
-  // Cursor blink effect
-  useEffect(() => {
-    if (!editingKey) return;
-    setCursorVisible(true);
-    const interval = setInterval(() => {
-      setCursorVisible((v) => !v);
-    }, 500);
-    return () => clearInterval(interval);
-  }, [editingKey]);
-
-  // Ensure focus stays on settings when scope selection is hidden
-  useEffect(() => {
-    if (!showScopeSelector && focusSection === 'scope') {
-      setFocusSection('settings');
-    }
-  }, [showScopeSelector, focusSection]);
+  // Derived values
+  const { activeIndex, scrollOffset, focusSection } = nav.state;
+  const {
+    editingKey,
+    buffer: editBuffer,
+    cursorPos: editCursorPos,
+    cursorVisible,
+  } = editor.state;
+  const effectiveFocus: FocusSection = showScopeSelector
+    ? focusSection
+    : 'settings';
 
   // Scope selector items
   const scopeItems = getScopeItems().map((item) => ({
@@ -204,23 +165,13 @@ export function BaseSettingsDialog({
   // Get current item
   const currentItem = items[activeIndex];
 
-  // Start editing a field
-  const startEditing = useCallback((key: string, initialValue: string) => {
-    setEditingKey(key);
-    setEditBuffer(initialValue);
-    setEditCursorPos(cpLen(initialValue));
-    setCursorVisible(true);
-  }, []);
-
-  // Commit edit and exit edit mode
+  // Commit edit: notify parent then clear editor state
   const commitEdit = useCallback(() => {
     if (editingKey && currentItem) {
       onEditCommit(editingKey, editBuffer, currentItem);
     }
-    setEditingKey(null);
-    setEditBuffer('');
-    setEditCursorPos(0);
-  }, [editingKey, editBuffer, currentItem, onEditCommit]);
+    editor.commitEdit();
+  }, [editingKey, editBuffer, currentItem, onEditCommit, editor]);
 
   // Handle scope highlight (for RadioButtonSelect)
   const handleScopeHighlight = useCallback(
@@ -251,49 +202,6 @@ export function BaseSettingsDialog({
         const item = items.find((i) => i.key === editingKey);
         const type = item?.type ?? 'string';
 
-        // Navigation within edit buffer
-        if (keyMatchers[Command.MOVE_LEFT](key)) {
-          setEditCursorPos((p) => Math.max(0, p - 1));
-          return;
-        }
-        if (keyMatchers[Command.MOVE_RIGHT](key)) {
-          setEditCursorPos((p) => Math.min(cpLen(editBuffer), p + 1));
-          return;
-        }
-        if (keyMatchers[Command.HOME](key)) {
-          setEditCursorPos(0);
-          return;
-        }
-        if (keyMatchers[Command.END](key)) {
-          setEditCursorPos(cpLen(editBuffer));
-          return;
-        }
-
-        // Backspace
-        if (keyMatchers[Command.DELETE_CHAR_LEFT](key)) {
-          if (editCursorPos > 0) {
-            setEditBuffer((b) => {
-              const before = cpSlice(b, 0, editCursorPos - 1);
-              const after = cpSlice(b, editCursorPos);
-              return before + after;
-            });
-            setEditCursorPos((p) => p - 1);
-          }
-          return;
-        }
-
-        // Delete
-        if (keyMatchers[Command.DELETE_CHAR_RIGHT](key)) {
-          if (editCursorPos < cpLen(editBuffer)) {
-            setEditBuffer((b) => {
-              const before = cpSlice(b, 0, editCursorPos);
-              const after = cpSlice(b, editCursorPos + 1);
-              return before + after;
-            });
-          }
-          return;
-        }
-
         // Escape in edit mode - commit (consistent with SettingsDialog)
         if (keyMatchers[Command.ESCAPE](key)) {
           commitEdit();
@@ -309,70 +217,31 @@ export function BaseSettingsDialog({
         // Up/Down in edit mode - commit and navigate
         if (keyMatchers[Command.DIALOG_NAVIGATION_UP](key)) {
           commitEdit();
-          const newIndex = activeIndex > 0 ? activeIndex - 1 : items.length - 1;
-          setActiveIndex(newIndex);
-          if (newIndex === items.length - 1) {
-            setScrollOffset(Math.max(0, items.length - maxItemsToShow));
-          } else if (newIndex < scrollOffset) {
-            setScrollOffset(newIndex);
-          }
+          nav.moveUp();
           return;
         }
         if (keyMatchers[Command.DIALOG_NAVIGATION_DOWN](key)) {
           commitEdit();
-          const newIndex = activeIndex < items.length - 1 ? activeIndex + 1 : 0;
-          setActiveIndex(newIndex);
-          if (newIndex === 0) {
-            setScrollOffset(0);
-          } else if (newIndex >= scrollOffset + maxItemsToShow) {
-            setScrollOffset(newIndex - maxItemsToShow + 1);
-          }
+          nav.moveDown();
           return;
         }
 
-        // Character input
-        let ch = key.sequence;
-        let isValidChar = false;
-        if (type === 'number') {
-          isValidChar = /[0-9\-+.]/.test(ch);
-        } else {
-          isValidChar = ch.length === 1 && ch.charCodeAt(0) >= 32;
-          // Sanitize string input to prevent unsafe characters
-          ch = stripUnsafeCharacters(ch);
-        }
-
-        if (isValidChar && ch.length > 0) {
-          setEditBuffer((b) => {
-            const before = cpSlice(b, 0, editCursorPos);
-            const after = cpSlice(b, editCursorPos);
-            return before + ch + after;
-          });
-          setEditCursorPos((p) => p + 1);
+        // Delegate character input, cursor movement, backspace, delete to editor hook
+        if (editor.handleKey(key, type)) {
+          return;
         }
         return;
       }
 
       // Not in edit mode - handle navigation and actions
-      if (focusSection === 'settings') {
+      if (effectiveFocus === 'settings') {
         // Up/Down navigation with wrap-around
         if (keyMatchers[Command.DIALOG_NAVIGATION_UP](key)) {
-          const newIndex = activeIndex > 0 ? activeIndex - 1 : items.length - 1;
-          setActiveIndex(newIndex);
-          if (newIndex === items.length - 1) {
-            setScrollOffset(Math.max(0, items.length - maxItemsToShow));
-          } else if (newIndex < scrollOffset) {
-            setScrollOffset(newIndex);
-          }
+          nav.moveUp();
           return true;
         }
         if (keyMatchers[Command.DIALOG_NAVIGATION_DOWN](key)) {
-          const newIndex = activeIndex < items.length - 1 ? activeIndex + 1 : 0;
-          setActiveIndex(newIndex);
-          if (newIndex === 0) {
-            setScrollOffset(0);
-          } else if (newIndex >= scrollOffset + maxItemsToShow) {
-            setScrollOffset(newIndex - maxItemsToShow + 1);
-          }
+          nav.moveDown();
           return true;
         }
 
@@ -384,7 +253,7 @@ export function BaseSettingsDialog({
             // Start editing for string/number
             const rawVal = currentItem.rawValue;
             const initialValue = rawVal !== undefined ? String(rawVal) : '';
-            startEditing(currentItem.key, initialValue);
+            editor.startEditing(currentItem.key, initialValue);
           }
           return true;
         }
@@ -397,14 +266,14 @@ export function BaseSettingsDialog({
 
         // Number keys for quick edit on number fields
         if (currentItem?.type === 'number' && /^[0-9]$/.test(key.sequence)) {
-          startEditing(currentItem.key, key.sequence);
+          editor.startEditing(currentItem.key, key.sequence);
           return true;
         }
       }
 
       // Tab - switch focus section
       if (key.name === 'tab' && showScopeSelector) {
-        setFocusSection((s) => (s === 'settings' ? 'scope' : 'settings'));
+        nav.toggleSection();
         return;
       }
 
@@ -432,10 +301,10 @@ export function BaseSettingsDialog({
         {/* Title */}
         <Box marginX={1}>
           <Text
-            bold={focusSection === 'settings' && !editingKey}
+            bold={effectiveFocus === 'settings' && !editingKey}
             wrap="truncate"
           >
-            {focusSection === 'settings' ? '> ' : '  '}
+            {effectiveFocus === 'settings' ? '> ' : '  '}
             {title}{' '}
           </Text>
         </Box>
@@ -447,7 +316,7 @@ export function BaseSettingsDialog({
             borderColor={
               editingKey
                 ? theme.border.default
-                : focusSection === 'settings'
+                : effectiveFocus === 'settings'
                   ? theme.border.focused
                   : theme.border.default
             }
@@ -456,7 +325,7 @@ export function BaseSettingsDialog({
             marginTop={1}
           >
             <TextInput
-              focus={focusSection === 'settings' && !editingKey}
+              focus={effectiveFocus === 'settings' && !editingKey}
               buffer={searchBuffer}
               placeholder={searchPlaceholder}
             />
@@ -480,7 +349,7 @@ export function BaseSettingsDialog({
             {visibleItems.map((item, idx) => {
               const globalIndex = idx + scrollOffset;
               const isActive =
-                focusSection === 'settings' && activeIndex === globalIndex;
+                effectiveFocus === 'settings' && activeIndex === globalIndex;
 
               // Compute display value with edit mode cursor
               let displayValue: string;
@@ -589,8 +458,8 @@ export function BaseSettingsDialog({
         {/* Scope Selection */}
         {showScopeSelector && (
           <Box marginX={1} flexDirection="column">
-            <Text bold={focusSection === 'scope'} wrap="truncate">
-              {focusSection === 'scope' ? '> ' : '  '}Apply To
+            <Text bold={effectiveFocus === 'scope'} wrap="truncate">
+              {effectiveFocus === 'scope' ? '> ' : '  '}Apply To
             </Text>
             <RadioButtonSelect
               items={scopeItems}
@@ -599,9 +468,9 @@ export function BaseSettingsDialog({
               )}
               onSelect={handleScopeSelect}
               onHighlight={handleScopeHighlight}
-              isFocused={focusSection === 'scope'}
-              showNumbers={focusSection === 'scope'}
-              priority={focusSection === 'scope'}
+              isFocused={effectiveFocus === 'scope'}
+              showNumbers={effectiveFocus === 'scope'}
+              priority={effectiveFocus === 'scope'}
             />
           </Box>
         )}
