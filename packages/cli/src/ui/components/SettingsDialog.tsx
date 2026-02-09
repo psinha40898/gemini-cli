@@ -18,7 +18,7 @@ import {
   getDisplayValue,
   getSettingDefinition,
   isDefaultValue,
-  getRestartRequiredSettings,
+  getDialogRestartRequiredSettings,
   getEffectiveDefaultValue,
   getEffectiveValue,
 } from '../../utils/settingsUtils.js';
@@ -60,7 +60,11 @@ function captureRestartSnapshot(
   merged: Record<string, unknown>,
 ): Map<string, string> {
   const snapshot = new Map<string, string>();
-  for (const key of getRestartRequiredSettings()) {
+  // Only track dialog-visible restart settings — non-dialog keys (parent
+  // container objects like mcpServers, tools) can't be changed here.
+  // JSON.stringify for value comparison in case a future showInDialog setting
+  // has an object value (structuredClone breaks reference equality).
+  for (const key of getDialogRestartRequiredSettings()) {
     const value = getEffectiveValue(key, {}, merged);
     snapshot.set(key, JSON.stringify(value));
   }

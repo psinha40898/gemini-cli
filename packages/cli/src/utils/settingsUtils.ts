@@ -126,6 +126,20 @@ export function getRestartRequiredSettings(): string[] {
 }
 
 /**
+ * Get restart-required setting keys that are also visible in the dialog.
+ * Non-dialog restart keys (e.g. parent container objects like mcpServers, tools)
+ * are excluded because users cannot change them through the dialog.
+ */
+export function getDialogRestartRequiredSettings(): string[] {
+  return Object.values(getFlattenedSchema())
+    .filter(
+      (definition) =>
+        definition.requiresRestart && definition.showInDialog !== false,
+    )
+    .map((definition) => definition.key);
+}
+
+/**
  * Recursively gets a value from a nested object using a key path array.
  */
 export function getNestedValue(
