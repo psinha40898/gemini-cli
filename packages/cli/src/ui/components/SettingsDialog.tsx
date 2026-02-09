@@ -58,11 +58,11 @@ const MAX_ITEMS_TO_SHOW = 8;
 // Capture initial values of all restart-required settings for diff tracking
 function captureRestartSnapshot(
   merged: Record<string, unknown>,
-): Map<string, SettingsValue> {
-  const snapshot = new Map<string, SettingsValue>();
+): Map<string, string> {
+  const snapshot = new Map<string, string>();
   for (const key of getRestartRequiredSettings()) {
     const value = getEffectiveValue(key, {}, merged);
-    snapshot.set(key, value);
+    snapshot.set(key, JSON.stringify(value));
   }
   return snapshot;
 }
@@ -92,9 +92,9 @@ export function SettingsDialog({
   // Derived: which restart-required keys have changed from initial values
   const restartChangedKeys = useMemo(() => {
     const changed = new Set<string>();
-    for (const [key, initialValue] of initialRestartValues) {
+    for (const [key, initialJson] of initialRestartValues) {
       const currentValue = getEffectiveValue(key, {}, settings.merged);
-      if (currentValue !== initialValue) {
+      if (JSON.stringify(currentValue) !== initialJson) {
         changed.add(key);
       }
     }
