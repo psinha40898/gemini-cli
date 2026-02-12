@@ -5,9 +5,8 @@
  */
 
 import type React from 'react';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Text } from 'ink';
-import { AsyncFzf } from 'fzf';
 import type { Key } from '../hooks/useKeypress.js';
 import { theme } from '../semantic-colors.js';
 import type { LoadableSettingScope } from '../../config/settings.js';
@@ -24,27 +23,17 @@ import {
 } from '../../utils/settingsUtils.js';
 import { useSettingsStore } from '../contexts/SettingsContext.js';
 import { useVimMode } from '../contexts/VimModeContext.js';
-import { getCachedStringWidth } from '../utils/textUtils.js';
 import {
   type SettingsValue,
   TOGGLE_TYPES,
 } from '../../config/settingsSchema.js';
 import { coreEvents, debugLogger } from '@google/gemini-cli-core';
 import type { Config } from '@google/gemini-cli-core';
-import { useUIState } from '../contexts/UIStateContext.js';
-import { useTextBuffer } from './shared/text-buffer.js';
 import {
-  BaseSettingsDialog,
   type SettingsDialogItem,
+  BaseSettingsDialog,
 } from './shared/BaseSettingsDialog.js';
-
-interface FzfResult {
-  item: string;
-  start: number;
-  end: number;
-  score: number;
-  positions?: number[];
-}
+import { useFuzzyList } from '../hooks/useFuzzyList.js';
 
 interface SettingsDialogProps {
   onSelect: (settingName: string | undefined, scope: SettingScope) => void;
@@ -108,103 +97,9 @@ export function SettingsDialog({
   // Derived: whether to show restart prompt
   const showRestartPrompt = restartChangedKeys.size > 0;
 
-  // Search state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filteredKeys, setFilteredKeys] = useState<string[]>(() =>
-    getDialogSettingKeys(),
-  );
-  const { fzfInstance, searchMap } = useMemo(() => {
-    const keys = getDialogSettingKeys();
-    const map = new Map<string, string>();
-    const searchItems: string[] = [];
+  // Generate items for SearchableList
+  const settingKeys = useMemo(() => getDialogSettingKeys(), []);
 
-    keys.forEach((key) => {
-      const def = getSettingDefinition(key);
-      if (def?.label) {
-        searchItems.push(def.label);
-        map.set(def.label.toLowerCase(), key);
-      }
-    });
-
-    const fzf = new AsyncFzf(searchItems, {
-      fuzzy: 'v2',
-      casing: 'case-insensitive',
-    });
-    return { fzfInstance: fzf, searchMap: map };
-  }, []);
-
-  // Perform search
-  useEffect(() => {
-    let active = true;
-    if (!searchQuery.trim() || !fzfInstance) {
-      setFilteredKeys(getDialogSettingKeys());
-      return;
-    }
-
-    const doSearch = async () => {
-      const results = await fzfInstance.find(searchQuery);
-
-      if (!active) return;
-
-      const matchedKeys = new Set<string>();
-      results.forEach((res: FzfResult) => {
-        const key = searchMap.get(res.item.toLowerCase());
-        if (key) matchedKeys.add(key);
-      });
-      setFilteredKeys(Array.from(matchedKeys));
-    };
-
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    doSearch();
-
-    return () => {
-      active = false;
-    };
-  }, [searchQuery, fzfInstance, searchMap]);
-
-  // Calculate max width for the left column (Label/Description) to keep values aligned or close
-  const maxLabelOrDescriptionWidth = useMemo(() => {
-    const allKeys = getDialogSettingKeys();
-    let max = 0;
-    for (const key of allKeys) {
-      const def = getSettingDefinition(key);
-      if (!def) continue;
-
-      const scopeMessage = getScopeMessageForSetting(
-        key,
-        selectedScope,
-        settings,
-      );
-      const label = def.label || key;
-      const labelFull = label + (scopeMessage ? ` ${scopeMessage}` : '');
-      const lWidth = getCachedStringWidth(labelFull);
-      const dWidth = def.description
-        ? getCachedStringWidth(def.description)
-        : 0;
-
-      max = Math.max(max, lWidth, dWidth);
-    }
-    return max;
-  }, [selectedScope, settings]);
-
-  // Get mainAreaWidth for search buffer viewport
-  const { mainAreaWidth } = useUIState();
-  const viewportWidth = mainAreaWidth - 8;
-
-  // Search input buffer
-  const searchBuffer = useTextBuffer({
-    initialText: '',
-    initialCursorOffset: 0,
-    viewport: {
-      width: viewportWidth,
-      height: 1,
-    },
-    singleLine: true,
-    onChange: (text) => setSearchQuery(text),
-  });
-
-  // Generate items for BaseSettingsDialog
-  const settingKeys = searchQuery ? filteredKeys : getDialogSettingKeys();
   const items: SettingsDialogItem[] = useMemo(() => {
     const scopeSettings = settings.forScope(selectedScope).settings;
     const mergedSettings = settings.merged;
@@ -248,6 +143,10 @@ export function SettingsDialog({
       };
     });
   }, [settingKeys, selectedScope, settings, restartChangedKeys]);
+
+  const { filteredItems, searchBuffer, maxLabelWidth } = useFuzzyList({
+    items,
+  });
 
   // Scope selection handler
   const handleScopeChange = useCallback((scope: LoadableSettingScope) => {
@@ -468,12 +367,12 @@ export function SettingsDialog({
       borderColor={showRestartPrompt ? theme.status.warning : undefined}
       searchEnabled={showSearch}
       searchBuffer={searchBuffer}
-      items={items}
+      items={filteredItems}
       showScopeSelector={showScopeSelection}
       selectedScope={selectedScope}
       onScopeChange={handleScopeChange}
       maxItemsToShow={effectiveMaxItemsToShow}
-      maxLabelWidth={maxLabelOrDescriptionWidth}
+      maxLabelWidth={maxLabelWidth}
       onItemToggle={handleItemToggle}
       onEditCommit={handleEditCommit}
       onItemClear={handleItemClear}
